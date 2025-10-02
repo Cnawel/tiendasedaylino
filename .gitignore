@@ -1,0 +1,231 @@
+# ==============================
+# .gitignore para Tienda Seda y Lino
+# ==============================
+
+# Carpeta con archivos privados/temporales
+NOSUBIR/
+
+# Archivos PHP no utilizados actualmente
+detalle-producto.php
+
+# ==============================
+# Archivos del Sistema Operativo
+# ==============================
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ==============================
+# Entornos de Desarrollo
+# ==============================
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Atom
+.atom/
+
+# JetBrains IDEs
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Eclipse
+.metadata
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.settings/
+.loadpath
+.recommenders
+
+# ==============================
+# Archivos de Configuración Local
+# ==============================
+
+# Configuraciones de base de datos
+config.php
+database.php
+db_config.php
+*.env
+.env.local
+.env.production
+
+# Archivos de configuración de servidor
+.htaccess.backup
+.htpasswd
+wp-config.php
+
+# ==============================
+# Archivos de Log y Cache
+# ==============================
+
+# Logs
+*.log
+logs/
+error_log
+access_log
+
+# Cache
+cache/
+*.cache
+.cache/
+
+# ==============================
+# Archivos Temporales
+# ==============================
+
+# Archivos temporales generales
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+*.save
+
+# Archivos de swap
+*.swp
+*.swo
+
+# ==============================
+# Dependencias y Módulos
+# ==============================
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+# Composer (PHP)
+vendor/
+composer.lock
+
+# ==============================
+# Archivos de Build y Distribución
+# ==============================
+
+# Archivos compilados
+*.com
+*.exe
+*.o
+*.so
+*.dll
+
+# Archivos de distribución
+dist/
+build/
+out/
+
+# ==============================
+# Archivos de Backup de Base de Datos
+# ==============================
+
+*.sql.backup
+*.sql.bak
+*.db.backup
+backup_*.sql
+dump_*.sql
+
+# ==============================
+# Archivos de Documentación Temporal
+# ==============================
+
+# Documentos temporales
+draft_*
+temp_*
+test_*
+prueba_*
+
+# ==============================
+# Archivos de Medios Pesados (Opcional)
+# ==============================
+
+# Descomentar si hay archivos de imagen muy pesados
+# *.psd
+# *.ai
+# *.sketch
+# *.fig
+
+# Videos grandes
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.flv
+
+# ==============================
+# Archivos de Análisis y Herramientas
+# ==============================
+
+# Google Analytics
+analytics/
+
+# Herramientas de SEO
+sitemap.xml.backup
+robots.txt.backup
+
+# ==============================
+# Archivos de Testing
+# ==============================
+
+# Archivos de test
+tests/temp/
+test_results/
+coverage/
+
+# ==============================
+# Archivos Específicos del Proyecto
+# ==============================
+
+# Archivos de notas del desarrollador
+notas.txt
+todo.txt
+pendientes.md
+
+# Archivos de configuración personal
+config_personal.php
+settings_local.json

@@ -25,7 +25,7 @@
                           <a class="nav-link link-tienda" aria-current="page" href="index.html">INICIO</a>
                         </li>
                         <li class="nav-item">
-                          <a class="nav-link link-tienda" href="index.html#nosotros">NOSOTROS</a>
+                          <a class="nav-link link-tienda" href="nosotros.html">NOSOTROS</a>
                         </li>
                         <li class="nav-item">
                           <a class="nav-link link-tienda" href="index.html#productos">PRODUCTOS</a>
@@ -45,109 +45,114 @@
     </header>
 
     <main class="productos">
-        <h2 class="titulo-productos">Camisas</h2>
-        <div class="container margen-contenedor text-center">
+        <div class="container">
+            <h1 class="titulo-productos text-center mb-4">CAMISAS</h1>
+            <p class="text-center mb-5 descripcion-productos">Descubre nuestra colección de camisas de lino de alta calidad</p>
+            
             <div class="row">
-
-               <div class="col">
-                    <div class="card" style="width: 18rem;">
-                        <img src="imagenes/imagen.png" class="card-img-top" alt="...">
-                        <div class="card-body">
-                           <h5 class="card-title titulo-tarjeta">Camisa 1</h5>
-                           <p class="card-text">breve descripción</p>
-                           <p class="card-text">Precio</p>
-                           <a href="#" class="btn btn-dark boton-tarjeta">Agregar al carrito</a>
+                <!-- Camisa de Mujer -->
+                <div class="col-lg-6 col-md-6 col-sm-12 mb-4">
+                    <div class="producto-item-simple" onclick="irADetalleCamisaMujer()">
+                        <div class="card tarjeta h-100 shadow-sm">
+                            <!-- Carrusel de imágenes -->
+                            <div id="carouselMujer" class="carousel slide" data-bs-ride="carousel" data-bs-interval="3000">
+                                <div class="carousel-inner">
+                                    <div class="carousel-item active">
+                                        <img src="imagenes/productos/camisas/camisa_mujer_lino_modelo.png" class="d-block w-100 producto-img-lista" alt="Camisa Mujer - Modelo">
+                                    </div>
+                                    <div class="carousel-item">
+                                        <img src="imagenes/productos/camisas/camisa_mujer_lino_modelocerca.png" class="d-block w-100 producto-img-lista" alt="Camisa Mujer - Detalle">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="card-body text-center p-3">
+                                <h5 class="card-title titulo-tarjeta mb-2">Camisa Mujer Lino Natural</h5>
+                                <p class="card-text texto-tarjeta-simple mb-2">Elegante camisa de lino 100% natural con corte femenino</p>
+                                <div class="precio-simple mb-3">
+                                    <span class="precio-actual-simple">$89.99</span>
+                                    <small class="precio-original-simple ms-2">$120.00</small>
+                                </div>
+                                <div class="botones-producto">
+                                    <button class="btn boton-comprar-simple btn-sm me-2" onclick="event.stopPropagation(); comprarRapidoMujer()">Comprar Ahora</button>
+                                    <button class="btn boton-carrito-simple btn-sm" onclick="event.stopPropagation(); agregarCarritoMujer()">
+                                        <i class="fas fa-shopping-cart"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
-               </div>
+                </div>
 
-               <div class="col">
-                 <div class="card" style="width: 18rem;">
-                        <img src="imagenes/imagen.png" class="card-img-top" alt="...">
-                        <div class="card-body">
-                           <h5 class="card-title titulo-tarjeta">Camisa 2</h5>
-                           <p class="card-text">breve descripción</p>
-                           <p class="card-text">Precio</p>
-                           <a href="#" class="btn btn-dark boton-tarjeta">Agregar al carrito</a>
+                <!-- Camisa de Hombre -->
+                <div class="col-lg-6 col-md-6 col-sm-12 mb-4">
+                    <div class="producto-item-simple" onclick="irADetalle(2)">
+                        <div class="card tarjeta h-100 shadow-sm">
+                            <!-- Carrusel de imágenes -->
+                            <div id="carouselHombre" class="carousel slide" data-bs-ride="carousel" data-bs-interval="3000">
+                                <div class="carousel-inner">
+                                    <div class="carousel-item active">
+                                        <img src="imagenes/productos/camisas/camisa_hombre_lino_modelo.png" class="d-block w-100 producto-img-lista" alt="Camisa Hombre - Modelo">
+                                    </div>
+                                    <div class="carousel-item">
+                                        <img src="imagenes/productos/camisas/camisa_hombre_lino_modelocerca.png" class="d-block w-100 producto-img-lista" alt="Camisa Hombre - Detalle">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="card-body text-center p-3">
+                                <h5 class="card-title titulo-tarjeta mb-2">Camisa Hombre Lino Clásico</h5>
+                                <p class="card-text texto-tarjeta-simple mb-2">Camisa masculina de lino premium con corte clásico</p>
+                                <div class="precio-simple mb-3">
+                                    <span class="precio-actual-simple">$95.99</span>
+                                    <small class="precio-original-simple ms-2">$130.00</small>
+                                </div>
+                                <div class="botones-producto">
+                                    <button class="btn boton-comprar-simple btn-sm me-2" onclick="event.stopPropagation(); comprarRapido(2)">Comprar Ahora</button>
+                                    <button class="btn boton-carrito-simple btn-sm" onclick="event.stopPropagation(); agregarCarrito(2)">
+                                        <i class="fas fa-shopping-cart"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
-               </div>
-
-               <div class="col">
-                  <div class="card" style="width: 18rem;">
-                        <img src="imagenes/imagen.png" class="card-img-top" alt="...">
-                        <div class="card-body">
-                           <h5 class="card-title titulo-tarjeta">Camisa 3</h5>
-                           <p class="card-text">breve descripción</p>
-                           <p class="card-text">Precio</p>
-                           <a href="#" class="btn btn-dark boton-tarjeta">Agregar al carrito</a>
-                        </div>
-                    </div>
-               </div>
-
-               <div class="col">
-                  <div class="card" style="width: 18rem;">
-                        <img src="imagenes/imagen.png" class="card-img-top" alt="...">
-                        <div class="card-body">
-                           <h5 class="card-title titulo-tarjeta">Camisa 4</h5>
-                           <p class="card-text">breve descripción</p>
-                           <p class="card-text">Precio</p>
-                           <a href="#" class="btn btn-dark boton-tarjeta">Agregar al carrito</a>
-                        </div>
-                    </div>
-               </div>
-
-               <div class="col">
-                  <div class="card" style="width: 18rem;">
-                        <img src="imagenes/imagen.png" class="card-img-top" alt="...">
-                        <div class="card-body">
-                           <h5 class="card-title titulo-tarjeta">Camisa 5</h5>
-                           <p class="card-text">breve descripción</p>
-                           <p class="card-text">Precio</p>
-                           <a href="#" class="btn btn-dark boton-tarjeta">Agregar al carrito</a>
-                        </div>
-                    </div>
-               </div>
-
-               <div class="col">
-                  <div class="card" style="width: 18rem;">
-                        <img src="imagenes/imagen.png" class="card-img-top" alt="...">
-                        <div class="card-body">
-                           <h5 class="card-title titulo-tarjeta">Camisa 6</h5>
-                           <p class="card-text">breve descripción</p>
-                           <p class="card-text">Precio</p>
-                           <a href="#" class="btn btn-dark boton-tarjeta">Agregar al carrito</a>
-                        </div>
-                    </div>
-               </div>
-
-               <div class="col">
-                  <div class="card" style="width: 18rem;">
-                        <img src="imagenes/imagen.png" class="card-img-top" alt="...">
-                        <div class="card-body">
-                           <h5 class="card-title titulo-tarjeta">Camisa 7</h5>
-                           <p class="card-text">breve descripción</p>
-                           <p class="card-text">Precio</p>
-                           <a href="#" class="btn btn-dark boton-tarjeta">Agregar al carrito</a>
-                        </div>
-                    </div>
-               </div>
-
-               <div class="col">
-                  <div class="card" style="width: 18rem;">
-                        <img src="imagenes/imagen.png" class="card-img-top" alt="...">
-                        <div class="card-body">
-                           <h5 class="card-title titulo-tarjeta">Camisa 8</h5>
-                           <p class="card-text">breve descripción</p>
-                           <p class="card-text">Precio</p>
-                           <a href="#" class="btn btn-dark boton-tarjeta">Agregar al carrito</a>
-                        </div>
-                    </div>
-               </div>
-
+                </div>
             </div>
         </div>
     </main>
+
+    <!-- Font Awesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <script>
+        function irADetalleCamisaMujer() {
+            window.location.href = 'detalle-camisa-mujer.html';
+        }
+        
+        function irADetalle(id) {
+            window.location.href = `detalle-producto.php?id=${id}`;
+        }
+        
+        function comprarRapidoMujer() {
+            // Redirigir directamente a la página de detalle con intención de compra
+            window.location.href = 'detalle-camisa-mujer.html#comprar';
+        }
+        
+        function agregarCarritoMujer() {
+            // Lógica para agregar camisa de mujer al carrito
+            alert('Camisa de Mujer agregada al carrito\n\nTalla: Por seleccionar\nColor: Natural (por defecto)\nPrecio: $89.99');
+        }
+        
+        function comprarRapido(id) {
+            // Lógica para compra rápida
+            alert(`Compra rápida del producto ${id}`);
+        }
+        
+        function agregarCarrito(id) {
+            // Lógica para agregar al carrito
+            alert(`Producto ${id} agregado al carrito`);
+        }
+    </script>
 
     <footer>
         <a href="https://www.facebook.com/?locale=es_LA" target="_blank">

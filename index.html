@@ -25,7 +25,7 @@
                           <a class="nav-link link-tienda" aria-current="page" href="index.html">INICIO</a>
                         </li>
                         <li class="nav-item">
-                          <a class="nav-link link-tienda" href="#nosotros">NOSOTROS</a>
+                          <a class="nav-link link-tienda" href="nosotros.html">NOSOTROS</a>
                         </li>
                         <li class="nav-item">
                           <a class="nav-link link-tienda" href="#productos">PRODUCTOS</a>
@@ -46,7 +46,7 @@
 
     <main>
         <section>
-            <div id="carouselExampleIndicators" class="carousel slide">
+            <div id="carouselExampleIndicators" class="carousel slide" data-bs-ride="carousel" data-bs-interval="4000">
                 <div class="carousel-indicators">
                    <button type="button" data-bs-target="#carouselExampleIndicators" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
                    <button type="button" data-bs-target="#carouselExampleIndicators" data-bs-slide-to="1" aria-label="Slide 2"></button>
@@ -67,81 +67,130 @@
         </section>
 
         <section id="nosotros" class="secciones">
-            <h2>NOSOTROS</h2>
-            <p>Bienvenidos a <span>Seda y Lino</span>, donde el arte de la confección se une con la elegancia de la seda y el lino para ofrecer piezas únicas que celebran la sofisticación y el estilo. Somos una tienda de ropa para adultos que valora la calidad y la artesanía en cada detalle. Nuestro equipo de diseñadores apasionados y artesanos experimentados se dedica a crear prendas que no solo se ven bien, sino que también se sienten maravillosas al usarlas. Cada tela que utilizamos es seleccionada cuidadosamente para asegurar su suavidad, durabilidad y belleza natural.En <span>Seda y Lino</span>, creemos que la moda es una forma de expresión y estamos comprometidos a ayudarles a encontrar su voz a través de nuestras colecciones ¡Descubran el encanto de la seda y el lino con nosotros y transformen su guardarropa con elegancia y distinción!</p>
+            <p>En <span>Seda y Lino</span> creamos prendas únicas que celebran la elegancia y sofisticación. <a href="nosotros.html" class="link-nosotros">Conoce más sobre nosotros</a>.</p>
         </section>
 
         <section id="productos" class="secciones seccion-productos">
-            <h2>PRODUCTOS</h2>
-            <div class="container margen-contenedor">
-                <div class="row">
-                    <div class="margen col-xxl-3 col-xl-3 col-lg-4 col-md-6 col-sm-12">
-                        <div class="card tarjeta" style="width: 18rem;">
-                            <img src="imagenes/imagen.png" class="card-img-top" alt="...">
-                            <div class="card-body">
+            <div class="container">
+                <h2 class="text-center mb-4">NUESTROS PRODUCTOS</h2>
+                <p class="text-center mb-5 descripcion-productos">Descubre nuestra colección de prendas elegantes confeccionadas con los mejores materiales</p>
+                
+                <div class="row justify-content-center">
+                    <div class="col-lg-3 col-md-6 col-sm-12 mb-4">
+                        <div class="card tarjeta h-100 shadow-sm">
+                            <div class="card-img-wrapper">
+                                <img src="imagenes/imagen.png" class="card-img-top" alt="Camisas elegantes de seda y lino">
+                                <div class="card-overlay">
+                                    <span class="overlay-text">Explorar Colección</span>
+                                </div>
+                            </div>
+                            <div class="card-body d-flex flex-column">
                                <h5 class="card-title titulo-tarjeta">Camisas</h5>
-                               <a href="camisas.html" class="btn btn-dark boton-tarjeta">ver más</a>
+                               <p class="card-text texto-tarjeta">Camisas elegantes de seda y lino para todas las ocasiones</p>
+                               <a href="camisas.html" class="btn boton-tarjeta mt-auto">Ver Colección</a>
                             </div>
                         </div>
                     </div>
 
-                    <div class="margen col-xxl-3 col-xl-3 col-lg-4 col-md-6 col-sm-12">
-                        <div class="card tarjeta" style="width: 18rem;">
-                            <img src="imagenes/imagen.png" class="card-img-top" alt="...">
-                            <div class="card-body">
+                    <div class="col-lg-3 col-md-6 col-sm-12 mb-4">
+                        <div class="card tarjeta h-100 shadow-sm">
+                            <div class="card-img-wrapper">
+                                <img src="imagenes/imagen.png" class="card-img-top" alt="Blusas femeninas de calidad">
+                                <div class="card-overlay">
+                                    <span class="overlay-text">Explorar Colección</span>
+                                </div>
+                            </div>
+                            <div class="card-body d-flex flex-column">
                               <h5 class="card-title titulo-tarjeta">Blusas</h5>
-                              <a href="blusas.html" class="btn btn-dark boton-tarjeta">ver más</a>
+                              <p class="card-text texto-tarjeta">Blusas sofisticadas que combinan comodidad y estilo</p>
+                              <a href="blusas.html" class="btn boton-tarjeta mt-auto">Ver Colección</a>
                             </div>
                         </div>
                     </div>
 
-                    <div class="margen col-xxl-3 col-xl-3 col-lg-4 col-md-6 col-sm-12">
-                        <div class="card tarjeta" style="width: 18rem;">
-                           <img src="imagenes/imagen.png" class="card-img-top" alt="...">
-                            <div class="card-body">
+                    <div class="col-lg-3 col-md-6 col-sm-12 mb-4">
+                        <div class="card tarjeta h-100 shadow-sm">
+                            <div class="card-img-wrapper">
+                                <img src="imagenes/imagen.png" class="card-img-top" alt="Shorts cómodos y elegantes">
+                                <div class="card-overlay">
+                                    <span class="overlay-text">Explorar Colección</span>
+                                </div>
+                            </div>
+                            <div class="card-body d-flex flex-column">
                                <h5 class="card-title titulo-tarjeta">Shorts</h5>
-                               <a href="shorts.html" class="btn btn-dark boton-tarjeta">ver más</a>
+                               <p class="card-text texto-tarjeta">Shorts frescos y cómodos para el día a día</p>
+                               <a href="shorts.html" class="btn boton-tarjeta mt-auto">Ver Colección</a>
                             </div>
                         </div>
                     </div>
 
-                    <div class="margen col-xxl-3 col-xl-3 col-lg-4 col-md-6 col-sm-12">
-                        <div class="card tarjeta" style="width: 18rem;">
-                           <img src="imagenes/imagen.png" class="card-img-top" alt="...">
-                            <div class="card-body">
+                    <div class="col-lg-3 col-md-6 col-sm-12 mb-4">
+                        <div class="card tarjeta h-100 shadow-sm">
+                            <div class="card-img-wrapper">
+                                <img src="imagenes/imagen.png" class="card-img-top" alt="Pantalones de diseño exclusivo">
+                                <div class="card-overlay">
+                                    <span class="overlay-text">Explorar Colección</span>
+                                </div>
+                            </div>
+                            <div class="card-body d-flex flex-column">
                               <h5 class="card-title titulo-tarjeta">Pantalones</h5>
-                              <a href="pantalones.html" class="btn btn-dark boton-tarjeta">ver más</a>
+                              <p class="card-text texto-tarjeta">Pantalones de corte perfecto para cualquier ocasión</p>
+                              <a href="pantalones.html" class="btn boton-tarjeta mt-auto">Ver Colección</a>
                             </div>
                         </div>
                     </div>
-
                 </div>
             </div>
         </section>
 
-        <section id="contacto" class="secciones">
-            <h2>CONTACTO</h2>
-            <form class="formulario">
-                <div class="mb-3">
-                   <label for="name" class="form-label label-contacto">Nombre*:</label>
-                   <input type="text" class="form-control input-contacto" id="name" placeholder="Escriba su nombre" required>
+        <section id="contacto" class="secciones seccion-contacto">
+            <div class="container">
+                <div class="row justify-content-center">
+                    <div class="col-lg-8 col-md-10">
+                        <div class="formulario-container">
+                            <h2 class="text-center mb-4">CONTÁCTANOS</h2>
+                            <p class="text-center mb-5">¿Tienes alguna pregunta sobre nuestros productos? ¿Necesitas asesoramiento personalizado? Estamos aquí para ayudarte.</p>
+                            
+                            <form class="formulario" novalidate>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                       <label for="name" class="form-label label-contacto">Nombre*</label>
+                                       <input type="text" class="form-control input-contacto" id="name" placeholder="Tu nombre" required>
+                                       <div class="invalid-feedback">Por favor, ingresa tu nombre.</div>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                       <label for="email" class="form-label label-contacto">Email*</label>
+                                       <input type="email" class="form-control input-contacto" id="email" placeholder="tu@email.com" required>
+                                       <div class="invalid-feedback">Por favor, ingresa un email válido.</div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                   <label for="asunto" class="form-label label-contacto">Asunto*</label>
+                                   <select class="form-control input-contacto" id="asunto" required>
+                                       <option value="">Selecciona un tema</option>
+                                       <option value="consulta">Consulta general</option>
+                                       <option value="pedido">Información sobre pedidos</option>
+                                       <option value="tallas">Asesoramiento de tallas</option>
+                                       <option value="cuidado">Cuidado de prendas</option>
+                                       <option value="otro">Otro</option>
+                                   </select>
+                                   <div class="invalid-feedback">Por favor, selecciona un asunto.</div>
+                                </div>
+                                <div class="mb-3">
+                                  <label for="message" class="form-label label-contacto">Mensaje*</label>
+                                  <textarea class="form-control input-contacto" id="message" rows="6" placeholder="Escribe tu mensaje aquí..." required></textarea>
+                                  <div class="invalid-feedback">Por favor, escribe tu mensaje.</div>
+                                </div>
+                               <button type="submit" class="btn boton-formulario w-100">
+                                   <span class="button-text">Enviar Mensaje</span>
+                                   <span class="button-loading d-none">Enviando...</span>
+                               </button>
+                               <div class="form-text texto-contacto mt-3">*Todos los campos son obligatorios</div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
-                <div class="mb-3">
-                   <label for="email" class="form-label label-contacto">Correo electrónico*:</label>
-                   <input type="email" class="form-control input-contacto" id="email" placeholder="Escriba su correo electrónico" required>
-                </div>
-                <div class="mb-3">
-                   <label for="asunto" class="form-label label-contacto">Asunto*:</label>
-                   <input type="text" class="form-control input-contacto" id="asunto" placeholder="Escriba su consulta" required>
-                </div>
-                <div class="mb-3">
-                  <label for="message" class="form-label label-contacto">Mensaje*:</label>
-                  <br>
-                  <textarea class="input-contacto" id="message" rows="8" cols="55" placeholder="Escriba su mensaje" required></textarea>
-                </div>
-               <button type="submit" class="btn boton-formulario">Enviar</button>
-               <div class="form-text texto-contacto">*los campos son obligatorios</div>
-            </form>
+            </div>
         </section>
     </main>
 

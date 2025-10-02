@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <!-- Font Awesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Título de la pestaña -->
+    <title>Seda y Lino - Camisa Mujer Lino Natural</title>
+</head>
+<body>
+    
+    <header>
+        <nav class="navbar navbar-expand-lg bg-body-tertiary">
+            <div class="container-fluid">
+                <a class="navbar-brand nombre-tienda" href="index.html">SEDA Y LINO</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                 <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+                    <ul class="navbar-nav lista-nav">
+                        <li class="nav-item">
+                          <a class="nav-link link-tienda" href="index.html">INICIO</a>
+                        </li>
+                        <li class="nav-item">
+                          <a class="nav-link link-tienda" href="nosotros.html">NOSOTROS</a>
+                        </li>
+                        <li class="nav-item">
+                          <a class="nav-link link-tienda" href="index.html#productos">PRODUCTOS</a>
+                        </li>
+                        <li class="nav-item">
+                          <a class="nav-link link-tienda" href="index.html#contacto">CONTACTO</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">
+                              <img src="iconos/avatar-usuario.png" alt="icono de avatar de usuario">
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="detalle-producto">
+        <div class="container mt-4">
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="index.html">Inicio</a></li>
+                    <li class="breadcrumb-item"><a href="camisas.html">Camisas</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Camisa Mujer Lino Natural</li>
+                </ol>
+            </nav>
+
+            <div class="row">
+                <!-- Galería de imágenes -->
+                <div class="col-lg-6 mb-4">
+                    <div class="producto-galeria">
+                        <div id="carouselProducto" class="carousel slide mb-3" data-bs-ride="carousel">
+                            <div class="carousel-inner">
+                                <div class="carousel-item active">
+                                    <img src="imagenes/productos/camisas/camisa_mujer_lino_modelo.png" class="d-block w-100 producto-imagen-principal" alt="Camisa Mujer Lino Natural - Modelo">
+                                </div>
+                                <div class="carousel-item">
+                                    <img src="imagenes/productos/camisas/camisa_mujer_lino_modelocerca.png" class="d-block w-100 producto-imagen-principal" alt="Camisa Mujer Lino Natural - Detalle">
+                                </div>
+                            </div>
+                            <button class="carousel-control-prev" type="button" data-bs-target="#carouselProducto" data-bs-slide="prev">
+                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                <span class="visually-hidden">Anterior</span>
+                            </button>
+                            <button class="carousel-control-next" type="button" data-bs-target="#carouselProducto" data-bs-slide="next">
+                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                <span class="visually-hidden">Siguiente</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Thumbnails -->
+                        <div class="row">
+                            <div class="col-6 mb-2">
+                                <img src="imagenes/productos/camisas/camisa_mujer_lino_modelo.png" class="img-thumbnail producto-thumbnail active" 
+                                     alt="Camisa Mujer Lino Natural - Modelo" 
+                                     onclick="cambiarImagen(0)">
+                            </div>
+                            <div class="col-6 mb-2">
+                                <img src="imagenes/productos/camisas/camisa_mujer_lino_modelocerca.png" class="img-thumbnail producto-thumbnail" 
+                                     alt="Camisa Mujer Lino Natural - Detalle" 
+                                     onclick="cambiarImagen(1)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información del producto -->
+                <div class="col-lg-6">
+                    <div class="producto-info">
+                        <h1 class="producto-titulo mb-3">Camisa Mujer Lino Natural</h1>
+                        
+                        <!-- Precio -->
+                        <div class="producto-precio mb-4">
+                            <span class="precio-actual">$89.99</span>
+                            <span class="precio-original ms-3">$120.00</span>
+                            <span class="descuento-badge ms-2">25% OFF</span>
+                        </div>
+
+                        <!-- Descripción corta -->
+                        <p class="producto-descripcion-corta mb-4">Camisa elegante de lino 100% natural, corte femenino con detalles refinados. Perfecta para ocasiones especiales y uso diario.</p>
+
+
+                        <!-- Selección de talla -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Talla:</label>
+                            <div class="tallas-selector">
+                                <input type="radio" class="btn-check" name="talla" id="talla-XS" value="XS">
+                                <label class="btn btn-outline-secondary me-2 mb-2" for="talla-XS">XS</label>
+                                
+                                <input type="radio" class="btn-check" name="talla" id="talla-S" value="S">
+                                <label class="btn btn-outline-secondary me-2 mb-2" for="talla-S">S</label>
+                                
+                                <input type="radio" class="btn-check" name="talla" id="talla-M" value="M">
+                                <label class="btn btn-outline-secondary me-2 mb-2" for="talla-M">M</label>
+                                
+                                <input type="radio" class="btn-check" name="talla" id="talla-L" value="L">
+                                <label class="btn btn-outline-secondary me-2 mb-2" for="talla-L">L</label>
+                                
+                                <input type="radio" class="btn-check" name="talla" id="talla-XL" value="XL">
+                                <label class="btn btn-outline-secondary me-2 mb-2" for="talla-XL">XL</label>
+                            </div>
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                <a href="#" data-bs-toggle="modal" data-bs-target="#guiaTallasModal">Ver guía de tallas</a>
+                            </small>
+                        </div>
+
+                        <!-- Selección de color -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Color:</label>
+                            <div class="colores-selector">
+                                <input type="radio" class="btn-check" name="color" id="color-natural" value="Natural" checked>
+                                <label class="btn btn-outline-secondary me-2 mb-2" for="color-natural">Natural</label>
+                                
+                                <input type="radio" class="btn-check" name="color" id="color-blanco" value="Blanco">
+                                <label class="btn btn-outline-secondary me-2 mb-2" for="color-blanco">Blanco</label>
+                                
+                                <input type="radio" class="btn-check" name="color" id="color-beige" value="Beige">
+                                <label class="btn btn-outline-secondary me-2 mb-2" for="color-beige">Beige</label>
+                            </div>
+                        </div>
+
+                        <!-- Cantidad -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Cantidad:</label>
+                            <div class="cantidad-selector d-flex align-items-center">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cambiarCantidad(-1)">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+                                <input type="number" class="form-control mx-2 text-center" id="cantidad" value="1" min="1" max="10" style="width: 80px;">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cambiarCantidad(1)">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Stock disponible -->
+                        <div class="mb-4">
+                            <div class="stock-info">
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check me-1"></i>
+                                    15 unidades disponibles
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Botones de acción -->
+                        <div class="mb-4">
+                            <button class="btn boton-tarjeta btn-lg w-100 mb-3" onclick="agregarAlCarrito()">
+                                <i class="fas fa-shopping-cart me-2"></i>Agregar al Carrito
+                            </button>
+                            <button class="btn btn-success btn-lg w-100 mb-3" onclick="comprarAhora()">
+                                <i class="fas fa-credit-card me-2"></i>Comprar Ahora
+                            </button>
+                            <div class="text-center">
+                                <button class="btn btn-outline-info btn-sm" onclick="compartir()">
+                                    <i class="fas fa-share-alt me-1"></i>Compartir
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Información adicional -->
+                        <div class="producto-info-adicional">
+                            <div class="accordion" id="accordionProducto">
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDescripcion">
+                                            Descripción Detallada
+                                        </button>
+                                    </h2>
+                                    <div id="collapseDescripcion" class="accordion-collapse collapse show" data-bs-parent="#accordionProducto">
+                                        <div class="accordion-body">
+                                            <p>Esta hermosa camisa de mujer está confeccionada en lino 100% natural de la más alta calidad. Su corte femenino y elegante la convierte en la pieza perfecta para cualquier ocasión, desde reuniones de trabajo hasta cenas especiales.</p>
+                                            <p>Los detalles refinados en costuras y acabados demuestran la atención al detalle que caracteriza a Seda y Lino. El lino natural proporciona transpirabilidad y comodidad durante todo el día.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCaracteristicas">
+                                            Características
+                                        </button>
+                                    </h2>
+                                    <div id="collapseCaracteristicas" class="accordion-collapse collapse" data-bs-parent="#accordionProducto">
+                                        <div class="accordion-body">
+                                            <ul class="list-unstyled">
+                                                <li><i class="fas fa-check text-success me-2"></i>Transpirable y fresco</li>
+                                                <li><i class="fas fa-check text-success me-2"></i>Corte femenino elegante</li>
+                                                <li><i class="fas fa-check text-success me-2"></i>Acabados de alta calidad</li>
+                                                <li><i class="fas fa-check text-success me-2"></i>Resistente y duradero</li>
+                                                <li><i class="fas fa-check text-success me-2"></i>Ecológico y sostenible</li>
+                                            </ul>
+                                            <p><strong>Material:</strong> Lino 100% Natural</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCuidado">
+                                            Cuidado y Mantenimiento
+                                        </button>
+                                    </h2>
+                                    <div id="collapseCuidado" class="accordion-collapse collapse" data-bs-parent="#accordionProducto">
+                                        <div class="accordion-body">
+                                            <p><strong>Recomendaciones de lavado:</strong></p>
+                                            <ul class="list-unstyled">
+                                                <li><i class="fas fa-hand-paper text-info me-2"></i>Lavado a mano recomendado</li>
+                                                <li><i class="fas fa-thermometer-half text-info me-2"></i>Agua fría (máximo 30°C)</li>
+                                                <li><i class="fas fa-ban text-danger me-2"></i>No usar lejía</li>
+                                                <li><i class="fas fa-iron text-warning me-2"></i>Planchar a temperatura media</li>
+                                                <li><i class="fas fa-ban text-danger me-2"></i>No usar secadora</li>
+                                                <li><i class="fas fa-cloud-sun text-info me-2"></i>Secar a la sombra</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEnvio">
+                                            Envío y Devoluciones
+                                        </button>
+                                    </h2>
+                                    <div id="collapseEnvio" class="accordion-collapse collapse" data-bs-parent="#accordionProducto">
+                                        <div class="accordion-body">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <h6><i class="fas fa-shipping-fast text-primary me-2"></i>Envío</h6>
+                                                    <ul class="list-unstyled small">
+                                                        <li>• Envío gratis por compras > $150</li>
+                                                        <li>• Entrega en 2-5 días hábiles</li>
+                                                        <li>• Seguimiento incluido</li>
+                                                    </ul>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <h6><i class="fas fa-undo text-success me-2"></i>Devoluciones</h6>
+                                                    <ul class="list-unstyled small">
+                                                        <li>• 30 días para devolver</li>
+                                                        <li>• Producto sin usar</li>
+                                                        <li>• Etiquetas originales</li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Productos relacionados -->
+            <div class="productos-relacionados mt-5">
+                <h3 class="mb-4">También te puede interesar</h3>
+                <div class="row">
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="card tarjeta h-100">
+                            <img src="imagenes/productos/camisas/camisa_hombre_lino_modelo.png" class="card-img-top" alt="Camisa Hombre Lino Clásico">
+                            <div class="card-body">
+                                <h5 class="card-title">Camisa Hombre Lino Clásico</h5>
+                                <p class="precio-actual">$95.99</p>
+                                <a href="#" class="btn boton-tarjeta btn-sm">Ver Detalles</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="card tarjeta h-100">
+                            <img src="imagenes/imagen.png" class="card-img-top" alt="Blusa Elegante">
+                            <div class="card-body">
+                                <h5 class="card-title">Blusa Elegante</h5>
+                                <p class="precio-actual">$75.99</p>
+                                <a href="#" class="btn boton-tarjeta btn-sm">Ver Detalles</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="card tarjeta h-100">
+                            <img src="imagenes/imagen.png" class="card-img-top" alt="Pantalones Lino">
+                            <div class="card-body">
+                                <h5 class="card-title">Pantalones Lino</h5>
+                                <p class="precio-actual">$110.99</p>
+                                <a href="#" class="btn boton-tarjeta btn-sm">Ver Detalles</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Guía de Tallas -->
+    <div class="modal fade" id="guiaTallasModal" tabindex="-1" aria-labelledby="guiaTallasModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="guiaTallasModalLabel">Guía de Tallas - Camisas Mujer</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Talla</th>
+                                    <th>Busto (cm)</th>
+                                    <th>Cintura (cm)</th>
+                                    <th>Largo (cm)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>XS</strong></td>
+                                    <td>82-86</td>
+                                    <td>62-66</td>
+                                    <td>62</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>S</strong></td>
+                                    <td>86-90</td>
+                                    <td>66-70</td>
+                                    <td>64</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>M</strong></td>
+                                    <td>90-94</td>
+                                    <td>70-74</td>
+                                    <td>66</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>L</strong></td>
+                                    <td>94-98</td>
+                                    <td>74-78</td>
+                                    <td>68</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>XL</strong></td>
+                                    <td>98-102</td>
+                                    <td>78-82</td>
+                                    <td>70</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Las medidas son aproximadas y pueden variar según el modelo. Para mayor precisión, recomendamos contactar a nuestro equipo de atención al cliente.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <a href="index.html#contacto" class="btn boton-tarjeta">Contactar Asesor</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <a href="https://www.facebook.com/?locale=es_LA" target="_blank">
+            <img class="red-social" src="iconos/facebook.png" alt="icono de facebook">
+        </a>
+        <a href="https://www.instagram.com/" target="_blank">
+            <img class="red-social" src="iconos/instagram.png" alt="icono de instagram">
+        </a>
+        <a href="https://x.com/?lang=es" target="_blank">
+            <img class="red-social" src="iconos/x.png" alt="icono de x">
+        </a>
+        <h6>2025.Todos los derechos reservados</h6>
+    </footer>
+
+    <!-- Bootstrap JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+    
+    <!-- JavaScript personalizado -->
+    <script>
+        function cambiarImagen(index) {
+            const carousel = document.getElementById('carouselProducto');
+            const carouselInstance = bootstrap.Carousel.getOrCreateInstance(carousel);
+            carouselInstance.to(index);
+            
+            // Actualizar thumbnails activos
+            document.querySelectorAll('.producto-thumbnail').forEach((thumb, i) => {
+                thumb.classList.toggle('active', i === index);
+            });
+        }
+
+        function cambiarCantidad(delta) {
+            const cantidadInput = document.getElementById('cantidad');
+            let nuevaCantidad = parseInt(cantidadInput.value) + delta;
+            if (nuevaCantidad < 1) nuevaCantidad = 1;
+            if (nuevaCantidad > 10) nuevaCantidad = 10;
+            cantidadInput.value = nuevaCantidad;
+        }
+
+        function agregarAlCarrito() {
+            const talla = document.querySelector('input[name="talla"]:checked');
+            const color = document.querySelector('input[name="color"]:checked');
+            const cantidad = document.getElementById('cantidad').value;
+            
+            if (!talla) {
+                alert('Por favor selecciona una talla');
+                return;
+            }
+            
+            // Simulación de agregar al carrito
+            const datosProducto = {
+                producto: 'Camisa Mujer Lino Natural',
+                talla: talla.value,
+                color: color.value,
+                cantidad: cantidad,
+                precio: 89.99
+            };
+            
+            console.log('Producto agregado al carrito:', datosProducto);
+            alert(`✅ Producto agregado al carrito:\nTalla: ${talla.value}\nColor: ${color.value}\nCantidad: ${cantidad}`);
+            
+            // Aquí implementarías la lógica real para agregar al carrito
+        }
+
+        function comprarAhora() {
+            const talla = document.querySelector('input[name="talla"]:checked');
+            const color = document.querySelector('input[name="color"]:checked');
+            
+            if (!talla) {
+                alert('Por favor selecciona una talla');
+                return;
+            }
+            
+            // Simulación de compra directa
+            alert('🛍️ Redirigiendo al checkout...');
+            // Aquí implementarías la lógica para compra directa
+        }
+
+        function compartir() {
+            // Simulación de compartir
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Camisa Mujer Lino Natural - Seda y Lino',
+                    text: 'Mira esta hermosa camisa de lino natural',
+                    url: window.location.href
+                });
+            } else {
+                // Fallback para navegadores que no soportan Web Share API
+                const url = window.location.href;
+                navigator.clipboard.writeText(url).then(() => {
+                    alert('🔗 Link copiado al portapapeles');
+                });
+            }
+        }
+
+        // Actualizar stock dinámicamente según talla/color seleccionado
+        document.querySelectorAll('input[name="talla"], input[name="color"]').forEach(input => {
+            input.addEventListener('change', actualizarStock);
+        });
+
+        function actualizarStock() {
+            const talla = document.querySelector('input[name="talla"]:checked');
+            const color = document.querySelector('input[name="color"]:checked');
+            
+            if (talla && color) {
+                // Simulación de stock por variante
+                const stockVariantes = {
+                    'XS-Natural': 5, 'XS-Blanco': 3, 'XS-Beige': 2,
+                    'S-Natural': 10, 'S-Blanco': 8, 'S-Beige': 6,
+                    'M-Natural': 15, 'M-Blanco': 12, 'M-Beige': 10,
+                    'L-Natural': 12, 'L-Blanco': 15, 'L-Beige': 8,
+                    'XL-Natural': 8, 'XL-Blanco': 10, 'XL-Beige': 5
+                };
+                
+                const clave = `${talla.value}-${color.value}`;
+                const stock = stockVariantes[clave] || 0;
+                
+                const stockElement = document.querySelector('.stock-info');
+                if (stock > 0) {
+                    stockElement.innerHTML = `
+                        <span class="badge bg-success">
+                            <i class="fas fa-check me-1"></i>
+                            ${stock} unidades disponibles
+                        </span>
+                    `;
+                } else {
+                    stockElement.innerHTML = `
+                        <span class="badge bg-danger">
+                            <i class="fas fa-times me-1"></i>
+                            Sin stock disponible
+                        </span>
+                    `;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
