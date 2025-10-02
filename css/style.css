@@ -1,0 +1,151 @@
+/* fuentes */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap');
+
+/* estilos generales */
+
+*{
+    margin: 0;
+    padding: 0;
+}
+
+
+h2{
+    font-family: "Quicksand", sans-serif;
+    font-size: 2em;
+    font-weight: 300;
+    color: black;
+}
+
+p{
+    font-family: "DM Sans", sans-serif;
+    font-weight: 300;
+    font-size: 1em;
+}
+
+span{
+    font-weight: bold;
+}
+
+.secciones{
+    padding: 3% 1%;
+}
+
+.titulo-productos{
+    font-size: 3.5em;
+    font-family:  "Quicksand", sans-serif;
+    color: black;
+}
+
+.productos{
+    padding: 3%;
+}
+
+/* header */
+
+.nav{
+    border-bottom: 1px solid black;
+}
+
+.nombre-tienda{
+    font-weight: bold;
+    font-family: "DM Sans", sans-serif;
+    font-size: 1em;
+    color: black;
+}
+
+.lista-nav{
+    align-items: center;
+}
+
+.link-tienda{
+    color: black!important;
+    font-weight: 300;
+    font-family: "Quicksand", sans-serif;
+    font-size: 1em;
+}
+
+
+/* seccion productos */
+
+.seccion-productos{
+    background-color: #d9d9d9;
+}
+
+.tarjeta{
+    text-align: center;
+}
+
+.titulo-tarjeta{
+    font-family: "Quicksand", sans-serif;
+    font-size: 1.2em;
+}
+
+.boton-tarjeta{
+    font-family: "Quicksand", sans-serif!important;
+    font-size: 1.2em!important;
+    border-radius: 90px!important;
+}
+
+.margen-contenedor{
+    margin-top: 3%;
+}
+
+.margen{
+    margin-bottom: 2%;
+}
+
+/* seccion contacto */
+
+.formulario{
+    width: 40%;
+    background-color: black;
+    color: white;
+    padding: 2%;
+    border-radius: 3%;
+    margin: 3% 0;
+}
+
+.label-contacto{
+    font-family: "Quicksand", sans-serif;
+    font-size: 1em;
+}
+
+.texto-contacto{
+    color: darkgray!important;
+    font-family: "Quicksand", sans-serif;
+}
+
+.input-contacto{
+    font-family: "Quicksand", sans-serif;
+}
+
+.boton-formulario{
+    background-color: #ccc0b8!important;
+    font-family: "Quicksand", sans-serif!important;
+    color: black!important;
+    width: 40%;
+}
+
+/* footer */
+
+footer{
+    background-color: #d9d9d9;
+    text-align: center;
+    padding: 2%;
+}
+
+footer a {
+    text-decoration: none;
+}
+
+.red-social{
+    padding: 1%;
+}
+
+h6{
+    font-family: "Quicksand", sans-serif;
+    font-size: 1em!important;
+    color: black!important;
+    margin-top: 2%!important;
+}
