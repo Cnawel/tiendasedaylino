@@ -650,3 +650,875 @@ h6{
     color: black!important;
     margin-top: 2%!important;
 }
+
+/* ============================================================================
+   ESTILOS PARA PÁGINA DE LOGIN
+   ============================================================================ */
+
+/* Configuración general del body para login */
+body.login-page {
+    background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+    min-height: 100vh;
+    font-family: "DM Sans", sans-serif;
+}
+
+/* Contenedor principal del login */
+.login-container {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    max-width: 1000px;
+    width: 100%;
+    margin: 20px auto;
+    display: flex;
+    min-height: 600px;
+}
+
+/* Sección de formulario de login */
+.login-section {
+    flex: 1;
+    padding: 60px 50px;
+    background: #fafafa;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* Título principal del login */
+.login-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 40px;
+    line-height: 1.2;
+    font-family: "Quicksand", sans-serif;
+}
+
+/* Separador visual */
+.divider {
+    position: relative;
+    text-align: center;
+    margin: 30px 0;
+    color: #999;
+    font-size: 0.9rem;
+}
+
+.divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: #e0e0e0;
+}
+
+.divider span {
+    background: #fafafa;
+    padding: 0 20px;
+    position: relative;
+}
+
+/* Grupos de formulario */
+.form-group {
+    margin-bottom: 25px;
+}
+
+/* Etiquetas de formulario */
+.form-label {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Campos de entrada */
+.form-control {
+    padding: 15px 20px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    outline: none;
+}
+
+/* Enlace de contraseña olvidada */
+.forgot-password {
+    text-align: right;
+    margin-bottom: 30px;
+}
+
+.forgot-password a {
+    color: #666;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+/* Botón de login */
+.login-btn {
+    width: 100%;
+    padding: 15px;
+    background: #2c3e50;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 30px;
+}
+
+.login-btn:hover {
+    background: #34495e;
+}
+
+/* Enlace de registro */
+.signup-link {
+    text-align: center;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.signup-link a {
+    color: #3498db;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+/* Sección de imagen */
+.image-section {
+    flex: 1;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+}
+
+/* Imagen principal del login */
+.login-image {
+    width: 100%;
+    max-width: 400px;
+    height: auto;
+    border-radius: 20px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+    transition: all 0.4s ease;
+    cursor: pointer;
+    object-fit: cover;
+}
+
+/* Efecto hover para la imagen */
+.login-image:hover {
+    transform: scale(1.05) rotate(1deg);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+    filter: brightness(1.1) contrast(1.05) saturate(1.1);
+}
+
+/* Animación sutil de entrada */
+.login-image {
+    animation: fadeInUp 0.8s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Overlay sutil para la imagen */
+.image-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.image-section:hover::before {
+    opacity: 0.8;
+}
+
+/* Alertas de error */
+.alert {
+    padding: 12px 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+}
+
+.alert-danger {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+/* Responsive design para login */
+@media (max-width: 768px) {
+    .login-container {
+        flex-direction: column;
+        margin: 10px;
+    }
+    
+    .login-section {
+        padding: 40px 30px;
+    }
+    
+    .image-section {
+        min-height: 250px;
+        padding: 20px;
+    }
+    
+    .login-image {
+        max-width: 300px;
+        max-height: 250px;
+    }
+}
+
+@media (max-width: 480px) {
+    .image-section {
+        min-height: 200px;
+        padding: 15px;
+    }
+    
+    .login-image {
+        max-width: 250px;
+        max-height: 200px;
+    }
+}
+
+/* ============================================================================
+   ESTILOS PARA PÁGINAS DE PRODUCTOS DINÁMICAS
+   ============================================================================ */
+
+/* Hero sections para cada categoría */
+.hero-pantalones {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-camisas {
+    background: linear-gradient(135deg, #8e44ad 0%, #9b59b6 100%);
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-blusas {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-shorts {
+    background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Imagen hero */
+.hero-image {
+    max-height: 400px;
+    object-fit: contain;
+    border-radius: 15px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s ease;
+}
+
+.hero-image:hover {
+    transform: scale(1.05);
+}
+
+/* Altura mínima para hero */
+.min-vh-50 {
+    min-height: 50vh;
+}
+
+/* Tarjetas de productos mejoradas */
+.producto-card {
+    border: none;
+    border-radius: 15px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.producto-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+/* Contenedor de imagen del producto */
+.producto-imagen-container {
+    position: relative;
+    overflow: hidden;
+    height: 250px;
+}
+
+.producto-imagen {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.producto-card:hover .producto-imagen {
+    transform: scale(1.1);
+}
+
+/* Overlay de la imagen */
+.producto-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.producto-card:hover .producto-overlay {
+    opacity: 1;
+}
+
+/* Características destacadas */
+.caracteristicas-destacadas {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.caracteristica-item {
+    padding: 2rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+    height: 100%;
+}
+
+.caracteristica-item:hover {
+    transform: translateY(-5px);
+}
+
+/* Badges mejorados */
+.badge {
+    font-size: 0.8rem;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+}
+
+/* Precios mejorados */
+.precio-actual-simple {
+    color: #27ae60 !important;
+    font-weight: 700;
+}
+
+/* Botones mejorados */
+.boton-comprar-simple {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    border: none;
+    color: white;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 25px;
+    transition: all 0.3s ease;
+}
+
+.boton-comprar-simple:hover {
+    background: linear-gradient(135deg, #2980b9 0%, #1f618d 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+    color: white;
+}
+
+/* Títulos mejorados */
+.titulo-productos {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 1rem;
+}
+
+.descripcion-productos {
+    font-size: 1.1rem;
+    color: #7f8c8d;
+    margin-bottom: 2rem;
+}
+
+/* Responsive para páginas de productos */
+@media (max-width: 768px) {
+    .hero-pantalones,
+    .hero-camisas,
+    .hero-blusas,
+    .hero-shorts {
+        min-height: 50vh;
+        text-align: center;
+    }
+    
+    .hero-image {
+        max-height: 300px;
+        margin-top: 2rem;
+    }
+    
+    .titulo-productos {
+        font-size: 2rem;
+    }
+    
+    .display-4 {
+        font-size: 2rem;
+    }
+    
+    .caracteristica-item {
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .hero-pantalones,
+    .hero-camisas,
+    .hero-blusas,
+    .hero-shorts {
+        min-height: 40vh;
+    }
+    
+    .hero-image {
+        max-height: 250px;
+    }
+    
+    .titulo-productos {
+        font-size: 1.8rem;
+    }
+    
+    .display-4 {
+        font-size: 1.8rem;
+    }
+}
+
+/* ============================================================================
+   MEJORAS ESTÉTICAS AVANZADAS PARA PÁGINAS PHP
+   ============================================================================ */
+
+/* Animaciones de entrada */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Aplicar animaciones a elementos */
+.hero-pantalones .row,
+.hero-camisas .row,
+.hero-blusas .row,
+.hero-shorts .row {
+    animation: fadeInUp 0.8s ease-out;
+}
+
+.hero-pantalones .col-lg-6:first-child,
+.hero-camisas .col-lg-6:first-child,
+.hero-blusas .col-lg-6:first-child,
+.hero-shorts .col-lg-6:first-child {
+    animation: slideInLeft 0.8s ease-out;
+}
+
+.hero-pantalones .col-lg-6:last-child,
+.hero-camisas .col-lg-6:last-child,
+.hero-blusas .col-lg-6:last-child,
+.hero-shorts .col-lg-6:last-child {
+    animation: slideInRight 0.8s ease-out;
+}
+
+/* Efectos de hover mejorados para tarjetas */
+.producto-card {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.producto-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+    z-index: 1;
+}
+
+.producto-card:hover::before {
+    left: 100%;
+}
+
+.producto-card:hover {
+    transform: translateY(-15px) scale(1.02);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+}
+
+/* Efectos de partículas en hero sections */
+.hero-pantalones::after,
+.hero-camisas::after,
+.hero-blusas::after,
+.hero-shorts::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        radial-gradient(circle at 20% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+/* Mejoras en botones */
+.boton-comprar-simple {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    border: none;
+    color: white;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 25px;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.boton-comprar-simple::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.boton-comprar-simple:hover::before {
+    left: 100%;
+}
+
+.boton-comprar-simple:hover {
+    background: linear-gradient(135deg, #2980b9 0%, #1f618d 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(52, 152, 219, 0.4);
+    color: white;
+}
+
+/* Efectos de texto animado */
+.titulo-productos {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: fadeInUp 0.8s ease-out;
+}
+
+/* Mejoras en badges */
+.badge {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.badge::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.5s;
+}
+
+.badge:hover::before {
+    left: 100%;
+}
+
+/* Efectos de imagen mejorados */
+.hero-image {
+    filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.3));
+    transition: all 0.4s ease;
+}
+
+.hero-image:hover {
+    transform: scale(1.08) rotate(2deg);
+    filter: drop-shadow(0 30px 60px rgba(0, 0, 0, 0.4));
+}
+
+/* Mejoras en características destacadas */
+.caracteristica-item {
+    position: relative;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.caracteristica-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+}
+
+.caracteristica-item:hover::before {
+    transform: scaleX(1);
+}
+
+.caracteristica-item:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+}
+
+/* Efectos de iconos */
+.caracteristica-item i {
+    transition: all 0.3s ease;
+}
+
+.caracteristica-item:hover i {
+    transform: scale(1.2) rotate(5deg);
+}
+
+/* Mejoras en precios */
+.precio-actual-simple {
+    position: relative;
+    display: inline-block;
+}
+
+.precio-actual-simple::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+}
+
+.precio-actual-simple:hover::after {
+    transform: scaleX(1);
+}
+
+/* Efectos de loading para imágenes */
+.producto-imagen {
+    transition: all 0.3s ease;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+.producto-imagen[src] {
+    animation: none;
+    background: none;
+}
+
+/* Mejoras en el overlay de productos */
+.producto-overlay {
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.5) 100%);
+    backdrop-filter: blur(5px);
+}
+
+.producto-overlay .btn {
+    transform: translateY(20px);
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.producto-card:hover .producto-overlay .btn {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+/* Efectos de scroll reveal */
+.reveal {
+    opacity: 0;
+    transform: translateY(50px);
+    transition: all 0.6s ease;
+}
+
+.reveal.active {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Línea decorativa */
+.linea-decorativa {
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    border-radius: 2px;
+    margin-top: 1rem;
+    position: relative;
+}
+
+.linea-decorativa::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 120%;
+    height: 2px;
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    opacity: 0.3;
+    border-radius: 1px;
+}
+
+/* Wrapper de iconos */
+.icono-wrapper {
+    position: relative;
+    display: inline-block;
+    margin-bottom: 1rem;
+}
+
+.icono-wrapper::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, rgba(52, 152, 219, 0.1) 0%, rgba(41, 128, 185, 0.1) 100%);
+    border-radius: 50%;
+    z-index: -1;
+    transition: all 0.3s ease;
+}
+
+.caracteristica-item:hover .icono-wrapper::before {
+    transform: translate(-50%, -50%) scale(1.2);
+    background: linear-gradient(135deg, rgba(52, 152, 219, 0.2) 0%, rgba(41, 128, 185, 0.2) 100%);
+}
+
+/* Mejoras en responsive */
+@media (max-width: 768px) {
+    .hero-pantalones,
+    .hero-camisas,
+    .hero-blusas,
+    .hero-shorts {
+        padding: 2rem 0;
+    }
+    
+    .hero-image {
+        margin-top: 1rem;
+        max-height: 250px;
+    }
+    
+    .producto-card:hover {
+        transform: translateY(-5px) scale(1.01);
+    }
+    
+    .caracteristica-item {
+        margin-bottom: 1.5rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .hero-pantalones,
+    .hero-camisas,
+    .hero-blusas,
+    .hero-shorts {
+        padding: 1.5rem 0;
+    }
+    
+    .hero-image {
+        max-height: 200px;
+    }
+    
+    .titulo-productos {
+        font-size: 1.5rem;
+    }
+    
+    .display-4 {
+        font-size: 1.5rem;
+    }
+    
+    .boton-comprar-simple {
+        padding: 0.6rem 1.2rem;
+        font-size: 0.9rem;
+    }
+}

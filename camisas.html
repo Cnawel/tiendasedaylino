@@ -126,7 +126,9 @@
     
     <script>
         function irADetalleCamisaMujer() {
-            window.location.href = 'detalle-camisa-mujer.html';
+            // Redirigir a detalle-producto.php con ID 1 (Camisa de lino mujer)
+            // NOTA: ID actualizado según nueva estructura de BD
+            window.location.href = 'detalle-producto.php?id=1';
         }
         
         function irADetalle(id) {
@@ -135,7 +137,7 @@
         
         function comprarRapidoMujer() {
             // Redirigir directamente a la página de detalle con intención de compra
-            window.location.href = 'detalle-camisa-mujer.html#comprar';
+            window.location.href = 'detalle-producto.php?id=2#comprar';
         }
         
         function agregarCarritoMujer() {
