@@ -1,0 +1,2571 @@
+/* fuentes */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap');
+
+/* estilos generales */
+
+*{
+    margin: 0;
+    padding: 0;
+}
+
+/* Reducción global del 10% para mejor visualización */
+html {
+    font-size: 90%; /* Reduce el tamaño base de fuente en 10% */
+    scroll-behavior: smooth; /* Scroll suave en toda la página */
+}
+
+body {
+    font-size: 0.9rem; /* Tamaño base reducido */
+}
+
+/* Cursor pointer consistente en elementos clicables */
+a, button, .btn, .tarjeta, input[type="checkbox"], input[type="radio"], label {
+    cursor: pointer;
+}
+
+/* Transiciones suaves globales */
+a, button, .btn, .card, .tarjeta, input, textarea, select {
+    transition: all 0.3s ease;
+}
+
+/* Focus visible para accesibilidad */
+a:focus, button:focus, input:focus, textarea:focus, select:focus {
+    outline: 2px solid #333;
+    outline-offset: 2px;
+}
+
+/* Deshabilitar focus en mouse clicks pero mantener en teclado */
+a:focus:not(:focus-visible), 
+button:focus:not(:focus-visible) {
+    outline: none;
+}
+
+h2{
+    font-family: "Quicksand", sans-serif;
+    font-size: 1.8em; /* Reducido de 2em */
+    font-weight: 300;
+    color: black;
+}
+
+h3{
+    font-family: "Quicksand", sans-serif;
+    font-size: 1.35em; /* Reducido de 1.5em */
+    font-weight: 600;
+    color: #333;
+}
+
+h4{
+    font-family: "Quicksand", sans-serif;
+    font-size: 1.17em; /* Reducido de 1.3em */
+    font-weight: 600;
+    color: #333;
+}
+
+h5{
+    font-family: "Quicksand", sans-serif;
+    font-size: 1em; /* Reducido de 1.1em */
+    font-weight: 600;
+    color: #333;
+}
+
+p{
+    font-family: "DM Sans", sans-serif;
+    font-weight: 300;
+    font-size: 0.95em; /* Reducido ligeramente */
+}
+
+span{
+    font-weight: bold;
+}
+
+.link-nosotros{
+    color: #333;
+    text-decoration: underline;
+    font-weight: 500;
+}
+
+.link-nosotros:hover{
+    color: #000;
+    text-decoration: none;
+}
+
+.secciones{
+    padding: 2.5% 1%; /* Reducido de 3% */
+}
+
+.titulo-productos{
+    font-size: 3em; /* Reducido de 3.5em */
+    font-family:  "Quicksand", sans-serif;
+    color: black;
+}
+
+.productos{
+    padding: 2.5%; /* Reducido de 3% */
+}
+
+/* carousel */
+
+.carousel {
+    max-height: 450px; /* Reducido de 500px */
+    overflow: hidden;
+}
+
+.carousel-inner {
+    height: 100%;
+}
+
+.carousel-item {
+    height: 360px; /* Reducido de 400px */
+}
+
+.carousel-item img {
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+/* Responsive carousel adjustments */
+@media (max-width: 768px) {
+    .carousel {
+        max-height: 270px; /* Reducido de 300px */
+    }
+    
+    .carousel-item {
+        height: 225px; /* Reducido de 250px */
+    }
+}
+
+@media (max-width: 480px) {
+    .carousel {
+        max-height: 225px; /* Reducido de 250px */
+    }
+    
+    .carousel-item {
+        height: 180px; /* Reducido de 200px */
+    }
+}
+
+/* header */
+
+.nav{
+    border-bottom: 1px solid black;
+}
+
+.nombre-tienda{
+    font-weight: bold;
+    font-family: "DM Sans", sans-serif;
+    font-size: 1em;
+    color: black;
+}
+
+.lista-nav{
+    align-items: center;
+}
+
+.link-tienda{
+    color: black!important;
+    font-weight: 300;
+    font-family: "Quicksand", sans-serif;
+    font-size: 1em;
+}
+
+
+/* seccion productos */
+
+.seccion-productos{
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 3.5rem 0; /* Reducido de 4rem */
+}
+
+.descripcion-productos {
+    font-family: "DM Sans", sans-serif;
+    font-size: 1em; /* Reducido de 1.1em */
+    color: #666;
+    max-width: 550px; /* Reducido de 600px */
+    margin: 0 auto;
+}
+
+.tarjeta{
+    text-align: center;
+    border: none;
+    border-radius: 15px;
+    transition: all 0.3s ease;
+    overflow: hidden;
+    background: white;
+}
+
+.tarjeta:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+}
+
+.card-img-wrapper {
+    position: relative;
+    overflow: hidden;
+    height: 225px; /* Reducido de 250px */
+    background-color: #f5f5f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.card-img-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* Cambiado de cover a contain para no recortar */
+    transition: transform 0.3s ease;
+}
+
+.tarjeta:hover .card-img-wrapper img {
+    transform: scale(1.05);
+}
+
+.card-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.tarjeta:hover .card-overlay {
+    opacity: 1;
+}
+
+.overlay-text {
+    color: white;
+    font-family: "Quicksand", sans-serif;
+    font-weight: 600;
+    font-size: 1.1em;
+}
+
+.titulo-tarjeta{
+    font-family: "Quicksand", sans-serif;
+    font-size: 1.17em; /* Reducido de 1.3em */
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.texto-tarjeta {
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.85em; /* Reducido de 0.9em */
+    color: #666;
+    line-height: 1.4;
+}
+
+.boton-tarjeta{
+    font-family: "Quicksand", sans-serif!important;
+    font-size: 0.88em!important; /* Reducido de 0.95em */
+    font-weight: 600!important;
+    background-color: #2c3e50!important;
+    border: none!important;
+    border-radius: 22px!important; /* Reducido de 25px */
+    padding: 9px 22px!important; /* Reducido de 10px 25px */
+    transition: all 0.3s ease!important;
+    color: white!important;
+}
+
+.boton-tarjeta:hover {
+    background-color: #34495e!important;
+    transform: translateY(-2px);
+    color: white!important;
+}
+
+.boton-tarjeta:focus {
+    background-color: #34495e!important;
+    color: white!important;
+    box-shadow: 0 0 0 0.2rem rgba(44, 62, 80, 0.25)!important;
+}
+
+/* seccion contacto */
+
+.seccion-contacto {
+    background-color: #f8f9fa;
+    padding: 3.5rem 0; /* Reducido de 4rem */
+}
+
+.info-contacto {
+    background: white;
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+}
+
+.info-item h5 {
+    font-family: "Quicksand", sans-serif;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.info-item p {
+    font-family: "DM Sans", sans-serif;
+    color: #666;
+    margin-bottom: 0;
+}
+
+.formulario-container {
+    background: white;
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+}
+
+.formulario{
+    width: 100%;
+    background: transparent;
+    color: #333;
+    padding: 0;
+    border-radius: 0;
+    margin: 0;
+}
+
+.label-contacto{
+    font-family: "Quicksand", sans-serif;
+    font-size: 0.95em;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.texto-contacto{
+    color: #666!important;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.85em;
+    text-align: center;
+}
+
+.input-contacto{
+    font-family: "DM Sans", sans-serif;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 12px 15px;
+    transition: all 0.3s ease;
+    background-color: #fafafa;
+}
+
+.input-contacto:focus {
+    border-color: #333;
+    background-color: white;
+    box-shadow: 0 0 0 0.2rem rgba(51, 51, 51, 0.1);
+}
+
+.boton-formulario{
+    background: linear-gradient(135deg, #333 0%, #555 100%)!important;
+    font-family: "Quicksand", sans-serif!important;
+    font-weight: 600!important;
+    color: white!important;
+    border: none!important;
+    border-radius: 25px!important;
+    padding: 12px 30px!important;
+    font-size: 1em!important;
+    transition: all 0.3s ease!important;
+}
+
+.boton-formulario:hover {
+    background: linear-gradient(135deg, #555 0%, #777 100%)!important;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+.invalid-feedback {
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.8em;
+}
+
+@media (max-width: 768px) {
+    .seccion-contacto .container {
+        padding: 0 15px;
+    }
+    
+    .formulario-container,
+    .info-contacto {
+        padding: 1.5rem;
+    }
+}
+
+/* producto cards */
+
+.producto-card {
+    border-radius: 15px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.producto-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+}
+
+.producto-img-wrapper {
+    height: 360px; /* Reducido de 400px */
+    overflow: hidden;
+    position: relative;
+}
+
+.producto-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.producto-card:hover .producto-img {
+    transform: scale(1.05);
+}
+
+.producto-features {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 8px;
+    border-left: 4px solid #333;
+}
+
+.producto-tallas .badge {
+    border: 1px solid #ddd;
+    font-size: 0.8em;
+    padding: 5px 8px;
+}
+
+.precio-actual {
+    font-size: 1.35em; /* Reducido de 1.5em */
+    font-weight: bold;
+    color: #333;
+    font-family: "Quicksand", sans-serif;
+}
+
+.precio-original {
+    font-size: 0.95em; /* Reducido de 1em */
+}
+
+.cta-section {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 1px solid #dee2e6;
+}
+
+@media (max-width: 768px) {
+    .producto-img-wrapper {
+        height: 250px;
+    }
+    
+    .producto-card .row {
+        flex-direction: column;
+    }
+    
+    .producto-card .col-md-6:first-child {
+        margin-bottom: 0;
+    }
+}
+
+/* Estilos para página de detalle de producto */
+
+.detalle-producto {
+    background-color: #f8f9fa;
+    min-height: 100vh;
+    padding: 2rem 0;
+}
+
+.breadcrumb {
+    background-color: transparent;
+    padding: 0;
+}
+
+.breadcrumb a {
+    color: #333;
+    text-decoration: none;
+}
+
+.breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+.producto-galeria .carousel {
+    border-radius: 15px;
+    overflow: hidden;
+    background: white;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.producto-imagen-principal {
+    height: 1200px; /* Imagen muy grande - formato vertical */
+    width: 100%;
+    object-fit: contain !important; /* NUNCA recortar imágenes */
+    object-position: center;
+    background-color: #f9f9f9;
+    border-radius: 10px;
+    padding: 15px; /* Espacio interno para que se vea completa */
+}
+
+.producto-thumbnail-vertical {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1/1;
+    object-fit: cover;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    opacity: 0.6;
+    border: 2px solid transparent;
+}
+
+.producto-thumbnail-vertical.active {
+    opacity: 1;
+    border-color: #333;
+    transform: scale(1.05);
+}
+
+.producto-thumbnail-vertical:hover {
+    opacity: 1;
+    border-color: #666;
+}
+
+.thumbnails-vertical {
+    position: sticky;
+    top: 20px;
+}
+
+/* Para móviles - miniaturas debajo */
+.producto-thumbnail {
+    cursor: pointer !important; /* Cursor de mano - clickeable */
+    transition: all 0.3s ease;
+    opacity: 0.7;
+    object-fit: contain;
+    background-color: #f9f9f9;
+    height: 80px;
+}
+
+.producto-thumbnail.active {
+    opacity: 1;
+    border-color: #333 !important;
+    border-width: 3px !important;
+}
+
+.producto-thumbnail:hover {
+    opacity: 1;
+    transform: scale(1.05);
+}
+
+.producto-info {
+    background: white;
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    height: 100%;
+}
+
+.producto-titulo {
+    font-family: "Quicksand", sans-serif;
+    font-weight: 600;
+    color: #333;
+}
+
+.producto-precio .precio-actual {
+    font-size: 2.25em; /* Reducido de 2.5em */
+    font-weight: bold;
+    color: #333;
+    font-family: "Quicksand", sans-serif;
+}
+
+.producto-precio .precio-original {
+    font-size: 1.35em; /* Reducido de 1.5em */
+    text-decoration: line-through;
+    color: #999;
+}
+
+.descuento-badge {
+    background-color: #dc3545;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 18px; /* Reducido de 20px */
+    font-size: 0.85em; /* Reducido de 0.9em */
+    font-weight: bold;
+}
+
+.producto-descripcion-corta {
+    font-family: "DM Sans", sans-serif;
+    font-size: 1em; /* Reducido de 1.1em */
+    color: #666;
+    line-height: 1.6;
+}
+
+.tallas-selector .btn-check:checked + .btn {
+    background-color: #333;
+    border-color: #333;
+    color: white;
+}
+
+.colores-selector .btn-check:checked + .btn {
+    background-color: #333;
+    border-color: #333;
+    color: white;
+}
+
+.cantidad-selector input {
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+}
+
+/* Stock info debajo de cantidad */
+.stock-info {
+    margin-top: 0.5rem;
+}
+
+.stock-info small {
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.stock-info .text-success {
+    color: #28a745 !important;
+}
+
+.stock-info .text-danger {
+    color: #dc3545 !important;
+}
+
+.stock-info .text-warning {
+    color: #ffc107 !important;
+}
+
+/* Banner de información detallada - Estilo anuncio */
+.producto-info-adicional-banner {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 15px;
+    padding: 2rem;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    border: 1px solid #dee2e6;
+    margin-bottom: 2rem;
+}
+
+.producto-info-adicional-banner .accordion {
+    --bs-accordion-bg: transparent;
+    --bs-accordion-border-color: transparent;
+}
+
+.producto-info-adicional-banner .accordion-item {
+    background: rgba(255,255,255,0.8);
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 10px !important;
+    margin-bottom: 1rem;
+    backdrop-filter: blur(10px);
+}
+
+.producto-info-adicional-banner .accordion-button {
+    background: rgba(255,255,255,0.9);
+    border: none;
+    border-radius: 10px !important;
+    font-weight: 600;
+    color: #333;
+    padding: 1.25rem 1.5rem;
+    font-size: 1rem;
+}
+
+.producto-info-adicional-banner .accordion-button:not(.collapsed) {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(0,123,255,0.3);
+}
+
+.producto-info-adicional-banner .accordion-button:focus {
+    box-shadow: 0 0 0 0.25rem rgba(0,123,255,0.25);
+}
+
+.producto-info-adicional-banner .accordion-body {
+    background: rgba(255,255,255,0.95);
+    border-radius: 0 0 10px 10px;
+    padding: 1.5rem;
+    border-top: 1px solid rgba(0,0,0,0.1);
+}
+
+.producto-info-adicional-banner .accordion-button i {
+    font-size: 1.1rem;
+    margin-right: 0.75rem;
+}
+
+/* =============================
+   UX Mejorada - Opciones de Selección
+   ============================= */
+
+.opciones-seleccion-mejoradas {
+    background: rgba(255,255,255,0.95);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    border: 1px solid #e9ecef;
+    margin-bottom: 1.5rem;
+}
+
+.selector-mejorado {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.selector-label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.75rem;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+}
+
+.selector-label i {
+    color: #007bff;
+    font-size: 1rem;
+}
+
+.opciones-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.opcion-btn {
+    background: #f8f9fa;
+    border: 2px solid #e9ecef;
+    color: #333;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 40px;
+    text-align: center;
+}
+
+.opcion-btn:hover {
+    background: #e9ecef;
+    border-color: #007bff;
+    color: #007bff;
+}
+
+.btn-check:checked + .opcion-btn {
+    background: #007bff;
+    border-color: #007bff;
+    color: white;
+    box-shadow: 0 2px 8px rgba(0,123,255,0.3);
+}
+
+.cantidad-selector-mejorado {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.btn-cantidad {
+    width: 35px;
+    height: 35px;
+    border: 2px solid #e9ecef;
+    background: #f8f9fa;
+    color: #333;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-cantidad:hover {
+    background: #007bff;
+    border-color: #007bff;
+    color: white;
+}
+
+.input-cantidad {
+    width: 60px;
+    height: 35px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.input-cantidad:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+    outline: none;
+}
+
+.stock-info-mejorado {
+    text-align: center;
+    padding: 0.5rem;
+    background: rgba(248,249,250,0.8);
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+}
+
+.stock-info-mejorado span {
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.selector-help {
+    margin-top: auto;
+}
+
+.selector-help a {
+    color: #6c757d;
+    text-decoration: none;
+    font-size: 0.75rem;
+    transition: color 0.3s ease;
+}
+
+.selector-help a:hover {
+    color: #007bff;
+}
+
+.productos-relacionados {
+    background: white;
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+/* Estilos para lista de productos simplificada */
+
+.producto-item-simple {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.producto-item-simple:hover {
+    transform: translateY(-5px);
+}
+
+.producto-img-lista {
+    height: 270px; /* Reducido de 300px */
+    object-fit: contain; /* Cambiado de cover a contain para no recortar */
+    object-position: center;
+    background-color: #f9f9f9;
+}
+
+.texto-tarjeta-simple {
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.85em; /* Reducido de 0.9em */
+    color: #666;
+    line-height: 1.4;
+}
+
+.precio-simple {
+    font-family: "Quicksand", sans-serif;
+}
+
+.precio-actual-simple {
+    font-size: 1.17em; /* Reducido de 1.3em */
+    font-weight: bold;
+    color: #333;
+}
+
+.precio-original-simple {
+    font-size: 0.95em; /* Reducido de 1em */
+    text-decoration: line-through;
+    color: #999;
+}
+
+.botones-producto {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.boton-comprar-simple {
+    background-color: #333 !important;
+    border-color: #333 !important;
+    color: white !important;
+    font-family: "Quicksand", sans-serif;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 20px;
+    transition: all 0.3s ease;
+}
+
+.boton-comprar-simple:hover {
+    background-color: #555 !important;
+    transform: translateY(-2px);
+}
+
+.boton-carrito-simple {
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+    color: white !important;
+    padding: 8px 12px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.boton-carrito-simple:hover {
+    background-color: #5a6268 !important;
+    transform: translateY(-2px);
+}
+
+/* Responsive para páginas de producto */
+@media (max-width: 768px) {
+    .producto-imagen-principal {
+        height: 600px; /* Grande también en móviles */
+    }
+    
+    .producto-info {
+        margin-top: 1rem;
+    }
+    
+    .producto-precio .precio-actual {
+        font-size: 1.8em;
+    }
+    
+    .producto-img-lista {
+        height: 180px;
+    }
+    
+    .detalle-producto {
+        padding: 0.9rem 0;
+    }
+    
+    .thumbnails-vertical {
+        position: relative;
+        top: 0;
+    }
+    
+    /* Stock info centrado en móviles */
+    .stock-info {
+        text-align: center;
+    }
+    
+    /* Banner responsive en móviles */
+    .producto-info-adicional-banner {
+        padding: 1.5rem 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .producto-info-adicional-banner .accordion-button {
+        padding: 1rem 1.25rem;
+        font-size: 0.9rem;
+    }
+    
+    .producto-info-adicional-banner .accordion-body {
+        padding: 1.25rem;
+    }
+    
+    /* Opciones mejoradas responsive */
+    .opciones-seleccion-mejoradas {
+        padding: 1rem;
+    }
+    
+    .selector-mejorado {
+        margin-bottom: 1rem;
+    }
+    
+    .opciones-grid {
+        justify-content: center;
+    }
+    
+    .cantidad-selector-mejorado {
+        justify-content: center;
+    }
+}
+
+@media (min-width: 992px) {
+    .producto-imagen-principal {
+        height: 1200px; /* Muy grande en desktop - formato vertical */
+    }
+}
+
+@media (min-width: 1200px) {
+    .producto-imagen-principal {
+        height: 1400px; /* Extra grande en pantallas grandes */
+    }
+}
+
+@media (min-width: 1400px) {
+    .producto-imagen-principal {
+        height: 1600px; /* Máximo en pantallas muy grandes */
+    }
+}
+
+/* footer */
+
+footer{
+    background-color: #d9d9d9;
+    text-align: center;
+    padding: 2%;
+}
+
+footer a {
+    text-decoration: none;
+}
+
+.red-social{
+    padding: 1%;
+}
+
+h6{
+    font-family: "Quicksand", sans-serif;
+    font-size: 1em!important;
+    color: black!important;
+    margin-top: 2%!important;
+}
+
+/* =============================
+   FOOTER COMPLETO - Nuevo diseño profesional
+   ============================= */
+
+.footer-completo {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    color: #ecf0f1;
+    margin-top: 4rem;
+    position: relative;
+}
+
+.footer-completo::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #3498db, #2ecc71, #f39c12, #e74c3c);
+}
+
+.footer-titulo {
+    font-family: "Quicksand", sans-serif;
+    font-size: 1.1em;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.footer-texto {
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.9em;
+    color: #bdc3c7;
+    line-height: 1.6;
+}
+
+.footer-texto-small {
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.85em;
+    color: #bdc3c7;
+}
+
+.footer-lista {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.footer-link {
+    color: #bdc3c7;
+    text-decoration: none;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.9em;
+    transition: all 0.3s ease;
+    display: inline-block;
+}
+
+.footer-link:hover {
+    color: #3498db;
+    transform: translateX(5px);
+}
+
+.footer-link i {
+    color: #95a5a6;
+    transition: color 0.3s ease;
+}
+
+.footer-link:hover i {
+    color: #3498db;
+}
+
+.footer-link-small {
+    color: #95a5a6;
+    text-decoration: none;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.85em;
+    transition: all 0.3s ease;
+}
+
+.footer-link-small:hover {
+    color: #fff;
+    text-decoration: underline;
+}
+
+.footer-redes {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.footer-red-social {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    color: #ecf0f1;
+    text-decoration: none;
+    font-size: 1.1em;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.footer-red-social:hover {
+    background: #3498db;
+    color: #fff;
+    transform: translateY(-3px);
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+    border-color: #3498db;
+}
+
+.footer-red-social i {
+    margin: 0;
+}
+
+.footer-divider {
+    border: 0;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 0;
+}
+
+.footer-copyright {
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.85em;
+    color: #95a5a6;
+}
+
+/* Responsive footer */
+@media (max-width: 768px) {
+    .footer-completo .col-md-6 {
+        text-align: center !important;
+    }
+    
+    .footer-titulo {
+        font-size: 1em;
+    }
+    
+    .footer-redes {
+        justify-content: center;
+    }
+    
+    .footer-link {
+        font-size: 0.85em;
+    }
+}
+
+/* =============================
+   Estilos para páginas de autenticación (login, register)
+   ============================= */
+
+.auth-page {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    display: flex;
+    align-items: center;
+    padding: 2rem 0;
+}
+
+.auth-container {
+    max-width: 450px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.auth-card {
+    background: white;
+    border-radius: 18px; /* Reducido de 20px */
+    padding: 2.7rem 2.25rem; /* Reducido de 3rem 2.5rem */
+    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.auth-card:hover {
+    box-shadow: 0 15px 50px rgba(0,0,0,0.15);
+}
+
+.auth-logo {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.auth-logo h2 {
+    font-family: "DM Sans", sans-serif;
+    font-weight: bold;
+    font-size: 1.8em; /* Reducido de 2em */
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.auth-logo p {
+    font-family: "DM Sans", sans-serif;
+    color: #666;
+    font-size: 0.88em; /* Reducido de 0.95em */
+}
+
+.auth-title {
+    font-family: "Quicksand", sans-serif;
+    font-size: 1.62em; /* Reducido de 1.8em */
+    font-weight: 600;
+    color: #333;
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.auth-form .form-label {
+    font-family: "Quicksand", sans-serif;
+    font-weight: 600;
+    color: #333;
+    font-size: 0.95em;
+    margin-bottom: 0.5rem;
+}
+
+.auth-form .form-control {
+    font-family: "DM Sans", sans-serif;
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    padding: 12px 16px;
+    transition: all 0.3s ease;
+    background-color: #fafafa;
+}
+
+.auth-form .form-control:focus {
+    border-color: #333;
+    background-color: white;
+    box-shadow: 0 0 0 0.2rem rgba(51, 51, 51, 0.1);
+}
+
+.auth-btn {
+    background: linear-gradient(135deg, #333 0%, #555 100%)!important;
+    font-family: "Quicksand", sans-serif!important;
+    font-weight: 600!important;
+    color: white!important;
+    border: none!important;
+    border-radius: 25px!important;
+    padding: 12px 30px!important;
+    font-size: 1em!important;
+    transition: all 0.3s ease!important;
+    width: 100%;
+}
+
+.auth-btn:hover {
+    background: linear-gradient(135deg, #555 0%, #777 100%)!important;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+.auth-links {
+    text-align: center;
+    margin-top: 1.5rem;
+}
+
+.auth-links a {
+    color: #333;
+    text-decoration: none;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.9em;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.auth-links a:hover {
+    color: #555;
+    text-decoration: underline;
+}
+
+.auth-divider {
+    text-align: center;
+    margin: 1rem 0;
+    color: #999;
+    font-size: 0.85em;
+}
+
+.alert-custom {
+    border-radius: 10px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.9em;
+    border: none;
+    padding: 12px 16px;
+}
+
+.alert-danger-custom {
+    background-color: #fee;
+    color: #c33;
+}
+
+.alert-success-custom {
+    background-color: #efe;
+    color: #3c3;
+}
+
+/* =============================
+   Estilos mejorados para UX en formularios de autenticación
+   ============================= */
+
+.password-input-wrapper {
+    position: relative;
+}
+
+.password-input-wrapper input {
+    padding-right: 45px; /* Espacio para el botón */
+}
+
+.btn-toggle-password {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 5px;
+    transition: all 0.3s ease;
+    z-index: 10;
+}
+
+.btn-toggle-password:hover {
+    color: #333;
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.btn-toggle-password:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(51, 51, 51, 0.2);
+}
+
+.btn-toggle-password i {
+    font-size: 1em;
+}
+
+/* Medidor de fortaleza de contraseña */
+.password-strength {
+    margin-top: 8px;
+}
+
+.strength-meter {
+    height: 5px;
+    background-color: #e9ecef;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+
+.strength-meter-fill {
+    height: 100%;
+    width: 0%;
+    transition: all 0.3s ease;
+    border-radius: 10px;
+}
+
+.strength-text {
+    display: block;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.8em;
+    font-weight: 600;
+    margin-top: 3px;
+}
+
+/* Validación de formularios mejorada */
+.auth-form .form-control.is-valid {
+    border-color: #28a745;
+    padding-right: 45px;
+    background-image: none;
+}
+
+.auth-form .form-control.is-invalid {
+    border-color: #dc3545;
+    padding-right: 45px;
+    background-image: none;
+}
+
+.auth-form .valid-feedback {
+    display: none;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.8em;
+    color: #28a745;
+    margin-top: 5px;
+}
+
+.auth-form .form-control.is-valid ~ .valid-feedback {
+    display: block;
+}
+
+.auth-form .invalid-feedback {
+    display: none;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.8em;
+    color: #dc3545;
+    margin-top: 5px;
+}
+
+.auth-form .form-control.is-invalid ~ .invalid-feedback,
+.auth-form .form-check-input.is-invalid ~ .invalid-feedback {
+    display: block;
+}
+
+/* Animación del botón de submit */
+.auth-btn .btn-text,
+.auth-btn .btn-loading {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.auth-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* Estilos para checkbox de términos */
+.auth-form .form-check-input {
+    cursor: pointer;
+    border: 2px solid #e9ecef;
+    width: 1.2em;
+    height: 1.2em;
+}
+
+.auth-form .form-check-input:checked {
+    background-color: #333;
+    border-color: #333;
+}
+
+.auth-form .form-check-input:focus {
+    border-color: #333;
+    box-shadow: 0 0 0 0.2rem rgba(51, 51, 51, 0.25);
+}
+
+.auth-form .form-check-label {
+    cursor: pointer;
+    user-select: none;
+}
+
+/* Iconos en labels */
+.auth-form .form-label i {
+    color: #666;
+    font-size: 0.9em;
+}
+
+/* Tooltips y mensajes de ayuda */
+.auth-form .form-text {
+    font-size: 0.8em;
+    color: #6c757d;
+    margin-top: 5px;
+    display: block;
+}
+
+/* Animaciones suaves */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.auth-card {
+    animation: fadeInUp 0.5s ease;
+}
+
+/* Feedback visual para acciones del usuario */
+.auth-form input:focus,
+.auth-form .btn-toggle-password:focus {
+    transition: all 0.2s ease;
+}
+
+/* Mejoras de accesibilidad */
+.auth-form input[type="email"]:focus,
+.auth-form input[type="password"]:focus {
+    outline: none;
+}
+
+/* Loading spinner */
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+    border-width: 0.15em;
+}
+
+/* =============================
+   Mejoras UX Simples - Globales
+   ============================= */
+
+/* Botón volver arriba - Simple y discreto */
+.btn-scroll-top {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 45px;
+    height: 45px;
+    background-color: #333;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 1.2em;
+    cursor: pointer;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.btn-scroll-top.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.btn-scroll-top:hover {
+    background-color: #555;
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+}
+
+.btn-scroll-top:active {
+    transform: translateY(-1px);
+}
+
+/* Filtros mejorados del catálogo */
+.filtro-categoria {
+    position: relative;
+    overflow: hidden;
+}
+
+.filtro-categoria.active {
+    background-color: #333 !important;
+    color: white !important;
+    font-weight: 600;
+}
+
+.filtro-categoria:hover {
+    background-color: #333 !important;
+    color: white !important;
+}
+
+/* Estado vacío mejorado */
+.empty-state {
+    padding: 4rem 2rem;
+    text-align: center;
+}
+
+.empty-state-icon {
+    font-size: 4em;
+    color: #ddd;
+    margin-bottom: 1rem;
+}
+
+.empty-state-text {
+    color: #999;
+    font-size: 1.1em;
+    margin-bottom: 1.5rem;
+}
+
+/* Loading overlay simple */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.9);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loading-overlay.show {
+    display: flex;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #333;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Indicador de página activa en navbar */
+.nav-link.active-page {
+    font-weight: 600;
+    color: #333 !important;
+    border-bottom: 2px solid #333;
+}
+
+/* Mejora visual en hover de links */
+.link-tienda {
+    position: relative;
+}
+
+.link-tienda::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 2px;
+    bottom: 0;
+    left: 50%;
+    background-color: #333;
+    transition: all 0.3s ease;
+    transform: translateX(-50%);
+}
+
+.link-tienda:hover::after {
+    width: 80%;
+}
+
+/* Feedback visual en botones */
+.btn:active, .boton-tarjeta:active, .auth-btn:active {
+    transform: scale(0.97);
+}
+
+/* Tooltip simple para iconos */
+[data-tooltip] {
+    position: relative;
+}
+
+[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #333;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 0.8em;
+    white-space: nowrap;
+    margin-bottom: 5px;
+    z-index: 1000;
+}
+
+/* =============================
+   Skeleton Loaders - Efecto Shimmer Mejorado
+   ============================= */
+.skeleton {
+    background: linear-gradient(90deg, 
+        #f0f0f0 0%, 
+        #f0f0f0 40%, 
+        #e8e8e8 50%, 
+        #f0f0f0 60%, 
+        #f0f0f0 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.8s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Pulse loading para elementos específicos */
+.pulse-loading {
+    animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* Mejora en tarjetas - efecto subtle */
+.tarjeta {
+    position: relative;
+}
+
+.tarjeta::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    border-radius: 15px;
+}
+
+.tarjeta:hover::before {
+    opacity: 1;
+}
+
+/* Responsive: Botón volver arriba más pequeño en móvil */
+@media (max-width: 768px) {
+    .btn-scroll-top {
+        width: 40px;
+        height: 40px;
+        bottom: 20px;
+        right: 20px;
+        font-size: 1em;
+    }
+}
+
+/* =============================
+   MEJORAS UX ADICIONALES - Efectos Sutiles pero Efectivos
+   ============================= */
+
+/* Efecto Ripple en botones (sin JavaScript) */
+.btn, .boton-tarjeta, .auth-btn, .boton-formulario {
+    position: relative;
+    overflow: hidden;
+}
+
+.btn::before, .boton-tarjeta::before, .auth-btn::before, .boton-formulario::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.btn:active::before, .boton-tarjeta:active::before, 
+.auth-btn:active::before, .boton-formulario:active::before {
+    width: 300px;
+    height: 300px;
+}
+
+/* Hover mejorado para tarjetas de productos */
+.tarjeta {
+    position: relative;
+    overflow: hidden;
+}
+
+.tarjeta::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+}
+
+.tarjeta:hover::after {
+    opacity: 1;
+}
+
+/* Animación de entrada suave para elementos */
+.fade-in {
+    animation: fadeIn 0.6s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Efecto de brillo en iconos del footer al hover */
+.footer-red-social {
+    position: relative;
+    overflow: hidden;
+}
+
+.footer-red-social::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent);
+    transform: rotate(45deg);
+    transition: all 0.5s;
+}
+
+.footer-red-social:hover::before {
+    left: 100%;
+}
+
+/* Indicador visual de enlace clickeable mejorado */
+.card-img-wrapper, .producto-img-wrapper {
+    cursor: pointer;
+    position: relative;
+}
+
+.card-img-wrapper::before, .producto-img-wrapper::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.05) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.tarjeta:hover .card-img-wrapper::before,
+.producto-card:hover .producto-img-wrapper::before {
+    opacity: 1;
+}
+
+/* Mejora en inputs - efecto de focus más profesional */
+.input-contacto, .auth-form .form-control, .form-control {
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.input-contacto:focus, .auth-form .form-control:focus, .form-control:focus {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Animación suave para badges/pills */
+.badge, .rounded-pill {
+    animation: badgePop 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes badgePop {
+    0% {
+        transform: scale(0);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Efecto de typing para títulos principales (opcional) */
+.typing-effect {
+    overflow: hidden;
+    border-right: 3px solid #333;
+    white-space: nowrap;
+    animation: typing 3.5s steps(40, end), blink-caret 0.75s step-end infinite;
+}
+
+@keyframes typing {
+    from { width: 0; }
+    to { width: 100%; }
+}
+
+@keyframes blink-caret {
+    from, to { border-color: transparent; }
+    50% { border-color: #333; }
+}
+
+/* Mejora en transiciones del navbar al hacer scroll */
+.navbar {
+    transition: all 0.3s ease;
+}
+
+.navbar.scrolled {
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    background-color: rgba(255,255,255,0.98) !important;
+}
+
+/* Efecto de shine en botones principales */
+.boton-tarjeta, .auth-btn, .boton-formulario {
+    position: relative;
+    overflow: hidden;
+}
+
+.boton-tarjeta::after, .auth-btn::after, .boton-formulario::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    bottom: -50%;
+    left: -50%;
+    background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%);
+    transform: rotateZ(60deg) translate(-5em, 7.5em);
+    animation: sheen 6s infinite;
+}
+
+@keyframes sheen {
+    0% {
+        transform: rotateZ(60deg) translate(-5em, 7.5em);
+    }
+    50% {
+        transform: rotateZ(60deg) translate(1em, -9em);
+    }
+    100% {
+        transform: rotateZ(60deg) translate(-5em, 7.5em);
+    }
+}
+
+/* Desactivar animación de shine al hacer hover para no saturar */
+.boton-tarjeta:hover::after, .auth-btn:hover::after, .boton-formulario:hover::after {
+    animation: none;
+}
+
+/* Smooth page transitions */
+body {
+    animation: pageLoad 0.5s ease-in;
+}
+
+@keyframes pageLoad {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Mejora en carrusel - transición más suave */
+.carousel-item {
+    transition: transform 0.8s ease-in-out, opacity 0.8s ease-in-out;
+}
+
+/* Focus visible mejorado para accesibilidad */
+*:focus-visible {
+    outline: 2px solid #3498db;
+    outline-offset: 3px;
+    border-radius: 4px;
+    transition: outline 0.2s ease;
+}
+
+/* Estados de hover para links - efecto underline animado */
+.footer-link {
+    position: relative;
+    display: inline-block;
+}
+
+.footer-link::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 2px;
+    bottom: -2px;
+    left: 0;
+    background-color: #3498db;
+    transition: width 0.3s ease;
+}
+
+.footer-link:hover::after {
+    width: 100%;
+}
+
+/* Mejora visual en select/dropdown */
+select.form-control, select.input-contacto {
+    background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"%3e%3cpolyline points="6 9 12 15 18 9"%3e%3c/polyline%3e%3c/svg%3e');
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    padding-right: 40px;
+}
+
+/* Indicador de carga en imágenes antes de cargar */
+img {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+}
+
+img[src] {
+    background: none;
+}
+
+
+/* =============================
+   Estilos para página de perfil
+   ============================= */
+
+.perfil-page {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 2.7rem 0; /* Reducido de 3rem */
+}
+
+.perfil-header {
+    text-align: center;
+    margin-bottom: 2.7rem; /* Reducido de 3rem */
+}
+
+.perfil-header h2 {
+    font-family: "Quicksand", sans-serif;
+    font-size: 2.25em; /* Reducido de 2.5em */
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.perfil-header p {
+    font-family: "DM Sans", sans-serif;
+    color: #666;
+    font-size: 1em; /* Reducido de 1.1em */
+}
+
+.perfil-card {
+    background: white;
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    margin-bottom: 2rem;
+    transition: all 0.3s ease;
+}
+
+.perfil-card:hover {
+    box-shadow: 0 15px 40px rgba(0,0,0,0.12);
+    transform: translateY(-5px);
+}
+
+.perfil-card h4 {
+    font-family: "Quicksand", sans-serif;
+    font-size: 1.5em;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.perfil-info-item {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background-color: #fafafa;
+    border-radius: 10px;
+    border-left: 4px solid #333;
+}
+
+.perfil-info-item strong {
+    font-family: "Quicksand", sans-serif;
+    font-weight: 600;
+    color: #333;
+    display: block;
+    margin-bottom: 0.3rem;
+    font-size: 0.95em;
+}
+
+.perfil-info-item span {
+    font-family: "DM Sans", sans-serif;
+    color: #666;
+    font-size: 1em;
+}
+
+.perfil-acciones-list {
+    list-style: none;
+    padding: 0;
+}
+
+.perfil-acciones-list li {
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    background-color: #fafafa;
+    border-radius: 10px;
+    font-family: "DM Sans", sans-serif;
+    color: #999;
+    font-style: italic;
+    border-left: 3px solid #ddd;
+}
+
+.btn-perfil-logout {
+    background-color: #333!important;
+    border: 2px solid #333!important;
+    color: white!important;
+    font-family: "Quicksand", sans-serif;
+    font-weight: 600;
+    padding: 10px 25px;
+    border-radius: 20px;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-perfil-logout:hover {
+    background-color: white!important;
+    color: #333!important;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+.btn-perfil-home {
+    background-color: white!important;
+    border: 2px solid #333!important;
+    color: #333!important;
+    font-family: "Quicksand", sans-serif;
+    font-weight: 600;
+    padding: 10px 25px;
+    border-radius: 20px;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-perfil-home:hover {
+    background-color: #333!important;
+    color: white!important;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+/* =============================
+   Detalle Producto - Diseño Profesional Limpio
+   ============================= */
+
+/* Galería principal */
+.producto-galeria-profesional {
+    background: white;
+    border-radius: 15px;
+    padding: 2rem;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    height: 100%;
+}
+
+/* Thumbnails verticales limpios */
+.thumbnails-vertical-limpio {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: 100%;
+}
+
+.thumbnail-mini {
+    position: relative;
+    width: 100%;
+    height: 70px;
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.thumbnail-mini:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.thumbnail-mini.active {
+    border-color: #007bff;
+}
+
+.img-thumbnail-mini {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+/* Indicador de reel en imagen principal */
+.reel-indicator {
+    position: absolute;
+    bottom: 15px;
+    right: 15px;
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    backdrop-filter: blur(10px);
+}
+
+.reel-indicator i {
+    font-size: 0.8rem;
+}
+
+/* Imagen principal limpia */
+.imagen-principal-limpia {
+    position: relative;
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 600px;
+    overflow: hidden;
+}
+
+.img-principal {
+    max-width: 100%;
+    max-height: 750px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+
+/* Responsive */
+@media (max-width: 992px) {
+    .producto-galeria-profesional,
+    .producto-info {
+        padding: 1.5rem;
+    }
+    
+    .thumbnails-vertical-limpio {
+        flex-direction: row;
+        overflow-x: auto;
+        gap: 8px;
+        margin-bottom: 15px;
+    }
+    
+    .thumbnail-mini {
+        min-width: 60px;
+        height: 60px;
+        flex-shrink: 0;
+    }
+    
+    .imagen-principal-limpia {
+        min-height: 450px;
+        margin-bottom: 15px;
+    }
+    
+    .img-principal {
+        max-height: 550px;
+    }
+    
+    .reel-indicator {
+        bottom: 10px;
+        right: 10px;
+        padding: 6px 10px;
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .producto-galeria-profesional,
+    .producto-info {
+        padding: 1rem;
+    }
+    
+    .imagen-principal-limpia {
+        min-height: 350px;
+        padding: 1rem;
+    }
+    
+    .img-principal {
+        max-height: 450px;
+    }
+    
+    .reel-indicator {
+        bottom: 8px;
+        right: 8px;
+        padding: 5px 8px;
+        font-size: 0.75rem;
+    }
+    
+    .reel-indicator i {
+        font-size: 0.7rem;
+    }
+}
+
+/* =============================
+   Estilos mejorados para detalle-producto
+   ============================= */
+
+.detalle-producto-page {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 2rem 0;
+}
+
+.detalle-breadcrumb {
+    background-color: transparent;
+    padding: 1rem 0;
+    margin-bottom: 2rem;
+}
+
+.detalle-breadcrumb a {
+    color: #666;
+    text-decoration: none;
+    font-family: "DM Sans", sans-serif;
+    transition: color 0.3s ease;
+}
+
+.detalle-breadcrumb a:hover {
+    color: #333;
+}
+
+.detalle-producto-container {
+    background: white;
+    border-radius: 20px;
+    padding: 2.5rem;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+}
+
+.detalle-producto-titulo {
+    font-family: "Quicksand", sans-serif;
+    font-size: 2.25em; /* Reducido de 2.5em */
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.detalle-producto-categoria {
+    font-family: "DM Sans", sans-serif;
+    color: #666;
+    font-size: 0.95em; /* Reducido de 1em */
+    margin-bottom: 1.5rem;
+}
+
+.detalle-producto-descripcion {
+    font-family: "DM Sans", sans-serif;
+    color: #555;
+    font-size: 0.98em; /* Reducido de 1.05em */
+    line-height: 1.7;
+    margin-bottom: 1.5rem;
+}
+
+.detalle-producto-precio {
+    font-family: "Quicksand", sans-serif;
+    font-size: 1.8em; /* Reducido de 2em */
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 2rem;
+}
+
+.detalle-carousel {
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.detalle-carousel .carousel-item img {
+    width: 100%;
+    height: 405px; /* Reducido de 450px */
+    object-fit: cover;
+    object-position: center;
+}
+
+.detalle-variantes-titulo {
+    font-family: "Quicksand", sans-serif;
+    font-size: 1.17em; /* Reducido de 1.3em */
+    font-weight: 600;
+    color: #333;
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.detalle-badge {
+    font-family: "DM Sans", sans-serif;
+    padding: 8px 15px;
+    margin: 0.3rem;
+    border-radius: 20px;
+    font-size: 0.95em;
+    font-weight: 500;
+}
+
+.detalle-badge-talle {
+    background-color: #e9ecef;
+    color: #333;
+}
+
+.detalle-badge-color {
+    background-color: #333;
+    color: white;
+}
+
+.detalle-relacionados {
+    margin-top: 3rem;
+    padding-top: 3rem;
+    border-top: 2px solid #f0f0f0;
+}
+
+.detalle-relacionados h3 {
+    font-family: "Quicksand", sans-serif;
+    font-size: 2em;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.detalle-relacionado-card {
+    background: white;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    border: none;
+}
+
+.detalle-relacionado-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+}
+
+.detalle-relacionado-card .card-title {
+    font-family: "Quicksand", sans-serif;
+    font-weight: 600;
+    color: #333;
+    font-size: 1.1em;
+}
+
+.detalle-relacionado-card p {
+    font-family: "DM Sans", sans-serif;
+    color: #666;
+}
+
+.btn-detalle-ver {
+    background-color: #333!important;
+    border: none!important;
+    color: white!important;
+    font-family: "Quicksand", sans-serif;
+    font-weight: 600;
+    padding: 8px 20px;
+    border-radius: 20px;
+    transition: all 0.3s ease;
+}
+
+.btn-detalle-ver:hover {
+    background-color: #555!important;
+    transform: translateY(-2px);
+}
+
+/* =============================
+   Estilos para nosotros.php
+   ============================= */
+
+.nosotros-icono {
+    display: inline-block;
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.nosotros-icono:hover {
+    transform: translateY(-5px) scale(1.05);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.nosotros-icono i {
+    transition: transform 0.3s ease;
+}
+
+.nosotros-icono:hover i {
+    transform: rotate(10deg) scale(1.1);
+}
+
+/* Responsive para nosotros */
+@media (max-width: 768px) {
+    .nosotros-icono {
+        width: 70px;
+        height: 70px;
+    }
+    
+    .nosotros-icono i {
+        font-size: 2rem !important;
+    }
+}
+
+/* =============================
+   Estilos para terminos.html
+   ============================= */
+
+.terminos-page {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 2.7rem 0; /* Reducido de 3rem */
+}
+
+.terminos-container {
+    background: white;
+    border-radius: 18px; /* Reducido de 20px */
+    padding: 2.7rem; /* Reducido de 3rem */
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+}
+
+.terminos-container h1 {
+    font-family: "Quicksand", sans-serif;
+    font-size: 2.25em; /* Reducido de 2.5em */
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 1.5rem;
+}
+
+.terminos-container h4 {
+    font-family: "Quicksand", sans-serif;
+    font-size: 1.17em; /* Reducido de 1.3em */
+    font-weight: 600;
+    color: #333;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+}
+
+.terminos-container p,
+.terminos-container li {
+    font-family: "DM Sans", sans-serif;
+    color: #555;
+    font-size: 0.95em; /* Reducido de 1em */
+    line-height: 1.7;
+}
+
+.terminos-container ul {
+    margin-bottom: 1.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .auth-card {
+        padding: 1.8rem 1.35rem; /* Reducido de 2rem 1.5rem */
+    }
+    
+    .perfil-page {
+        padding: 1.8rem 0; /* Reducido de 2rem */
+    }
+    
+    .detalle-producto-container {
+        padding: 1.35rem; /* Reducido de 1.5rem */
+    }
+    
+    .detalle-carousel .carousel-item img {
+        height: 270px; /* Reducido de 300px */
+    }
+    
+    .terminos-container {
+        padding: 1.8rem 1.35rem; /* Reducido de 2rem 1.5rem */
+    }
+}
