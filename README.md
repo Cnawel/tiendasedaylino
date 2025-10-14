@@ -1,6 +1,3 @@
-# tiendasedaylino
-E-commerce diseñado para Tienda Seda y Lino
-
 # 🛍️ Tienda Seda y Lino
 
 E-commerce de ropa de lino y seda con diseño moderno y funcionalidad completa.
@@ -11,6 +8,9 @@ E-commerce de ropa de lino y seda con diseño moderno y funcionalidad completa.
 - **Páginas de categorías** (Camisas, Pantalones, Blusas, Shorts)
 - **Detalle de productos** con galería de imágenes
 - **Sistema de login** con roles (Cliente, Ventas, Marketing, Admin)
+- **Carrito de compras** con gestión de sesión
+- **Checkout completo** con validación de stock y métodos de pago
+- **Emails automáticos** de confirmación de pedido
 - **Diseño responsivo** con Bootstrap 5
 
 ## 🚀 Instalación
@@ -27,24 +27,44 @@ cd tiendasedaylino
 CREATE DATABASE tiendasedaylino_db;
 ```
 
-2. Importar estructura:
+2. Importar estructura base:
 ```sql
-SOURCE sql/tiendasedaylino.sql;
+SOURCE sql/database_estructura.sql;
 ```
 
-3. Insertar datos de ejemplo:
+3. **IMPORTANTE**: Aplicar migraciones (funcionalidades de baja de usuarios y stock automático):
 ```sql
-SOURCE sql/datos_ejemplo.sql;
+SOURCE sql/migraciones_stock_y_usuarios.sql;
+```
+
+4. Insertar datos de ejemplo (opcional):
+```sql
+-- Ver archivo NOSUBIR/productosx4_insertar.txt
 ```
 
 ### 3. Configurar conexión
-Editar `config/database.php` con tus credenciales:
+Editar `config/database.php` con tus credenciales (ya configurado para localhost):
 ```php
 $host = 'localhost';
 $dbname = 'tiendasedaylino_db';
 $username = 'tu_usuario';
 $password = 'tu_contraseña';
 ```
+
+### 3b. Configurar Email (Opcional - Para confirmaciones)
+1. Instalar dependencias:
+```bash
+composer install
+```
+
+2. Copiar y configurar:
+```bash
+cp config/email.example.php config/email.php
+```
+
+3. Editar `config/email.php` con datos de tu servidor SMTP
+
+📧 **Guía completa:** Ver `CONFIGURACION_EMAIL.md`
 
 ### 4. Configurar servidor web
 - **WAMP/XAMPP**: Colocar en `www/` o `htdocs/`
@@ -76,10 +96,13 @@ tiendasedaylino/
 ## 🎯 Uso
 
 ### Páginas Principales
-- **Inicio**: `index.html`
+- **Inicio**: `index.php`
 - **Login**: `login.php`
-- **Productos**: `camisas.php`, `pantalones.php`, `blusas.php`, `shorts.php`
+- **Catálogo**: `catalogo.php?categoria=X`
 - **Detalle**: `detalle-producto.php?id=X`
+- **Carrito**: `carrito.php`
+- **Checkout**: `checkout.php`
+- **Perfil**: `perfil.php`
 
 ### Usuarios de Prueba
 - **Cliente**: 

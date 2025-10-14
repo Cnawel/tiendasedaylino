@@ -1,0 +1,17 @@
+# Configuración para Seda y Lino
+DirectoryIndex index.php index.html
+
+# Habilitar reescritura de URLs
+RewriteEngine On
+
+# Si alguien accede a index.html, redirigir a index.php
+RewriteCond %{THE_REQUEST} ^[A-Z]{3,}\s/+index\.html [NC]
+RewriteRule ^index\.html$ index.php [R=301,L]
+
+# Configuración de PHP (opcional)
+php_value upload_max_filesize 10M
+php_value post_max_size 10M
+php_value max_execution_time 300
+php_value max_input_time 300
+
+
