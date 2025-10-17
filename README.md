@@ -86,11 +86,8 @@ tiendasedaylino/
 │   └── database.php       # Configuración de BD
 ├── index.html             # Página principal
 ├── login.php              # Sistema de login
-├── detalle-producto.php   # Detalle de productos
-├── camisas.php            # Página de camisas
-├── pantalones.php         # Página de pantalones
-├── blusas.php             # Página de blusas
-└── shorts.php             # Página de shorts
+├── detalle-producto.php   # Detalle de producto individual
+├── catalogo.php           # Catálogo de productos
 ```
 
 ## 🎯 Uso
