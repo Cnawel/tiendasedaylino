@@ -129,9 +129,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$bloqueado) {
             $_SESSION['email'] = $row['email'];
             $_SESSION['rol'] = $row['rol'] ?? 'cliente';  // Valor por defecto si no tiene rol
             
-            // Redirigir según el rol del usuario
-            if ($_SESSION['rol'] === 'admin') {
-                header('Location: admin.php');  // Administradores al panel admin
+            // Redirigir según el rol del usuario o email permitido
+            $emails_admin_permitidos = ['admin@sedaylino.com','admin@test.com'];
+            $es_admin_por_email = in_array(strtolower($row['email']), array_map('strtolower', $emails_admin_permitidos), true);
+
+            if (strtolower($_SESSION['rol']) === 'admin' || $es_admin_por_email) {
+                header('Location: admin.php');  // Administradores o emails permitidos al panel admin
             } else {
                 header('Location: perfil.php'); // Otros usuarios al perfil
             }
