@@ -16,9 +16,9 @@ define('FTP_PORT', 21);
 define('FTP_USERNAME', 'tu_usuario_ftp');
 define('FTP_PASSWORD', 'tu_contraseña_ftp');
 
-// Rutas - Ajustar según tu hosting (InfinityFree usa /htdocs/, otros usan /public_html/)
-define('FTP_ROOT_PATH', '/htdocs/');
-define('FTP_UPLOAD_PATH', '/htdocs/imagenes/productos/');
+// Rutas
+define('FTP_ROOT_PATH', '/public_html/');
+define('FTP_UPLOAD_PATH', '/public_html/imagenes/productos/');
 
 // Configuración
 define('FTP_PASSIVE_MODE', true);  // true para modo pasivo, false para modo activo

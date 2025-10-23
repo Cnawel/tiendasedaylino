@@ -16,6 +16,10 @@
 config/database.php
 # Nota: Usar config/database.example.php como template
 
+# Configuración de FTP
+config/ftp.php
+# Nota: Usar config/ftp.example.php como template
+
 # Configuración de email con credenciales SMTP
 config/email.php
 # Nota: Usar config/email.example.php como template
