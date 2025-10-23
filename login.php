@@ -29,11 +29,11 @@ $mensaje = '';
 // ========================================================================
 /**
  * Configuración del rate limiting:
- * - Máximo 5 intentos fallidos por IP
+ * - Máximo 10 intentos fallidos por IP
  * - Ventana de tiempo: 15 minutos
  * - Bloqueo temporal: 15 minutos
  */
-$max_intentos = 5;
+$max_intentos = 10;
 $tiempo_bloqueo = 900; // 15 minutos en segundos
 $ventana_tiempo = 900; // 15 minutos en segundos
 
@@ -45,14 +45,31 @@ if (!isset($_SESSION['login_attempts'])) {
     $_SESSION['login_attempts'] = [];
 }
 
+// Limpiar datos corruptos en la sesión
+if (isset($_SESSION['login_attempts']) && !is_array($_SESSION['login_attempts'])) {
+    $_SESSION['login_attempts'] = [];
+}
+
 // Limpiar intentos antiguos (fuera de la ventana de tiempo)
 $tiempo_actual = time();
-$_SESSION['login_attempts'] = array_filter(
-    $_SESSION['login_attempts'],
-    function($timestamp) use ($tiempo_actual, $ventana_tiempo) {
-        return ($tiempo_actual - $timestamp) < $ventana_tiempo;
+
+// Filtrar intentos antiguos para cada IP
+foreach ($_SESSION['login_attempts'] as $ip => $timestamps) {
+    if (is_array($timestamps)) {
+        // Filtrar timestamps antiguos dentro del array de esta IP
+        $_SESSION['login_attempts'][$ip] = array_values(array_filter($timestamps, function($timestamp) use ($tiempo_actual, $ventana_tiempo) {
+            return ($tiempo_actual - $timestamp) < $ventana_tiempo;
+        }));
+        
+        // Si no quedan timestamps válidos, eliminar la IP
+        if (empty($_SESSION['login_attempts'][$ip])) {
+            unset($_SESSION['login_attempts'][$ip]);
+        }
+    } else {
+        // Si no es array, eliminar entrada corrupta
+        unset($_SESSION['login_attempts'][$ip]);
     }
-);
+}
 
 // Verificar si la IP está bloqueada
 $intentos_ip = isset($_SESSION['login_attempts'][$ip_cliente]) 
@@ -82,9 +99,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$bloqueado) {
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
     
-    // Conexión a base de datos
-    $mysqli = new mysqli('localhost', 'root', '', 'tiendasedaylino_db');
-    if ($mysqli->connect_errno) die('Error de conexión a la base de datos');
+    // Conexión a base de datos usando configuración centralizada
+    require_once 'config/database.php';
     
     // Preparar consulta para buscar usuario por email
     $stmt = $mysqli->prepare("SELECT id_usuario, nombre, apellido, email, contrasena, rol FROM Usuarios WHERE email = ? LIMIT 1");
@@ -94,6 +110,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$bloqueado) {
     
     // Verificar si existe el usuario
     if ($row = $result->fetch_assoc()) {
+        // Debug: Mostrar información del usuario (solo para debugging)
+        // echo "Usuario encontrado: " . $row['email'] . "<br>";
+        // echo "Hash en BD: " . substr($row['contrasena'], 0, 20) . "...<br>";
+        // echo "Password ingresado: " . $password . "<br>";
+        
         // Verificar contraseña usando password_verify (contraseña hasheada en BD)
         if (password_verify($password, $row['contrasena'])) {
             // Login exitoso - limpiar intentos fallidos
@@ -106,10 +127,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$bloqueado) {
             $_SESSION['nombre'] = $row['nombre'];
             $_SESSION['apellido'] = $row['apellido'];
             $_SESSION['email'] = $row['email'];
-            $_SESSION['rol'] = $row['rol'] ?? 'CLIENTE';  // Valor por defecto si no tiene rol
+            $_SESSION['rol'] = $row['rol'] ?? 'cliente';  // Valor por defecto si no tiene rol
             
             // Redirigir según el rol del usuario
-            if ($_SESSION['rol'] === 'ADMIN') {
+            if ($_SESSION['rol'] === 'admin') {
                 header('Location: admin.php');  // Administradores al panel admin
             } else {
                 header('Location: perfil.php'); // Otros usuarios al perfil
