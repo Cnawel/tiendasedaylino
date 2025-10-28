@@ -321,7 +321,7 @@ if ($mensaje) {
 
             <!-- Resumen del pedido -->
             <div class="col-lg-4">
-                <div class="card shadow-sm sticky-top" style="top: 20px;">
+                <div class="card shadow-sm sticky-card">
                     <div class="card-header bg-dark text-white">
                         <h5 class="mb-0">Resumen del Pedido</h5>
                     </div>

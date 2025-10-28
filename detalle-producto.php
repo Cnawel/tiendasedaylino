@@ -378,7 +378,7 @@ $stockVariantes = generarArrayStock($variantes);
                                 <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cambiarCantidad(-1)">
                                     <i class="fas fa-minus"></i>
                                 </button>
-                                <input type="number" class="form-control mx-2 text-center" id="cantidad" value="1" min="1" max="10" style="width: 80px;">
+                                <input type="number" class="form-control mx-2 text-center cantidad-input" id="cantidad" value="1" min="1" max="10">
                                 <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cambiarCantidad(1)">
                                     <i class="fas fa-plus"></i>
                                 </button>

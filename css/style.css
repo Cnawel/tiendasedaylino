@@ -2569,3 +2569,414 @@ img[src] {
         padding: 1.8rem 1.35rem; /* Reducido de 2rem 1.5rem */
     }
 }
+
+/* ============================================================================
+   ADMIN PANEL STYLES
+   ============================================================================ */
+
+.admin-page {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    min-height: 100vh;
+    padding: 2rem 0;
+}
+
+.admin-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: 10px;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.stats-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 1rem;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.stats-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.stats-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
+
+.users-table {
+    background: white;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.badge-rol {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.badge-ADMIN {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+}
+
+.badge-VENTAS {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+}
+
+.badge-MARKETING {
+    background: linear-gradient(135deg, #9b59b6, #8e44ad);
+}
+
+.badge-CLIENTE {
+    background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+}
+
+.btn-cambiar-rol {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.8rem;
+}
+
+.table-responsive {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3498db, #2ecc71);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    margin-right: 0.5rem;
+}
+
+/* ============================================================================
+   CONFIRMACIÓN PEDIDO STYLES
+   ============================================================================ */
+
+.success-animation {
+    animation: scaleIn 0.5s ease-out;
+}
+
+@keyframes scaleIn {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.check-icon {
+    font-size: 5rem;
+    color: #28a745;
+}
+
+/* ============================================================================
+   FORM LABEL STYLES
+   ============================================================================ */
+
+.form-check-label-custom {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88em;
+    color: #555;
+}
+
+.form-check-label-custom a {
+    color: #333;
+    font-weight: 600;
+}
+
+/* ============================================================================
+   EMAIL TEMPLATE STYLES (for email_functions.php)
+   ============================================================================ */
+
+.email-table-cell {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+}
+
+.email-table-cell-center {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+    text-align: center;
+}
+
+.email-table-cell-right {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+    text-align: right;
+}
+
+.email-small-text {
+    color: #666;
+}
+
+.email-body {
+    font-family: Arial, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.email-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    color: white;
+    padding: 30px;
+    text-align: center;
+    border-radius: 10px 10px 0 0;
+}
+
+.email-header h1 {
+    margin: 0;
+    font-size: 28px;
+}
+
+.email-header p {
+    margin: 10px 0 0 0;
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.email-success-section {
+    background: #f8f9fa;
+    padding: 30px;
+    text-align: center;
+}
+
+.email-success-icon {
+    background: white;
+    display: inline-block;
+    padding: 15px 30px;
+    border-radius: 50px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.email-success-check {
+    color: #28a745;
+    font-size: 40px;
+}
+
+.email-success-title {
+    color: #28a745;
+    margin: 20px 0 10px 0;
+}
+
+.email-success-text {
+    color: #666;
+    margin: 0;
+}
+
+.email-content {
+    background: white;
+    padding: 30px;
+    border-left: 4px solid #2c3e50;
+}
+
+.email-content h3 {
+    color: #2c3e50;
+    margin-top: 0;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 10px;
+}
+
+.email-info-table {
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.email-info-row td:first-child {
+    padding: 8px 0;
+}
+
+.email-info-row td:last-child {
+    padding: 8px 0;
+    text-align: right;
+}
+
+.email-pedido-number {
+    color: #007bff;
+    font-size: 18px;
+}
+
+.email-status-badge {
+    background: #ffc107;
+    color: #856404;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+}
+
+.email-products-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+
+.email-products-header {
+    background: #f8f9fa;
+}
+
+.email-products-header th {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.email-products-header th:nth-child(2),
+.email-products-header th:nth-child(3),
+.email-products-header th:nth-child(4) {
+    text-align: center;
+}
+
+.email-products-header th:nth-child(3),
+.email-products-header th:nth-child(4) {
+    text-align: right;
+}
+
+.email-total-row {
+    background: #f8f9fa;
+}
+
+.email-total-row td {
+    padding: 15px;
+    text-align: right;
+    border-top: 2px solid #dee2e6;
+}
+
+.email-total-row td:first-child {
+    text-align: right;
+}
+
+.email-shipping-row {
+    background: #f8f9fa;
+}
+
+.email-shipping-row td {
+    padding: 15px;
+    text-align: right;
+}
+
+.email-shipping-row td:last-child {
+    color: #28a745;
+}
+
+.email-final-total {
+    background: #28a745;
+    color: white;
+}
+
+.email-final-total td {
+    padding: 15px;
+    text-align: right;
+    font-size: 18px;
+}
+
+.email-address-section {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    border-left: 4px solid #007bff;
+}
+
+.email-address-section p {
+    margin: 0;
+    color: #495057;
+}
+
+.email-next-steps {
+    background: #e3f2fd;
+    padding: 30px;
+    border-radius: 5px;
+    margin-top: 20px;
+}
+
+.email-next-steps h3 {
+    color: #1976d2;
+    margin-top: 0;
+}
+
+.email-next-steps ul {
+    color: #495057;
+    padding-left: 20px;
+}
+
+.email-next-steps li {
+    margin-bottom: 10px;
+}
+
+.email-footer-section {
+    background: white;
+    padding: 20px;
+    text-align: center;
+    margin-top: 20px;
+    border-top: 3px solid #2c3e50;
+}
+
+.email-footer-section p {
+    color: #666;
+    margin: 10px 0;
+}
+
+.email-footer-section a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.email-copyright {
+    background: #2c3e50;
+    color: white;
+    padding: 20px;
+    text-align: center;
+    border-radius: 0 0 10px 10px;
+    margin-top: 30px;
+}
+
+.email-copyright p {
+    margin: 0;
+    font-size: 14px;
+}
+
+.email-copyright p:last-child {
+    margin: 10px 0 0 0;
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+/* ============================================================================
+   COMPONENT SPECIFIC STYLES
+   ============================================================================ */
+
+.cantidad-input {
+    width: 80px;
+}
+
+.sticky-card {
+    position: sticky;
+    top: 20px;
+}
+
+.carrito-scroll {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.producto-imagen-carrito {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+}

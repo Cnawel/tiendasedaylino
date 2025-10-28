@@ -251,8 +251,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     <div class="mb-3 form-check">
                         <input class="form-check-input" type="checkbox" required id="acepta" name="acepta">
-                        <label class="form-check-label" for="acepta" style="font-family: 'DM Sans', sans-serif; font-size: 0.88em; color: #555;">
-                            Acepto los <a href="terminos.php" target="_blank" style="color: #333; font-weight: 600;">Términos y Condiciones</a>
+                        <label class="form-check-label form-check-label-custom" for="acepta">
+                            Acepto los <a href="terminos.php" target="_blank">Términos y Condiciones</a>
                         </label>
                         <div class="invalid-feedback">Debes aceptar los términos y condiciones.</div>
                     </div>

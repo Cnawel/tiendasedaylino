@@ -330,7 +330,7 @@ foreach ($productos_carrito as $producto) {
 
                 <!-- Columna derecha: Resumen del pedido -->
                 <div class="col-lg-4">
-                    <div class="card shadow-sm sticky-top" style="top: 20px;">
+                    <div class="card shadow-sm sticky-card">
                         <div class="card-header bg-dark text-white">
                             <h5 class="mb-0">
                                 <i class="fas fa-receipt me-2"></i>
@@ -340,12 +340,11 @@ foreach ($productos_carrito as $producto) {
                         <div class="card-body">
                             <!-- Lista de productos -->
                             <h6 class="mb-3">Productos (<?php echo count($productos_carrito); ?>)</h6>
-                            <div class="mb-3" style="max-height: 300px; overflow-y: auto;">
+                            <div class="mb-3 carrito-scroll">
                                 <?php foreach ($productos_carrito as $producto): ?>
                                 <div class="d-flex mb-3 pb-3 border-bottom">
                                     <img src="<?php echo htmlspecialchars($producto['foto_prod_miniatura'] ?: 'imagenes/imagen.png'); ?>" 
-                                         class="rounded me-2" 
-                                         style="width: 50px; height: 50px; object-fit: cover;"
+                                         class="rounded me-2 producto-imagen-carrito"
                                          alt="<?php echo htmlspecialchars($producto['nombre_producto']); ?>">
                                     <div class="flex-grow-1">
                                         <small class="d-block fw-bold">

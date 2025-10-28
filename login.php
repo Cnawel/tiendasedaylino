@@ -287,7 +287,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$bloqueado) {
                     
                     <div class="mb-3 form-check">
                         <input class="form-check-input" type="checkbox" id="rememberMe" name="rememberMe">
-                        <label class="form-check-label" for="rememberMe" style="font-family: 'DM Sans', sans-serif; font-size: 0.88em; color: #555;">
+                        <label class="form-check-label form-check-label-custom" for="rememberMe">
                             Recordar mi correo
                         </label>
                     </div>
