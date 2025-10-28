@@ -20,6 +20,7 @@
  */
 session_start();
 require_once 'session.php';
+require_once 'includes/auth_check.php';
 
 // Variable para mensajes de error
 $mensaje = '';
@@ -130,10 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$bloqueado) {
             $_SESSION['rol'] = $row['rol'] ?? 'cliente';  // Valor por defecto si no tiene rol
             
             // Redirigir según el rol del usuario o email permitido
-            $emails_admin_permitidos = ['admin@sedaylino.com','admin@test.com'];
-            $es_admin_por_email = in_array(strtolower($row['email']), array_map('strtolower', $emails_admin_permitidos), true);
-
-            if (strtolower($_SESSION['rol']) === 'admin' || $es_admin_por_email) {
+            if (isAdmin()) {
                 header('Location: admin.php');  // Administradores o emails permitidos al panel admin
             } else {
                 header('Location: perfil.php'); // Otros usuarios al perfil
@@ -183,43 +181,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$bloqueado) {
     <link rel="stylesheet" href="css/style.css?v=2.0">
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-lg bg-body-tertiary">
-            <div class="container-fluid">
-                <a class="navbar-brand nombre-tienda" href="index.php">SEDA Y LINO</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-                    <ul class="navbar-nav lista-nav">
-                        <li class="nav-item">
-                            <a class="nav-link link-tienda" href="index.php">INICIO</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link link-tienda" href="nosotros.php">NOSOTROS</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link link-tienda" href="index.php#productos">PRODUCTOS</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link link-tienda" href="index.php#contacto">CONTACTO</a>
-                        </li>
-                        <li class="nav-item">
-                            <?php if (isset($_SESSION['id_usuario'])): ?>
-                                <a class="nav-link" href="perfil.php" title="Mi Perfil">
-                                    <img src="iconos/avatar-usuario.png" alt="icono de avatar de usuario">
-                                </a>
-                            <?php else: ?>
-                                <a class="nav-link" href="login.php" title="Iniciar Sesión">
-                                    <img src="iconos/avatar-usuario.png" alt="icono de avatar de usuario">
-                                </a>
-                            <?php endif; ?>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </nav>
-    </header>
+    <?php include 'includes/navigation.php'; ?>
 
     <main class="auth-page">
         <div class="auth-container">

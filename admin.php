@@ -5,33 +5,14 @@ session_start();
 // VERIFICACIÓN DE ACCESO - SOLO ADMINISTRADORES
 // ============================================================================
 
-// Verificar que el usuario esté logueado
-if (!isset($_SESSION['id_usuario'])) {
-    header('Location: login.php');
-    exit;
-}
+// Cargar sistema de autenticación centralizado
+require_once 'includes/auth_check.php';
+
+// Verificar que el usuario esté logueado y sea admin
+requireAdmin();
 
 // Conectar a la base de datos (usar configuración centralizada)
 require_once 'config/database.php';
-
-// Verificar que el usuario tenga rol admin o email permitido
-$id_usuario = $_SESSION['id_usuario'];
-$stmt = $mysqli->prepare("SELECT email, rol FROM Usuarios WHERE id_usuario = ? LIMIT 1");
-$stmt->bind_param('i', $id_usuario);
-$stmt->execute();
-$result = $stmt->get_result();
-$usuario_actual = $result->fetch_assoc();
-
-// Emails de admin permitidos explícitamente
-$emails_admin_permitidos = ['admin@sedaylino.com','admin@test.com'];
-
-$es_admin_por_rol = $usuario_actual && strtolower($usuario_actual['rol']) === 'admin';
-$es_admin_por_email = $usuario_actual && in_array(strtolower($usuario_actual['email']), $emails_admin_permitidos, true);
-
-if (!$es_admin_por_rol && !$es_admin_por_email) {
-    header('Location: index.php');
-    exit;
-}
 
 // ============================================================================
 // PROCESAMIENTO DE FORMULARIOS (MENSAJES COMPARTIDOS)
@@ -401,37 +382,7 @@ if ($res_categorias) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-lg bg-body-tertiary">
-            <div class="container-fluid">
-                <a class="navbar-brand nombre-tienda" href="index.php">SEDA Y LINO</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-                    <ul class="navbar-nav lista-nav">
-                        <li class="nav-item">
-                            <a class="nav-link link-tienda" href="index.php">INICIO</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link link-tienda" href="nosotros.php">NOSOTROS</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link link-tienda" href="index.php#productos">PRODUCTOS</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link link-tienda" href="index.php#contacto">CONTACTO</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="perfil.php" title="Mi Perfil">
-                                <img src="iconos/avatar-usuario.png" alt="icono de avatar de usuario">
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </nav>
-    </header>
+    <?php include 'includes/navigation.php'; ?>
 
     <main class="admin-page">
         <div class="container">
