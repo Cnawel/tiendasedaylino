@@ -11,6 +11,10 @@ require_once 'includes/auth_check.php';
 // Verificar que el usuario esté logueado y sea admin
 requireAdmin();
 
+// Obtener información del usuario actual
+$id_usuario = getCurrentUserId();
+$usuario_actual = getCurrentUser();
+
 // Conectar a la base de datos (usar configuración centralizada)
 require_once 'config/database.php';
 

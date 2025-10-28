@@ -718,18 +718,7 @@ $stockVariantes = generarArrayStock($variantes);
                 });
             });
             
-            // Controles de cantidad - Solo JS (UX inmediata)
-            document.querySelectorAll('.btn[onclick*="cambiarCantidad"]').forEach(function(btn) {
-                btn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const input = document.getElementById('cantidad');
-                    const delta = this.querySelector('i').classList.contains('fa-plus') ? 1 : -1;
-                    let val = parseInt(input.value) + delta;
-                    if (val < 1) val = 1;
-                    if (val > 10) val = 10;
-                    input.value = val;
-                });
-            });
+            // Los controles de cantidad se manejan con la función global cambiarCantidad()
             
             // Actualizar indicador de stock - Solo JS (feedback inmediato)
             function actualizarStock() {

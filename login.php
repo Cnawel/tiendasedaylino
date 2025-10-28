@@ -34,7 +34,7 @@ $mensaje = '';
  * - Ventana de tiempo: 15 minutos
  * - Bloqueo temporal: 15 minutos
  */
-$max_intentos = 10;
+$max_intentos = 5;
 $tiempo_bloqueo = 900; // 15 minutos en segundos
 $ventana_tiempo = 900; // 15 minutos en segundos
 
