@@ -103,44 +103,76 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cambiar_rol'])) {
 }
 
 // ============================================================================
-// ACTUALIZAR USUARIO (nombre, apellido, email, rol)
+// ACTUALIZAR USUARIO (nombre, apellido, email, rol, contraseña)
 // ============================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_usuario'])) {
     $edit_user_id = intval($_POST['edit_user_id'] ?? 0);
     $edit_nombre = trim($_POST['edit_nombre'] ?? '');
     $edit_apellido = trim($_POST['edit_apellido'] ?? '');
     $edit_email = trim($_POST['edit_email'] ?? '');
-    $edit_rol = $_POST['edit_rol'] ?? '';
+    $edit_rol = $_POST['nuevo_rol'] ?? '';
+    $nueva_contrasena = trim($_POST['nueva_contrasena'] ?? '');
+    $confirmar_contrasena = trim($_POST['confirmar_contrasena'] ?? '');
 
     $roles_validos = ['cliente', 'ventas', 'marketing', 'admin'];
 
+    // Validar datos básicos
     if ($edit_user_id <= 0 || $edit_nombre === '' || $edit_apellido === '' || $edit_email === '' || !in_array($edit_rol, $roles_validos, true)) {
         $mensaje = 'Datos inválidos al actualizar usuario';
         $mensaje_tipo = 'danger';
     } else {
-        // Evitar quitarse el rol de admin a sí mismo
-        if ($edit_user_id == $id_usuario && $edit_rol !== 'admin') {
-            $mensaje = 'No puedes quitarte tu rol de ADMIN';
-            $mensaje_tipo = 'warning';
-        } else {
-            // Verificar email único (excluyendo el mismo usuario)
-            $stmt = $mysqli->prepare("SELECT 1 FROM Usuarios WHERE email = ? AND id_usuario <> ? LIMIT 1");
-            $stmt->bind_param('si', $edit_email, $edit_user_id);
-            $stmt->execute();
-            $dup = $stmt->get_result()->num_rows > 0;
-            
-            if ($dup) {
-                $mensaje = 'El email ya está en uso por otro usuario';
+        // Validar contraseña si se proporciona
+        $cambiar_contrasena = false;
+        if (!empty($nueva_contrasena) && !empty($confirmar_contrasena)) {
+            if ($nueva_contrasena !== $confirmar_contrasena) {
+                $mensaje = 'Las contraseñas no coinciden';
+                $mensaje_tipo = 'danger';
+            } elseif (strlen($nueva_contrasena) < 6) {
+                $mensaje = 'La contraseña debe tener al menos 6 caracteres';
+                $mensaje_tipo = 'danger';
+            } else {
+                $cambiar_contrasena = true;
+            }
+        } elseif (!empty($nueva_contrasena) || !empty($confirmar_contrasena)) {
+            // Si solo uno de los campos está lleno
+            $mensaje = 'Debes completar ambos campos de contraseña o dejarlos vacíos';
+            $mensaje_tipo = 'danger';
+        }
+        
+        // Solo continuar si no hay errores de contraseña
+        if (empty($mensaje)) {
+            // Evitar quitarse el rol de admin a sí mismo
+            if ($edit_user_id == $id_usuario && $edit_rol !== 'admin') {
+                $mensaje = 'No puedes quitarte tu rol de ADMIN';
                 $mensaje_tipo = 'warning';
             } else {
-                $stmt = $mysqli->prepare("UPDATE Usuarios SET nombre = ?, apellido = ?, email = ?, rol = ? WHERE id_usuario = ?");
-                $stmt->bind_param('ssssi', $edit_nombre, $edit_apellido, $edit_email, $edit_rol, $edit_user_id);
-                if ($stmt->execute()) {
-                    $mensaje = 'Usuario actualizado correctamente';
-                    $mensaje_tipo = 'success';
+                // Verificar email único (excluyendo el mismo usuario)
+                $stmt = $mysqli->prepare("SELECT 1 FROM Usuarios WHERE email = ? AND id_usuario <> ? LIMIT 1");
+                $stmt->bind_param('si', $edit_email, $edit_user_id);
+                $stmt->execute();
+                $dup = $stmt->get_result()->num_rows > 0;
+                
+                if ($dup) {
+                    $mensaje = 'El email ya está en uso por otro usuario';
+                    $mensaje_tipo = 'warning';
                 } else {
-                    $mensaje = 'Error al actualizar el usuario';
-                    $mensaje_tipo = 'danger';
+                    // Actualizar usuario con o sin contraseña
+                    if ($cambiar_contrasena) {
+                        $contrasena_hash = password_hash($nueva_contrasena, PASSWORD_DEFAULT);
+                        $stmt = $mysqli->prepare("UPDATE Usuarios SET nombre = ?, apellido = ?, email = ?, rol = ?, contrasena = ? WHERE id_usuario = ?");
+                        $stmt->bind_param('sssssi', $edit_nombre, $edit_apellido, $edit_email, $edit_rol, $contrasena_hash, $edit_user_id);
+                    } else {
+                        $stmt = $mysqli->prepare("UPDATE Usuarios SET nombre = ?, apellido = ?, email = ?, rol = ? WHERE id_usuario = ?");
+                        $stmt->bind_param('ssssi', $edit_nombre, $edit_apellido, $edit_email, $edit_rol, $edit_user_id);
+                    }
+                    
+                    if ($stmt->execute()) {
+                        $mensaje = $cambiar_contrasena ? 'Usuario y contraseña actualizados correctamente' : 'Usuario actualizado correctamente';
+                        $mensaje_tipo = 'success';
+                    } else {
+                        $mensaje = 'Error al actualizar el usuario';
+                        $mensaje_tipo = 'danger';
+                    }
                 }
             }
         }
@@ -392,8 +424,20 @@ if ($res_categorias) {
         <div class="container">
             <!-- Header -->
             <div class="admin-header">
-                <h1><i class="fas fa-shield-alt me-3"></i>Panel de Administración</h1>
-                <p class="mb-0">Gestión de usuarios, pedidos y productos</p>
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h1><i class="fas fa-shield-alt me-3"></i>Panel de Administración</h1>
+                        <p class="mb-0">Gestión de usuarios, pedidos y productos</p>
+                    </div>
+                    <div>
+                        <a href="perfil.php" class="btn btn-outline-primary me-2">
+                            <i class="fas fa-user"></i> Mi Perfil
+                        </a>
+                        <a href="logout.php" class="btn btn-outline-secondary" onclick="return confirmLogout()">
+                            <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+                        </a>
+                    </div>
+                </div>
             </div>
             
             <!-- Mensajes -->
@@ -555,7 +599,7 @@ if ($res_categorias) {
                                                     <h5 class="modal-title">Modificar Usuario</h5>
                                                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                                 </div>
-                                                <form method="POST" action="">
+                                                <form method="POST" action="" onsubmit="return validarContrasenaUsuario(<?= $user['id_usuario'] ?>)">
                                                     <div class="modal-body">
                                                         <input type="hidden" name="usuario_id" value="<?= $user['id_usuario'] ?>">
                                                         <input type="hidden" name="edit_user_id" value="<?= $user['id_usuario'] ?>">
@@ -595,6 +639,22 @@ if ($res_categorias) {
                                                                 <?php else: ?>
                                                                     Selecciona el nuevo rol para este usuario
                                                                 <?php endif; ?>
+                                                            </small>
+                                                        </div>
+                                                        
+                                                        <div class="mb-3">
+                                                            <label class="form-label"><strong>Cambiar Contraseña:</strong></label>
+                                                            <div class="row g-2">
+                                                                <div class="col-md-6">
+                                                                    <input type="password" class="form-control" name="nueva_contrasena" placeholder="Nueva contraseña" minlength="6">
+                                                                </div>
+                                                                <div class="col-md-6">
+                                                                    <input type="password" class="form-control" name="confirmar_contrasena" placeholder="Confirmar contraseña" minlength="6">
+                                                                </div>
+                                                            </div>
+                                                            <small class="text-muted">
+                                                                <i class="fas fa-info-circle me-1"></i>
+                                                                Deja en blanco si no quieres cambiar la contraseña. Mínimo 6 caracteres.
                                                             </small>
                                                         </div>
                                                         
@@ -828,7 +888,7 @@ if ($res_categorias) {
                 <a href="index.php" class="btn btn-outline-secondary me-2">
                     <i class="fas fa-home me-2"></i>Volver al Inicio
                 </a>
-                <a href="logout.php" class="btn btn-outline-danger">
+                <a href="logout.php" class="btn btn-outline-danger" onclick="return confirmLogout()">
                     <i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión
                 </a>
             </div>
@@ -948,6 +1008,60 @@ if ($res_categorias) {
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+    
+    <script>
+    /**
+     * Confirmar logout y asegurar redirección
+     */
+    function confirmLogout() {
+        if (confirm('¿Estás seguro de que quieres cerrar sesión?')) {
+            // Forzar redirección después de un breve delay para asegurar que el logout se procese
+            setTimeout(function() {
+                window.location.href = 'login.php?logout=1';
+            }, 100);
+            return true;
+        }
+        return false;
+    }
+    </script>
+    
+    <script>
+    /**
+     * Validación de contraseña para el formulario de edición de usuarios
+     * @param {number} userId - ID del usuario
+     * @returns {boolean} - true si la validación es exitosa
+     */
+    function validarContrasenaUsuario(userId) {
+        const nuevaContrasena = document.querySelector('input[name="nueva_contrasena"]').value;
+        const confirmarContrasena = document.querySelector('input[name="confirmar_contrasena"]').value;
+        
+        // Si ambos campos están vacíos, permitir envío (no cambiar contraseña)
+        if (nuevaContrasena === '' && confirmarContrasena === '') {
+            return true;
+        }
+        
+        // Si solo uno está lleno, mostrar error
+        if ((nuevaContrasena === '' && confirmarContrasena !== '') || 
+            (nuevaContrasena !== '' && confirmarContrasena === '')) {
+            alert('Debes completar ambos campos de contraseña o dejarlos vacíos');
+            return false;
+        }
+        
+        // Validar longitud mínima
+        if (nuevaContrasena.length < 6) {
+            alert('La contraseña debe tener al menos 6 caracteres');
+            return false;
+        }
+        
+        // Validar que las contraseñas coincidan
+        if (nuevaContrasena !== confirmarContrasena) {
+            alert('Las contraseñas no coinciden');
+            return false;
+        }
+        
+        return true;
+    }
+    </script>
 </body>
 </html>
 

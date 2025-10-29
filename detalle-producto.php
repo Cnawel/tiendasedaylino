@@ -378,7 +378,7 @@ $stockVariantes = generarArrayStock($variantes);
                                 <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cambiarCantidad(-1)">
                                     <i class="fas fa-minus"></i>
                                 </button>
-                                <input type="number" class="form-control mx-2 text-center cantidad-input" id="cantidad" value="1" min="1" max="10">
+                                <input type="number" class="form-control mx-2 text-center" id="cantidad" value="1" min="1" max="10" style="width: 80px;">
                                 <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cambiarCantidad(1)">
                                     <i class="fas fa-plus"></i>
                                 </button>
@@ -718,7 +718,18 @@ $stockVariantes = generarArrayStock($variantes);
                 });
             });
             
-            // Los controles de cantidad se manejan con la función global cambiarCantidad()
+            // Controles de cantidad - Solo JS (UX inmediata)
+            document.querySelectorAll('.btn[onclick*="cambiarCantidad"]').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const input = document.getElementById('cantidad');
+                    const delta = this.querySelector('i').classList.contains('fa-plus') ? 1 : -1;
+                    let val = parseInt(input.value) + delta;
+                    if (val < 1) val = 1;
+                    if (val > 10) val = 10;
+                    input.value = val;
+                });
+            });
             
             // Actualizar indicador de stock - Solo JS (feedback inmediato)
             function actualizarStock() {

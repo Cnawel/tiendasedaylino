@@ -132,7 +132,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$bloqueado) {
             
             // Redirigir según el rol del usuario o email permitido
             if (isAdmin()) {
-                header('Location: admin.php');  // Administradores o emails permitidos al panel admin
+                header('Location: admin.php');  // Administradores al panel admin
+            } elseif (isMarketing()) {
+                header('Location: marketing.php'); // Marketing al panel marketing
+            } elseif (isVentas()) {
+                header('Location: ventas.php'); // Ventas al panel ventas (si existe)
             } else {
                 header('Location: perfil.php'); // Otros usuarios al perfil
             }

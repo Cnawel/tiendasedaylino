@@ -15,6 +15,9 @@
  * ========================================================================
  */
 
+// Evitar cualquier salida antes del redirect
+ob_start();
+
 // Iniciar sesión si no está activa
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -35,7 +38,11 @@ if (ini_get("session.use_cookies")) {
 // Destruir la sesión
 session_destroy();
 
+// Limpiar buffer de salida
+ob_end_clean();
+
 // Redireccionar al login con mensaje de logout exitoso
 header('Location: login.php?logout=1');
 exit;
+?>
 
