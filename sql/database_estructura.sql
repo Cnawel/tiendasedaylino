@@ -130,3 +130,8 @@ CREATE TABLE IF NOT EXISTS Movimientos_Stock (
     FOREIGN KEY (id_variante) REFERENCES Stock_Variantes(id_variante),
     FOREIGN KEY (id_usuario) REFERENCES Usuarios(id_usuario)
 );
+
+-- =========================
+-- COMANDO EXTRA: Agregar columna color a Fotos_Producto
+-- =========================
+ALTER TABLE Fotos_Producto ADD COLUMN color VARCHAR(50) NULL;
