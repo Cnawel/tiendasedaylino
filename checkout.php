@@ -3,14 +3,27 @@
  * ========================================================================
  * CHECKOUT - Tienda Seda y Lino
  * ========================================================================
- * Página de finalización de compra
- * - Verificación de usuario logueado
- * - Confirmación de datos de envío
+ * Página final antes de procesar el pedido
+ * - Verifica que el usuario esté logueado
+ * - Muestra resumen del pedido (productos, cantidades, precios)
+ * - Permite confirmar/editar datos de envío
  * - Selección de método de pago
- * - Resumen del pedido antes de confirmar
+ * - Validación de datos antes de procesar
  * 
- * @author Tienda Seda y Lino
- * @version 1.0
+ * Funciones principales:
+ * - Validar que el carrito tenga productos
+ * - Cargar datos del usuario para envío
+ * - Obtener métodos de pago disponibles
+ * - Formulario para enviar a procesar-pedido.php
+ * 
+ * Variables principales:
+ * - $id_usuario: Usuario en sesión
+ * - $usuario: Datos del usuario de la BD
+ * - $carrito: Productos en el carrito
+ * - $formas_pago: Métodos de pago disponibles
+ * 
+ * Tablas utilizadas: Usuarios, Formas_Pago, Productos
+ * ========================================================================
  */
 
 session_start();

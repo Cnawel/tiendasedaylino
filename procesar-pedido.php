@@ -3,19 +3,29 @@
  * ========================================================================
  * PROCESAR PEDIDO - Tienda Seda y Lino
  * ========================================================================
- * Procesa la finalización del pedido:
- * - Valida datos del formulario
- * - Verifica stock disponible
- * - Crea el pedido en la base de datos
- * - Registra detalles del pedido
- * - Actualiza stock y registra movimientos
- * - Crea registro de pago
- * - Limpia el carrito
+ * Procesa y guarda el pedido en la base de datos
+ * - Valida que el carrito tenga productos
+ * - Verifica stock disponible para cada producto/talle/color
+ * - Crea el pedido usando transacciones MySQLi
+ * - Registra cada producto en Detalle_Pedidos
+ * - Actualiza stock en Stock_Variantes
+ * - Registra el método de pago seleccionado
+ * - Envía email de confirmación al cliente
+ * - Limpia el carrito y redirige a confirmación
  * 
- * Usa transacciones para garantizar integridad de datos
+ * Funciones principales:
+ * - Validación de stock antes de crear pedido
+ * - Transacción para garantizar integridad (si algo falla, rollback)
+ * - Actualización de stock después de confirmar pedido
  * 
- * @author Tienda Seda y Lino
- * @version 1.0
+ * Variables principales:
+ * - $id_usuario: Usuario que realiza el pedido
+ * - $carrito: Productos a procesar
+ * - $total: Total del pedido
+ * - $forma_pago: Método de pago seleccionado
+ * 
+ * Tablas utilizadas: Pedidos, Detalle_Pedidos, Stock_Variantes, Formas_Pago
+ * ========================================================================
  */
 
 session_start();
@@ -65,7 +75,7 @@ if (empty($telefono) || empty($direccion) || empty($localidad) || empty($provinc
  * Iniciar transacción para garantizar integridad de datos
  */
 try {
-    $pdo->beginTransaction();
+    $mysqli->begin_transaction();
     
     /**
      * Paso 1: Verificar stock y preparar datos del pedido
@@ -86,18 +96,18 @@ try {
                 sv.color
             FROM Productos p
             INNER JOIN Stock_Variantes sv ON p.id_producto = sv.id_producto
-            WHERE p.id_producto = :id_producto 
-                AND sv.talle = :talle 
-                AND sv.color = :color
+            WHERE p.id_producto = ? 
+                AND sv.talle = ? 
+                AND sv.color = ?
             FOR UPDATE
+            LIMIT 1
         ";
         
-        $stmt_producto = $pdo->prepare($sql_producto);
-        $stmt_producto->bindParam(':id_producto', $item['id_producto'], PDO::PARAM_INT);
-        $stmt_producto->bindParam(':talle', $item['talla'], PDO::PARAM_STR);
-        $stmt_producto->bindParam(':color', $item['color'], PDO::PARAM_STR);
+        $stmt_producto = $mysqli->prepare($sql_producto);
+        $stmt_producto->bind_param('iss', $item['id_producto'], $item['talla'], $item['color']);
         $stmt_producto->execute();
-        $producto = $stmt_producto->fetch(PDO::FETCH_ASSOC);
+        $result_producto = $stmt_producto->get_result();
+        $producto = $result_producto->fetch_assoc();
         
         // Verificar que el producto existe
         if (!$producto) {
@@ -130,15 +140,15 @@ try {
      */
     $sql_pedido = "
         INSERT INTO Pedidos (id_usuario, fecha_pedido, estado_pedido)
-        VALUES (:id_usuario, NOW(), 'pendiente')
+        VALUES (?, NOW(), 'pendiente')
     ";
     
-    $stmt_pedido = $pdo->prepare($sql_pedido);
-    $stmt_pedido->bindParam(':id_usuario', $id_usuario, PDO::PARAM_INT);
+    $stmt_pedido = $mysqli->prepare($sql_pedido);
+    $stmt_pedido->bind_param('i', $id_usuario);
     $stmt_pedido->execute();
     
     // Obtener ID del pedido creado
-    $id_pedido = $pdo->lastInsertId();
+    $id_pedido = $mysqli->insert_id;
     
     /**
      * Paso 3: Insertar detalles del pedido y actualizar stock
@@ -147,26 +157,22 @@ try {
         // Insertar detalle del pedido
         $sql_detalle = "
             INSERT INTO Detalle_Pedido (id_pedido, id_variante, cantidad, precio_unitario)
-            VALUES (:id_pedido, :id_variante, :cantidad, :precio_unitario)
+            VALUES (?, ?, ?, ?)
         ";
         
-        $stmt_detalle = $pdo->prepare($sql_detalle);
-        $stmt_detalle->bindParam(':id_pedido', $id_pedido, PDO::PARAM_INT);
-        $stmt_detalle->bindParam(':id_variante', $producto['id_variante'], PDO::PARAM_INT);
-        $stmt_detalle->bindParam(':cantidad', $producto['cantidad'], PDO::PARAM_INT);
-        $stmt_detalle->bindParam(':precio_unitario', $producto['precio_unitario'], PDO::PARAM_STR);
+        $stmt_detalle = $mysqli->prepare($sql_detalle);
+        $stmt_detalle->bind_param('iidd', $id_pedido, $producto['id_variante'], $producto['cantidad'], $producto['precio_unitario']);
         $stmt_detalle->execute();
         
         // Actualizar stock (restar cantidad vendida)
         $sql_update_stock = "
             UPDATE Stock_Variantes 
-            SET stock = stock - :cantidad
-            WHERE id_variante = :id_variante
+            SET stock = stock - ?
+            WHERE id_variante = ?
         ";
         
-        $stmt_update_stock = $pdo->prepare($sql_update_stock);
-        $stmt_update_stock->bindParam(':cantidad', $producto['cantidad'], PDO::PARAM_INT);
-        $stmt_update_stock->bindParam(':id_variante', $producto['id_variante'], PDO::PARAM_INT);
+        $stmt_update_stock = $mysqli->prepare($sql_update_stock);
+        $stmt_update_stock->bind_param('ii', $producto['cantidad'], $producto['id_variante']);
         $stmt_update_stock->execute();
         
         // Registrar movimiento de stock
@@ -175,14 +181,11 @@ try {
         
         $sql_movimiento = "
             INSERT INTO Movimientos_Stock (id_variante, tipo_movimiento, cantidad, fecha_movimiento, id_usuario, observaciones)
-            VALUES (:id_variante, 'venta', :cantidad, NOW(), :id_usuario, :observaciones)
+            VALUES (?, 'venta', ?, NOW(), ?, ?)
         ";
         
-        $stmt_movimiento = $pdo->prepare($sql_movimiento);
-        $stmt_movimiento->bindParam(':id_variante', $producto['id_variante'], PDO::PARAM_INT);
-        $stmt_movimiento->bindParam(':cantidad', $cantidad_negativa, PDO::PARAM_INT);
-        $stmt_movimiento->bindParam(':id_usuario', $id_usuario, PDO::PARAM_INT);
-        $stmt_movimiento->bindParam(':observaciones', $observaciones, PDO::PARAM_STR);
+        $stmt_movimiento = $mysqli->prepare($sql_movimiento);
+        $stmt_movimiento->bind_param('iiis', $producto['id_variante'], $cantidad_negativa, $id_usuario, $observaciones);
         $stmt_movimiento->execute();
     }
     
@@ -191,12 +194,11 @@ try {
      */
     $sql_pago = "
         INSERT INTO Pagos (id_pedido, id_forma_pago, estado_pago, fecha_pago)
-        VALUES (:id_pedido, :id_forma_pago, 'pendiente', NOW())
+        VALUES (?, ?, 'pendiente', NOW())
     ";
     
-    $stmt_pago = $pdo->prepare($sql_pago);
-    $stmt_pago->bindParam(':id_pedido', $id_pedido, PDO::PARAM_INT);
-    $stmt_pago->bindParam(':id_forma_pago', $id_forma_pago, PDO::PARAM_INT);
+    $stmt_pago = $mysqli->prepare($sql_pago);
+    $stmt_pago->bind_param('ii', $id_pedido, $id_forma_pago);
     $stmt_pago->execute();
     
     /**
@@ -204,36 +206,32 @@ try {
      */
     $sql_update_usuario = "
         UPDATE Usuarios 
-        SET telefono = :telefono,
-            direccion = :direccion,
-            localidad = :localidad,
-            provincia = :provincia,
-            codigo_postal = :codigo_postal
-        WHERE id_usuario = :id_usuario
+        SET telefono = ?,
+            direccion = ?,
+            localidad = ?,
+            provincia = ?,
+            codigo_postal = ?
+        WHERE id_usuario = ?
     ";
     
-    $stmt_update_usuario = $pdo->prepare($sql_update_usuario);
-    $stmt_update_usuario->bindParam(':telefono', $telefono, PDO::PARAM_STR);
-    $stmt_update_usuario->bindParam(':direccion', $direccion, PDO::PARAM_STR);
-    $stmt_update_usuario->bindParam(':localidad', $localidad, PDO::PARAM_STR);
-    $stmt_update_usuario->bindParam(':provincia', $provincia, PDO::PARAM_STR);
-    $stmt_update_usuario->bindParam(':codigo_postal', $codigo_postal, PDO::PARAM_STR);
-    $stmt_update_usuario->bindParam(':id_usuario', $id_usuario, PDO::PARAM_INT);
+    $stmt_update_usuario = $mysqli->prepare($sql_update_usuario);
+    $stmt_update_usuario->bind_param('sssssi', $telefono, $direccion, $localidad, $provincia, $codigo_postal, $id_usuario);
     $stmt_update_usuario->execute();
     
     /**
      * Confirmar transacción
      */
-    $pdo->commit();
+    $mysqli->commit();
     
     /**
      * Paso 6: Obtener datos del usuario para el email
      */
-    $sql_usuario = "SELECT * FROM Usuarios WHERE id_usuario = :id_usuario";
-    $stmt_usuario = $pdo->prepare($sql_usuario);
-    $stmt_usuario->bindParam(':id_usuario', $id_usuario, PDO::PARAM_INT);
+    $sql_usuario = "SELECT * FROM Usuarios WHERE id_usuario = ? LIMIT 1";
+    $stmt_usuario = $mysqli->prepare($sql_usuario);
+    $stmt_usuario->bind_param('i', $id_usuario);
     $stmt_usuario->execute();
-    $usuario = $stmt_usuario->fetch(PDO::FETCH_ASSOC);
+    $result_usuario = $stmt_usuario->get_result();
+    $usuario = $result_usuario->fetch_assoc();
     
     /**
      * Paso 7: Preparar datos para confirmación y email
@@ -274,7 +272,7 @@ try {
     
 } catch (Exception $e) {
     // Revertir transacción en caso de error
-    $pdo->rollBack();
+    $mysqli->rollback();
     
     // Guardar mensaje de error
     $_SESSION['mensaje_error'] = "Error al procesar el pedido: " . $e->getMessage();

@@ -1,4 +1,28 @@
 <?php
+/**
+ * ========================================================================
+ * PANEL DE ADMINISTRACIÓN - Tienda Seda y Lino
+ * ========================================================================
+ * Panel exclusivo para administradores que permite:
+ * - Gestionar usuarios (crear, editar, eliminar, cambiar roles)
+ * - Ver y gestionar pedidos
+ * - Ver estadísticas de ventas
+ * - Gestionar productos (crear, editar)
+ * 
+ * Funciones principales:
+ * - CRUD de usuarios (CREATE, READ, UPDATE, DELETE)
+ * - Gestión de roles (Admin, Marketing, Ventas, Cliente)
+ * - Visualización de pedidos con filtros
+ * - Estadísticas básicas de ventas
+ * 
+ * Variables principales:
+ * - $id_usuario: ID del usuario administrador actual
+ * - $usuario_actual: Datos del usuario actual
+ * - $mensaje/$mensaje_tipo: Mensajes de feedback al usuario
+ * 
+ * Tablas utilizadas: Usuarios, Pedidos, Detalle_Pedidos, Productos
+ * ========================================================================
+ */
 session_start();
 
 // ============================================================================
@@ -15,7 +39,7 @@ requireAdmin();
 $id_usuario = getCurrentUserId();
 $usuario_actual = getCurrentUser();
 
-// Conectar a la base de datos (usar configuración centralizada)
+// Conectar a la base de datos
 require_once 'config/database.php';
 
 // Configurar título de la página

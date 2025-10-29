@@ -49,26 +49,40 @@ $num_items_carrito = isset($_SESSION['carrito']) ? count($_SESSION['carrito']) :
                     <?php if ($usuario_logueado): ?>
                     <!-- Usuario logueado: mostrar acceso a dashboard según rol, carrito, perfil y logout -->
                     <?php
-                        // Determinar URL y etiqueta del dashboard según el rol actual
-                        $dashboard_url = '';
-                        $dashboard_label = '';
-                        if (isAdmin()) {
-                            $dashboard_url = 'admin.php';
-                            $dashboard_label = 'ADMIN';
-                        } elseif (isMarketing()) {
-                            $dashboard_url = 'marketing.php';
-                            $dashboard_label = 'MARKETING';
-                        } elseif (isVentas()) {
-                            $dashboard_url = 'ventas.php';
-                            $dashboard_label = 'VENTAS';
-                        }
+                        // Mostrar todos los paneles disponibles según el rol del usuario
+                        // Los admins pueden acceder a todos los paneles
                     ?>
-                    <?php if ($dashboard_url): ?>
+                    <?php if (isAdmin()): ?>
                     <li class="nav-item">
-                        <a class="nav-link link-tienda" href="<?= $dashboard_url ?>" title="Ir al Panel">
-                            <i class="fas fa-gauge-high me-1"></i>Panel <?= $dashboard_label ?>
+                        <a class="nav-link link-tienda" href="admin.php" title="Ir al Panel de Administración">
+                            <i class="fas fa-shield-alt me-1"></i>Panel ADMIN
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link link-tienda" href="marketing.php" title="Ir al Panel de Marketing">
+                            <i class="fas fa-bullhorn me-1"></i>Panel MARKETING
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link link-tienda" href="ventas.php" title="Ir al Panel de Ventas">
+                            <i class="fas fa-briefcase me-1"></i>Panel VENTAS
+                        </a>
+                    </li>
+                    <?php else: ?>
+                        <?php if (isMarketing()): ?>
+                        <li class="nav-item">
+                            <a class="nav-link link-tienda" href="marketing.php" title="Ir al Panel de Marketing">
+                                <i class="fas fa-bullhorn me-1"></i>Panel MARKETING
+                            </a>
+                        </li>
+                        <?php endif; ?>
+                        <?php if (isVentas()): ?>
+                        <li class="nav-item">
+                            <a class="nav-link link-tienda" href="ventas.php" title="Ir al Panel de Ventas">
+                                <i class="fas fa-briefcase me-1"></i>Panel VENTAS
+                            </a>
+                        </li>
+                        <?php endif; ?>
                     <?php endif; ?>
                     <li class="nav-item">
                         <a class="nav-link position-relative" href="carrito.php" title="Carrito">

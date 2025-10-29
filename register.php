@@ -3,24 +3,31 @@
  * ========================================================================
  * REGISTRO DE USUARIOS - Tienda Seda y Lino
  * ========================================================================
- * Sistema de registro para nuevos usuarios
+ * Permite crear nuevas cuentas de usuario en el sistema
+ * - Validación de datos del formulario (nombre, apellido, email, contraseña)
+ * - Verificación de que el email no esté ya registrado
+ * - Hash seguro de contraseñas usando password_hash()
+ * - Asignación automática de rol CLIENTE a nuevos usuarios
+ * - Redirección a login después de registro exitoso
  * 
- * Funcionalidades:
- * - Validación de datos del formulario
- * - Verificación de email único
- * - Hash seguro de contraseñas con PASSWORD_BCRYPT
- * - Inserción en tabla Usuarios con rol CLIENTE por defecto
- * - Redirección a login tras registro exitoso
+ * Funciones principales:
+ * - Validar datos del formulario
+ * - Verificar email único en BD
+ * - Encriptar contraseña con PASSWORD_BCRYPT
+ * - Insertar nuevo usuario en BD
  * 
- * Tabla utilizada: Usuarios (database_estructura.sql)
- * Campos: nombre, apellido, email, contrasena, rol, fecha_registro
+ * Variables principales:
+ * - $mensaje: Mensaje de éxito o error a mostrar
+ * - Datos del formulario: nombre, apellido, email, contrasena, confirmar_contrasena
  * 
- * @package TiendaSedaYLino
- * @version 1.0
+ * Tabla utilizada: Usuarios (campos: nombre, apellido, email, contrasena, rol)
  * ========================================================================
  */
 session_start();
 require_once 'session.php';
+
+// Configurar título de la página
+$titulo_pagina = 'Registro';
 
 // Variable para mensajes de error
 $mensaje = '';
@@ -286,59 +293,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro | Seda y Lino</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-    <!-- Font Awesome CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <!-- Custom CSS - Con versión para evitar cache -->
-    <link rel="stylesheet" href="css/style.css?v=2.0">
-</head>
-<body>
-    <header>
-        <nav class="navbar navbar-expand-lg bg-body-tertiary">
-            <div class="container-fluid">
-                <a class="navbar-brand nombre-tienda" href="index.php">SEDA Y LINO</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-                    <ul class="navbar-nav lista-nav">
-                        <li class="nav-item">
-                            <a class="nav-link link-tienda" href="index.php">INICIO</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link link-tienda" href="nosotros.php">NOSOTROS</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link link-tienda" href="index.php#productos">PRODUCTOS</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link link-tienda" href="index.php#contacto">CONTACTO</a>
-                        </li>
-                        <li class="nav-item">
-                            <?php if (isset($_SESSION['id_usuario'])): ?>
-                                <a class="nav-link" href="perfil.php" title="Mi Perfil">
-                                    <img src="iconos/avatar-usuario.png" alt="icono de avatar de usuario">
-                                </a>
-                            <?php else: ?>
-                                <a class="nav-link" href="login.php" title="Iniciar Sesión">
-                                    <img src="iconos/avatar-usuario.png" alt="icono de avatar de usuario">
-                                </a>
-                            <?php endif; ?>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </nav>
-    </header>
 
-    <main class="auth-page">
+<?php include 'includes/header.php'; ?>
+
+
+
+<!-- Contenido principal del registro -->
+<main class="auth-page">
         <div class="auth-container">
             <div class="auth-card">
                 <div class="auth-logo">
@@ -858,5 +819,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }, 100);
         });
     </script>
-</body>
-</html>
+
+<?php include 'includes/footer.php'; render_footer(); ?>

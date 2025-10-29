@@ -1,4 +1,25 @@
 <?php
+/**
+ * ========================================================================
+ * PERFIL DE USUARIO - Tienda Seda y Lino
+ * ========================================================================
+ * Página de perfil donde el usuario puede:
+ * - Ver y actualizar sus datos personales
+ * - Gestionar dirección de envío
+ * - Acceder a sus paneles según su rol (Admin, Marketing, Ventas)
+ * 
+ * Funciones principales:
+ * - Actualización de datos personales (nombre, apellido, teléfono, dirección)
+ * - Verificación de acceso mediante requireLogin()
+ * 
+ * Variables principales:
+ * - $id_usuario: ID del usuario en sesión
+ * - $mensaje: Mensajes de éxito/error para mostrar al usuario
+ * - $mensaje_tipo: Tipo de mensaje (success/error)
+ * 
+ * Tablas utilizadas: Usuarios
+ * ========================================================================
+ */
 session_start();
 
 // ============================================================================
@@ -11,8 +32,11 @@ require_once 'includes/auth_check.php';
 // Verificar que el usuario esté logueado
 requireLogin();
 
-// Conectar a la base de datos (usar configuración centralizada)
+// Conectar a la base de datos
 require_once 'config/database.php';
+
+// Configurar título de la página
+$titulo_pagina = 'Mi Perfil';
 
 $id_usuario = $_SESSION['id_usuario'];
 $mensaje = '';
@@ -56,18 +80,8 @@ if (!$usuario) {
     exit;
 }
 ?>
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mi Perfil | Seda y Lino</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-</head>
-<body>
-    <?php include 'includes/navigation.php'; ?>
+
+<?php include 'includes/header.php'; ?>
 
     <main class="perfil-page">
         <div class="container">
@@ -188,20 +202,31 @@ if (!$usuario) {
                         <hr class="my-4">
                         
                         <div class="d-grid gap-2">
+                            <?php 
+                            // Mostrar todos los paneles disponibles según el rol del usuario
+                            // Los admins pueden acceder a todos los paneles
+                            ?>
                             <?php if (isAdmin()): ?>
                             <a href="admin.php" class="btn btn-danger">
                                 <i class="fas fa-shield-alt me-2"></i>Panel de Administración
                             </a>
-                            <?php endif; ?>
-                            <?php if (isMarketing()): ?>
                             <a href="marketing.php" class="btn btn-warning">
                                 <i class="fas fa-bullhorn me-2"></i>Panel de Marketing
                             </a>
-                            <?php endif; ?>
-                            <?php if (isVentas()): ?>
                             <a href="ventas.php" class="btn btn-info">
                                 <i class="fas fa-briefcase me-2"></i>Panel de Ventas
                             </a>
+                            <?php else: ?>
+                                <?php if (isMarketing()): ?>
+                                <a href="marketing.php" class="btn btn-warning">
+                                    <i class="fas fa-bullhorn me-2"></i>Panel de Marketing
+                                </a>
+                                <?php endif; ?>
+                                <?php if (isVentas()): ?>
+                                <a href="ventas.php" class="btn btn-info">
+                                    <i class="fas fa-briefcase me-2"></i>Panel de Ventas
+                                </a>
+                                <?php endif; ?>
                             <?php endif; ?>
                             <a href="index.php" class="btn btn-outline-primary">
                                 <i class="fas fa-home me-2"></i>Volver al Inicio
@@ -339,6 +364,5 @@ if (!$usuario) {
         </div>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
-</body>
-</html>
+
+<?php include 'includes/footer.php'; render_footer(); ?>

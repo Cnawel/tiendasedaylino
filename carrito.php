@@ -4,15 +4,25 @@
  * CARRITO DE COMPRAS - Tienda Seda y Lino
  * ========================================================================
  * Gestiona el carrito de compras del usuario
- * - Visualización de productos agregados
- * - Modificación de cantidades
- * - Eliminación de productos
- * - Cálculo de totales
+ * - Agregar productos al carrito
+ * - Visualizar productos en el carrito
+ * - Modificar cantidades de productos
+ * - Eliminación de productos del carrito
+ * - Calcular totales (subtotal, envío, total)
  * 
- * Sistema basado en $_SESSION (sin base de datos)
+ * Funciones principales:
+ * - agregarAlCarrito(): Agrega producto con talle, color y cantidad
+ * - actualizarCantidad(): Modifica cantidad de un producto
+ * - eliminarProducto(): Elimina un producto del carrito
+ * - calcularTotal(): Calcula el total del pedido
  * 
- * @author Tienda Seda y Lino
- * @version 1.0 MVP
+ * Variables principales:
+ * - $_SESSION['carrito']: Array con productos en el carrito
+ * - $total: Total calculado del pedido
+ * 
+ * Sistema: Basado en $_SESSION (no se guarda en BD hasta checkout)
+ * Tablas utilizadas: Productos (solo lectura para mostrar datos)
+ * ========================================================================
  */
 
 session_start();

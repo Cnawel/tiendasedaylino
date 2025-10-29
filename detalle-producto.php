@@ -4,13 +4,28 @@
  * DETALLE DE PRODUCTO - Tienda Seda y Lino
  * ========================================================================
  * Muestra información detallada de un producto individual
- * - Datos del producto desde tabla Productos
- * - Fotos desde tabla Fotos_Producto
- * - Variantes de stock desde tabla Stock_Variantes
+ * - Visualiza datos completos del producto (nombre, precio, descripción)
+ * - Galería de imágenes del producto
+ * - Selector de talle y color con validación de stock
+ * - Indicador de stock disponible en tiempo real
+ * - Botones para agregar al carrito o comprar ahora
  * - Productos relacionados de la misma categoría
  * 
- * @author Tienda Seda y Lino
- * @version 1.0
+ * Funciones principales:
+ * - Carga datos del producto desde BD por ID
+ * - Muestra talles y colores disponibles
+ * - Valida stock y tacha opciones sin stock
+ * - Actualiza indicador de stock según selección (JavaScript)
+ * 
+ * Variables principales:
+ * - $id_producto: ID del producto desde URL (?id=numero)
+ * - $producto: Datos del producto (nombre, precio, descripción)
+ * - $tallas: Array con talles disponibles
+ * - $colores: Array con colores disponibles
+ * - $variantes: Stock por combinación talle-color
+ * 
+ * Tablas utilizadas: Productos, Categorias, Fotos_Producto, Stock_Variantes
+ * ========================================================================
  */
 
 session_start();

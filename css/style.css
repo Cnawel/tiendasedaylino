@@ -3096,3 +3096,150 @@ img[src*="iconos/"],
     height: 50px;
     object-fit: cover;
 }
+
+/* ============================================
+   HOVER EFFECTS - Catálogo de Productos
+   ============================================ */
+
+/* Efecto hover en imágenes del catálogo */
+.card-img-container:hover .img-hover {
+    transform: scale(1.05);
+}
+
+/* Asegurar que el contenedor de la imagen no haga scroll */
+.card-img-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Efecto hover en la tarjeta completa */
+.tarjeta:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* ============================================
+   FILTROS DE CATEGORÍA COMPACTOS
+   ============================================ */
+
+.filtro-categoria-small {
+    padding: 8px 20px;
+    border: 1.5px solid #dee2e6;
+    background-color: #ffffff;
+    color: #212529;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    display: inline-block;
+}
+
+.filtro-categoria-small:hover {
+    background-color: #f8f9fa;
+    border-color: #212529;
+    color: #212529;
+    transform: translateY(-2px);
+}
+
+.filtro-categoria-small.active {
+    background-color: #212529;
+    color: #ffffff;
+    border-color: #212529;
+}
+
+/* ============================================
+   BADGE SIN STOCK
+   ============================================ */
+
+.badge.bg-danger {
+    font-size: 0.75rem;
+    padding: 6px 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Estilos adicionales para card con badge */
+.card.position-relative {
+    transition: all 0.3s ease;
+}
+
+.card.position-relative:hover {
+    transform: translateY(-5px);
+}
+
+/* ============================================
+   CARDS CATÁLOGO - RESPONSIVE
+   ============================================ */
+
+/* Cards más compactas */
+.card.tarjeta {
+    border-radius: 4px;
+}
+
+.card-img-container {
+    min-height: 200px;
+}
+
+/* Responsive: ajustar altura de imágenes */
+@media (max-width: 576px) {
+    .card-img-container {
+        height: 220px !important;
+    }
+    
+    .badge.bg-danger {
+        font-size: 0.65rem;
+        padding: 4px 8px;
+        margin: 4px !important;
+    }
+    
+    .filtro-categoria-small {
+        font-size: 0.75rem;
+        padding: 6px 14px;
+    }
+}
+
+/* Tablets */
+@media (min-width: 577px) and (max-width: 991px) {
+    .card-img-container {
+        height: 260px !important;
+    }
+}
+
+/* Desktop */
+@media (min-width: 992px) {
+    .card-img-container {
+        height: 280px !important;
+    }
+}
+
+/* Espaciado responsive en badges */
+@media (max-width: 576px) {
+    .badge.position-absolute {
+        font-size: 0.7rem !important;
+    }
+}
+
+/* ============================================
+   STATS CARDS - ADMIN PANEL
+   ============================================ */
+
+/* Efecto hover en cards de estadísticas */
+.hover-stats {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.hover-stats:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+}
+
+/* Anclar scroll para anchors */
+html {
+    scroll-behavior: smooth;
+}

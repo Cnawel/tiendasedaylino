@@ -3,13 +3,24 @@
  * ========================================================================
  * CONFIRMACIÓN DE PEDIDO - Tienda Seda y Lino
  * ========================================================================
- * Página de confirmación después de procesar un pedido exitosamente
- * - Muestra resumen del pedido
- * - Información de envío
+ * Muestra la confirmación después de procesar un pedido exitosamente
+ * - Resumen del pedido con todos los productos
  * - Número de pedido para seguimiento
+ * - Información de envío y método de pago
+ * - Botón para continuar comprando
  * 
- * @author Tienda Seda y Lino
- * @version 1.0
+ * Funciones principales:
+ * - Obtiene datos del pedido desde $_SESSION['pedido_exitoso']
+ * - Muestra detalles completos del pedido
+ * - Informa si el email fue enviado correctamente
+ * 
+ * Variables principales:
+ * - $pedido: Array con datos del pedido creado
+ * - $email_enviado: Boolean indicando si se envió email
+ * 
+ * Acceso: Solo se muestra si existe $_SESSION['pedido_exitoso']
+ * Tablas utilizadas: Ninguna (solo muestra datos de sesión)
+ * ========================================================================
  */
 
 session_start();

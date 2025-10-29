@@ -1,12 +1,24 @@
 <?php
 /**
  * ========================================================================
- * PÁGINA CATÁLOGO - Tienda Seda y Lino
+ * CATÁLOGO DE PRODUCTOS - Tienda Seda y Lino
  * ========================================================================
- * Muestra productos filtrados por categoría
+ * Muestra todos los productos filtrados por categoría
+ * - Permite filtrar por categoría (Camisas, Blusas, Pantalones, Shorts, Todos)
+ * - Muestra productos con sus imágenes, precios y datos básicos
+ * - Enlaces a detalle de cada producto
  * 
- * @author Tienda Seda y Lino
- * @version 2.0
+ * Funciones principales:
+ * - Filtrado de productos por categoría desde URL (?categoria=nombre)
+ * - Visualización de productos con paginación
+ * - Obtención automática de imágenes según estructura de carpetas
+ * 
+ * Variables principales:
+ * - $categoria_nombre: Categoría seleccionada desde URL
+ * - $categoria_id: ID de la categoría en BD
+ * - $productos: Array con productos a mostrar
+ * 
+ * Tablas utilizadas: Productos, Categorias, Fotos_Producto
  * ========================================================================
  */
 

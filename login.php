@@ -4,18 +4,23 @@
  * LOGIN - Tienda Seda y Lino
  * ========================================================================
  * Sistema de autenticación de usuarios
+ * - Valida credenciales (email y contraseña)
+ * - Verifica contraseña hasheada con password_verify()
+ * - Crea sesión con datos del usuario
+ * - Redirecciona según rol: Admin -> admin.php, Marketing -> marketing.php,
+ *   Ventas -> ventas.php, Cliente -> perfil.php
  * 
- * Funcionalidades:
- * - Validación de credenciales contra tabla Usuarios
- * - Verificación de contraseñas hasheadas con password_verify
- * - Creación de sesión con datos del usuario
- * - Redirección según rol (ADMIN -> admin.php, otros -> perfil.php)
+ * Funciones principales:
+ * - Validar email y contraseña desde formulario
+ * - Buscar usuario en BD por email
+ * - Verificar contraseña con password_verify()
+ * - Crear sesión con id_usuario, nombre, apellido, rol
  * 
- * Tabla utilizada: Usuarios (database_estructura.sql)
- * Campos: id_usuario, nombre, apellido, email, contrasena, rol
+ * Variables principales:
+ * - $mensaje: Mensaje de error si las credenciales son incorrectas
+ * - email, contrasena: Datos del formulario
  * 
- * @package TiendaSedaYLino
- * @version 1.0
+ * Tabla utilizada: Usuarios (campos: id_usuario, email, contrasena, rol)
  * ========================================================================
  */
 session_start();

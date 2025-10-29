@@ -1,18 +1,24 @@
 <?php
 /**
  * ========================================================================
- * PÁGINA PRINCIPAL - Tienda Seda y Lino
+ * PÁGINA PRINCIPAL (HOME) - Tienda Seda y Lino
  * ========================================================================
  * Landing page del e-commerce de ropa de lino y seda
- * 
- * Secciones:
  * - Carrusel de imágenes destacadas
- * - Presentación de la tienda
- * - Catálogo de productos por categorías
- * - Formulario de contacto con validación
+ * - Presentación de la tienda y valores
+ * - Catálogo de productos destacados por categorías
+ * - Formulario de contacto
  * 
- * @author Tienda Seda y Lino
- * @version 2.0
+ * Funciones principales:
+ * - Muestra productos destacados de cada categoría
+ * - Procesa formulario de contacto y envía emails
+ * - Enlaces rápidos a catálogo y otras secciones
+ * 
+ * Variables principales:
+ * - $titulo_pagina: Título de la página para el head
+ * - Productos cargados desde BD según categoría
+ * 
+ * Tablas utilizadas: Productos, Categorias (solo lectura)
  * ========================================================================
  */
 
