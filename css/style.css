@@ -2005,6 +2005,122 @@ img[src] {
     background: none;
 }
 
+/* =============================
+   STANDARDIZED IMAGE SIZES - Consistent across all pages
+   ============================= */
+
+/* 
+ * IMAGE SIZE STANDARDS:
+ * - Thumbnails: 200px max-height (150px mobile, 120px small mobile)
+ * - Regular images: 600px max-height (400px mobile, 300px small mobile)  
+ * - Avatars: 40px max-height/width
+ * - Marketing previews: 120px max-height/width
+ * - All images use object-fit: contain to prevent cropping
+ */
+
+/* 1. THUMBNAIL IMAGES - Product cards, carrito, checkout, catalogo */
+.img-thumbnail-mini,
+.producto-imagen-carrito,
+.card-img-top,
+.producto-thumbnail,
+.img-fluid.rounded {
+    max-width: 100%;
+    max-height: 200px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    object-position: center;
+}
+
+/* 2. REGULAR IMAGES - Main displays, carousel, product details */
+.carousel-item img,
+.img-principal,
+.producto-imagen-principal,
+.producto-img-lista,
+.d-block.w-100 {
+    max-width: 100%;
+    max-height: 600px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    object-position: center;
+}
+
+/* 3. AVATAR AND ICONS - Navigation, user profile */
+img[src*="avatar-usuario.png"],
+img[src*="iconos/"],
+.nav-link img {
+    max-width: 40px;
+    max-height: 40px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+}
+
+/* 4. MARKETING PREVIEW IMAGES - Admin panel image previews */
+.image-preview {
+    max-width: 120px;
+    max-height: 120px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 8px;
+    margin: 0.5rem;
+}
+
+/* 5. RESPONSIVE ADJUSTMENTS - Mobile and tablet */
+@media (max-width: 768px) {
+    /* Thumbnails smaller on mobile */
+    .img-thumbnail-mini,
+    .producto-imagen-carrito,
+    .card-img-top,
+    .producto-thumbnail,
+    .img-fluid.rounded {
+        max-height: 150px;
+    }
+    
+    /* Regular images smaller on mobile */
+    .carousel-item img,
+    .img-principal,
+    .producto-imagen-principal,
+    .producto-img-lista,
+    .d-block.w-100 {
+        max-height: 400px;
+    }
+    
+    /* Marketing previews smaller on mobile */
+    .image-preview {
+        max-width: 100px;
+        max-height: 100px;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Thumbnails very small on small screens */
+    .img-thumbnail-mini,
+    .producto-imagen-carrito,
+    .card-img-top,
+    .producto-thumbnail,
+    .img-fluid.rounded {
+        max-height: 120px;
+    }
+    
+    /* Regular images very small on small screens */
+    .carousel-item img,
+    .img-principal,
+    .producto-imagen-principal,
+    .producto-img-lista,
+    .d-block.w-100 {
+        max-height: 300px;
+    }
+    
+    /* Marketing previews very small on small screens */
+    .image-preview {
+        max-width: 80px;
+        max-height: 80px;
+    }
+}
+
 
 /* =============================
    Estilos para página de perfil

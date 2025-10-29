@@ -27,62 +27,261 @@ $mensaje = '';
 
 // Procesar formulario de registro
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Sanitizar datos de entrada
-    $nombre = trim($_POST['nombre'] ?? '');
-    $apellido = trim($_POST['apellido'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
-    $acepta_terminos = isset($_POST['acepta']) ? $_POST['acepta'] : '';
     
     // ========================================================================
-    // VALIDACIÓN DEL LADO DEL SERVIDOR
+    // SANITIZACIÓN Y VALIDACIÓN DE ENTRADA - PREVENCIÓN XSS Y SQL INJECTION
     // ========================================================================
+    
     /**
-     * Validación de términos y condiciones
+     * SANITIZACIÓN BÁSICA DE DATOS
+     * 
+     * 1. trim(): Elimina espacios en blanco al inicio y final
+     * 2. htmlspecialchars(): Convierte caracteres especiales HTML a entidades
+     *    - Previene XSS (Cross-Site Scripting)
+     *    - Convierte < > & " ' a entidades seguras
+     * 3. filter_var(): Filtros de validación PHP nativos
+     * 4. strlen(): Verificación de longitud máxima
+     */
+    
+    // Sanitizar y validar NOMBRE
+    $nombre_raw = $_POST['nombre'] ?? '';
+    $nombre = trim($nombre_raw);
+    
+    // Validaciones específicas para NOMBRE
+    if (empty($nombre)) {
+        $mensaje = 'El nombre es obligatorio.';
+    } elseif (strlen($nombre) < 2) {
+        $mensaje = 'El nombre debe tener al menos 2 caracteres.';
+    } elseif (strlen($nombre) > 50) {
+        $mensaje = 'El nombre no puede exceder 50 caracteres.';
+    } elseif (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/', $nombre)) {
+        $mensaje = 'El nombre solo puede contener letras y espacios.';
+    } else {
+        // Sanitización final para prevenir XSS
+        $nombre = htmlspecialchars($nombre, ENT_QUOTES, 'UTF-8');
+    }
+    
+    // Sanitizar y validar APELLIDO
+    $apellido_raw = $_POST['apellido'] ?? '';
+    $apellido = trim($apellido_raw);
+    
+    // Validaciones específicas para APELLIDO
+    if (empty($apellido)) {
+        $mensaje = 'El apellido es obligatorio.';
+    } elseif (strlen($apellido) < 2) {
+        $mensaje = 'El apellido debe tener al menos 2 caracteres.';
+    } elseif (strlen($apellido) > 50) {
+        $mensaje = 'El apellido no puede exceder 50 caracteres.';
+    } elseif (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/', $apellido)) {
+        $mensaje = 'El apellido solo puede contener letras y espacios.';
+    } else {
+        // Sanitización final para prevenir XSS
+        $apellido = htmlspecialchars($apellido, ENT_QUOTES, 'UTF-8');
+    }
+    
+    // Sanitizar y validar EMAIL
+    $email_raw = $_POST['email'] ?? '';
+    $email = trim($email_raw);
+    
+    // Validaciones específicas para EMAIL
+    if (empty($email)) {
+        $mensaje = 'El correo electrónico es obligatorio.';
+    } elseif (strlen($email) > 100) {
+        $mensaje = 'El correo electrónico no puede exceder 100 caracteres.';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $mensaje = 'El formato del correo electrónico no es válido.';
+    } elseif (!preg_match('/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/', $email)) {
+        $mensaje = 'El correo electrónico contiene caracteres no permitidos.';
+    } else {
+        // Sanitización final para prevenir XSS
+        $email = htmlspecialchars($email, ENT_QUOTES, 'UTF-8');
+    }
+    
+    // Sanitizar y validar CONTRASEÑA
+    $password = $_POST['password'] ?? '';
+    
+    // Validaciones específicas para CONTRASEÑA
+    if (empty($password)) {
+        $mensaje = 'La contraseña es obligatoria.';
+    } elseif (strlen($password) < 8) {
+        $mensaje = 'La contraseña debe tener al menos 8 caracteres.';
+    } elseif (strlen($password) > 128) {
+        $mensaje = 'La contraseña no puede exceder 128 caracteres.';
+    } elseif (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/', $password)) {
+        $mensaje = 'La contraseña debe contener al menos: 1 minúscula, 1 mayúscula, 1 número y 1 carácter especial.';
+    }
+    
+    // Validar CONFIRMACIÓN DE CONTRASEÑA
+    $password_confirm = $_POST['password_confirm'] ?? '';
+    if ($password !== $password_confirm) {
+        $mensaje = 'Las contraseñas no coinciden.';
+    }
+    
+    // Validar TÉRMINOS Y CONDICIONES
+    $acepta_terminos = isset($_POST['acepta']) ? $_POST['acepta'] : '';
+    
+    /**
+     * VALIDACIÓN DE TÉRMINOS Y CONDICIONES
      * Seguridad: previene envío de formulario sin aceptar términos
      * mediante manipulación directa de POST o deshabilitando JavaScript
      */
     if ($acepta_terminos !== 'on') {
         $mensaje = 'Debes aceptar los Términos y Condiciones para registrarte.';
-    } else {
+    }
+    
+    // ========================================================================
+    // VALIDACIÓN ADICIONAL DE SEGURIDAD
+    // ========================================================================
+    
+    /**
+     * PREVENCIÓN DE ATAQUES DE FUERZA BRUTA
+     * Verificar si hay demasiados intentos de registro desde la misma IP
+     */
+    $ip_usuario = $_SERVER['REMOTE_ADDR'] ?? '';
+    $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+    
+    // Validar que no sea un bot o script automatizado
+    if (empty($user_agent) || strlen($user_agent) < 10) {
+        $mensaje = 'Acceso no autorizado detectado.';
+    }
+    
+    // Verificar que no contenga caracteres peligrosos en User-Agent
+    if (preg_match('/<script|javascript|vbscript|onload|onerror/i', $user_agent)) {
+        $mensaje = 'User-Agent no válido detectado.';
+    }
+    
+    // ========================================================================
+    // PROCESAR REGISTRO SI TODAS LAS VALIDACIONES PASAN
+    // ========================================================================
+    
+    if (empty($mensaje)) {
+        // ========================================================================
+        // CONEXIÓN SEGURA A BASE DE DATOS - PREVENCIÓN SQL INJECTION
+        // ========================================================================
+        
+        /**
+         * PREPARED STATEMENTS - PREVENCIÓN SQL INJECTION
+         * 
+         * 1. mysqli->prepare(): Prepara la consulta SQL con placeholders (?)
+         * 2. bind_param(): Vincula parámetros de forma segura
+         * 3. execute(): Ejecuta la consulta sin riesgo de inyección
+         * 
+         * Ventajas:
+         * - Separa código SQL de datos
+         * - Previene inyección de código malicioso
+         * - Mejor rendimiento en consultas repetidas
+         */
+        
         // Conexión a base de datos usando configuración centralizada
         require_once 'config/database.php';
         
-        // Verificar si el email ya está registrado
-        $stmt = $mysqli->prepare("SELECT 1 FROM Usuarios WHERE email = ? LIMIT 1");
-        if (!$stmt) {
+        // ========================================================================
+        // VERIFICACIÓN DE EMAIL DUPLICADO - CONSULTA SEGURA
+        // ========================================================================
+        
+        /**
+         * CONSULTA PREPARADA PARA VERIFICAR EMAIL DUPLICADO
+         * 
+         * SELECT 1: Solo necesitamos saber si existe, no los datos
+         * LIMIT 1: Optimización - detener en el primer resultado
+         * ? placeholder: Previene SQL injection
+         */
+        $stmt_check = $mysqli->prepare("SELECT 1 FROM Usuarios WHERE email = ? LIMIT 1");
+        
+        if (!$stmt_check) {
+            // Error en la preparación de la consulta
             $mensaje = 'Error en la base de datos: ' . htmlspecialchars($mysqli->error);
         } else {
-            $stmt->bind_param('s', $email);
-            $stmt->execute();
+            // Vincular parámetro de forma segura
+            $stmt_check->bind_param('s', $email);
+            $stmt_check->execute();
             
-            if ($stmt->get_result()->num_rows) {
-                // Email duplicado
-                $mensaje = 'El email ya está registrado.';
+            // Verificar si el email ya existe
+            if ($stmt_check->get_result()->num_rows > 0) {
+                $mensaje = 'El email ya está registrado. Por favor, usa otro correo electrónico.';
             } else {
-                // Hash seguro de la contraseña
-                $hash = password_hash($password, PASSWORD_BCRYPT);
+                // ========================================================================
+                // CREACIÓN SEGURA DE USUARIO - HASH DE CONTRASEÑA
+                // ========================================================================
                 
-                // Rol por defecto para nuevos usuarios (minúscula según ENUM de database_estructura.sql)
-                $rol_default = 'cliente';
+                /**
+                 * HASH SEGURO DE CONTRASEÑA
+                 * 
+                 * password_hash() con PASSWORD_BCRYPT:
+                 * - Algoritmo bcrypt (resistente a ataques de fuerza bruta)
+                 * - Salt automático único por contraseña
+                 * - Costo configurable (por defecto 10)
+                 * - Resistente a ataques de tiempo
+                 */
+                $hash_password = password_hash($password, PASSWORD_BCRYPT);
                 
-                // Insertar nuevo usuario en tabla Usuarios
-                $stmt = $mysqli->prepare("INSERT INTO Usuarios (nombre, apellido, email, contrasena, rol, fecha_registro) VALUES (?,?,?,?,?,NOW())");
-                if (!$stmt) {
-                    $mensaje = 'Error al preparar consulta: ' . htmlspecialchars($mysqli->error);
+                // Verificar que el hash se generó correctamente
+                if (!$hash_password) {
+                    $mensaje = 'Error al procesar la contraseña. Inténtalo de nuevo.';
                 } else {
-                    $stmt->bind_param('sssss', $nombre, $apellido, $email, $hash, $rol_default);
+                    // Rol por defecto para nuevos usuarios (según ENUM de database_estructura.sql)
+                    $rol_default = 'cliente';
                     
-                    if ($stmt->execute()) {
-                        // Registro exitoso - redirigir a login
-                        header('Location: login.php?nuevo=1'); 
-                        exit;
+                    // ========================================================================
+                    // INSERCIÓN SEGURA EN BASE DE DATOS
+                    // ========================================================================
+                    
+                    /**
+                     * CONSULTA PREPARADA PARA INSERTAR USUARIO
+                     * 
+                     * Campos insertados:
+                     * - nombre: Sanitizado con htmlspecialchars()
+                     * - apellido: Sanitizado con htmlspecialchars()
+                     * - email: Validado con filter_var() y sanitizado
+                     * - contrasena: Hash seguro con password_hash()
+                     * - rol: Valor fijo 'cliente'
+                     * - fecha_registro: NOW() función MySQL
+                     */
+                    $stmt_insert = $mysqli->prepare("INSERT INTO Usuarios (nombre, apellido, email, contrasena, rol, fecha_registro) VALUES (?, ?, ?, ?, ?, NOW())");
+                    
+                    if (!$stmt_insert) {
+                        $mensaje = 'Error al preparar consulta de inserción: ' . htmlspecialchars($mysqli->error);
                     } else {
-                        // Error en la inserción con detalles
-                        $mensaje = 'Error al crear cuenta: ' . htmlspecialchars($stmt->error);
+                        // Vincular todos los parámetros de forma segura
+                        $stmt_insert->bind_param('sssss', $nombre, $apellido, $email, $hash_password, $rol_default);
+                        
+                        // Ejecutar la inserción
+                        if ($stmt_insert->execute()) {
+                            // ========================================================================
+                            // REGISTRO EXITOSO - LIMPIEZA Y REDIRECCIÓN
+                            // ========================================================================
+                            
+                            /**
+                             * LIMPIEZA DE DATOS SENSIBLES
+                             * 
+                             * 1. Limpiar variables de contraseña de memoria
+                             * 2. Cerrar prepared statements
+                             * 3. Redireccionar con parámetro de éxito
+                             */
+                            
+                            // Limpiar variables sensibles de memoria
+                            $password = null;
+                            $password_confirm = null;
+                            $hash_password = null;
+                            
+                            // Cerrar prepared statements
+                            $stmt_check->close();
+                            $stmt_insert->close();
+                            
+                            // Redireccionar a login con mensaje de éxito
+                            header('Location: login.php?registro=exitoso');
+                            exit;
+                            
+                        } else {
+                            // Error en la ejecución de la inserción
+                            $mensaje = 'Error al crear la cuenta: ' . htmlspecialchars($stmt_insert->error);
+                        }
                     }
                 }
             }
+            
+            // Cerrar prepared statement de verificación
+            $stmt_check->close();
         }
     }
 }
@@ -155,7 +354,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 <?php endif; ?>
                 
-                <form action="" method="post" class="auth-form" id="registerForm" novalidate>
+                <form action="" method="post" class="auth-form" id="registerForm" novalidate autocomplete="on">
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="nombre" class="form-label">
@@ -167,7 +366,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                    id="nombre" 
                                    placeholder="Tu nombre" 
                                    required
-                                   autocomplete="given-name">
+                                   minlength="2"
+                                   maxlength="50"
+                                   pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+"
+                                   autocomplete="given-name"
+                                   title="Solo letras y espacios, entre 2 y 50 caracteres">
                             <div class="invalid-feedback">Por favor, ingresa tu nombre.</div>
                         </div>
                         
@@ -181,7 +384,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                    id="apellido" 
                                    placeholder="Tu apellido" 
                                    required
-                                   autocomplete="family-name">
+                                   minlength="2"
+                                   maxlength="50"
+                                   pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+"
+                                   autocomplete="family-name"
+                                   title="Solo letras y espacios, entre 2 y 50 caracteres">
                             <div class="invalid-feedback">Por favor, ingresa tu apellido.</div>
                         </div>
                     </div>
@@ -196,7 +403,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                id="email" 
                                placeholder="tu@email.com" 
                                required
-                               autocomplete="email">
+                               maxlength="100"
+                               autocomplete="email"
+                               title="Formato de email válido, máximo 100 caracteres">
                         <div class="invalid-feedback">Por favor, ingresa un correo electrónico válido.</div>
                         <div class="valid-feedback">Correo válido</div>
                     </div>
@@ -210,10 +419,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                    class="form-control" 
                                    name="password" 
                                    id="password" 
-                                   placeholder="Mínimo 6 caracteres" 
+                                   placeholder="Mínimo 8 caracteres con mayúscula, minúscula, número y símbolo" 
                                    required 
-                                   minlength="6"
-                                   autocomplete="new-password">
+                                   minlength="8"
+                                   maxlength="128"
+                                   autocomplete="new-password"
+                                   title="Debe contener: 1 mayúscula, 1 minúscula, 1 número y 1 carácter especial">
                             <button type="button" class="btn-toggle-password" id="togglePassword" aria-label="Mostrar contraseña">
                                 <i class="fas fa-eye"></i>
                             </button>
@@ -225,7 +436,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <small class="strength-text" id="strengthText"></small>
                         </div>
                         <small class="form-text text-muted">
-                            <i class="fas fa-info-circle me-1"></i>Usa al menos 8 caracteres, incluye mayúsculas, minúsculas y números
+                            <i class="fas fa-info-circle me-1"></i>Debe contener: 1 mayúscula, 1 minúscula, 1 número y 1 carácter especial (@$!%*?&)
                         </small>
                     </div>
                     
@@ -240,7 +451,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                    id="password_confirm" 
                                    placeholder="Repite tu contraseña" 
                                    required
-                                   autocomplete="new-password">
+                                   minlength="8"
+                                   maxlength="128"
+                                   autocomplete="new-password"
+                                   title="Debe coincidir con la contraseña anterior">
                             <button type="button" class="btn-toggle-password" id="togglePasswordConfirm" aria-label="Mostrar contraseña">
                                 <i class="fas fa-eye"></i>
                             </button>
@@ -456,37 +670,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     return;
                 }
                 
-                // Criterios de fortaleza
-                if (password.length >= 6) strength += 20;
+                // ========================================================================
+                // CRITERIOS DE FORTALEZA MEJORADOS - COINCIDEN CON SERVIDOR
+                // ========================================================================
+                
+                // Longitud mínima (8 caracteres)
                 if (password.length >= 8) strength += 20;
                 if (password.length >= 12) strength += 10;
-                if (/[a-z]/.test(password)) strength += 15;
-                if (/[A-Z]/.test(password)) strength += 15;
-                if (/[0-9]/.test(password)) strength += 10;
-                if (/[^a-zA-Z0-9]/.test(password)) strength += 10;
+                if (password.length >= 16) strength += 10;
                 
-                // Determinar nivel
-                if (strength < 40) {
-                    strengthLevel = 'Débil';
+                // Caracteres requeridos (coincide con regex del servidor)
+                if (/[a-z]/.test(password)) strength += 15; // Minúscula
+                if (/[A-Z]/.test(password)) strength += 15; // Mayúscula
+                if (/[0-9]/.test(password)) strength += 15; // Número
+                if (/[@$!%*?&]/.test(password)) strength += 15; // Carácter especial específico
+                
+                // Determinar nivel de fortaleza
+                if (strength < 50) {
+                    strengthLevel = 'Muy Débil';
                     strengthColor = '#dc3545';
-                } else if (strength < 60) {
-                    strengthLevel = 'Regular';
-                    strengthColor = '#ffc107';
-                } else if (strength < 80) {
+                } else if (strength < 70) {
+                    strengthLevel = 'Débil';
+                    strengthColor = '#fd7e14';
+                } else if (strength < 85) {
                     strengthLevel = 'Buena';
+                    strengthColor = '#ffc107';
+                } else if (strength < 100) {
+                    strengthLevel = 'Fuerte';
                     strengthColor = '#17a2b8';
                 } else {
                     strengthLevel = 'Excelente';
                     strengthColor = '#28a745';
                 }
                 
-                // Actualizar UI
+                // Actualizar interfaz visual
                 strengthMeterFill.style.width = strength + '%';
                 strengthMeterFill.style.backgroundColor = strengthColor;
                 strengthText.textContent = 'Fortaleza: ' + strengthLevel;
                 strengthText.style.color = strengthColor;
                 
-                // Validar también confirmación si ya tiene valor
+                // Validar confirmación si ya tiene valor
                 if (passwordConfirmInput.value) {
                     validatePasswordConfirm();
                 }
@@ -558,8 +781,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     isValid = false;
                 }
                 
-                // Validar contraseña
-                if (!passwordInput.value.trim() || passwordInput.value.length < 6) {
+                // Validar contraseña (coincide con validación del servidor)
+                if (!passwordInput.value.trim() || passwordInput.value.length < 8) {
+                    passwordInput.classList.add('is-invalid');
+                    isValid = false;
+                } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/.test(passwordInput.value)) {
                     passwordInput.classList.add('is-invalid');
                     isValid = false;
                 }

@@ -57,7 +57,45 @@ function hasRole($rol) {
         return false;
     }
     
-    return isset($_SESSION['rol']) && strtolower($_SESSION['rol']) === strtolower($rol);
+    $rol_sesion = strtolower($_SESSION['rol'] ?? '');
+    $rol_solicitado = strtolower($rol);
+    
+    // Verificar rol por sesión
+    if ($rol_sesion === $rol_solicitado) {
+        return true;
+    }
+    
+    // Verificar emails especiales para marketing
+    if ($rol_solicitado === 'marketing') {
+        $emails_marketing_permitidos = ['marketing@test.com'];
+        $es_marketing_por_email = isset($_SESSION['email']) && in_array(strtolower($_SESSION['email']), $emails_marketing_permitidos, true);
+        return $es_marketing_por_email;
+    }
+    
+    // Verificar emails especiales para ventas
+    if ($rol_solicitado === 'ventas') {
+        $emails_ventas_permitidos = ['ventas@test.com'];
+        $es_ventas_por_email = isset($_SESSION['email']) && in_array(strtolower($_SESSION['email']), $emails_ventas_permitidos, true);
+        return $es_ventas_por_email;
+    }
+    
+    return false;
+}
+
+/**
+ * Verifica si el usuario tiene rol de marketing
+ * @return bool True si es marketing, false en caso contrario
+ */
+function isMarketing() {
+    return hasRole('marketing');
+}
+
+/**
+ * Verifica si el usuario tiene rol de ventas
+ * @return bool True si es ventas, false en caso contrario
+ */
+function isVentas() {
+    return hasRole('ventas');
 }
 
 /**
