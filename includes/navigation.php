@@ -16,6 +16,9 @@
  * ========================================================================
  */
 
+// Incluir funciones de autenticación
+require_once 'auth_check.php';
+
 // Verificar si el usuario está logueado
 $usuario_logueado = isLoggedIn();
 $num_items_carrito = isset($_SESSION['carrito']) ? count($_SESSION['carrito']) : 0;
@@ -44,7 +47,29 @@ $num_items_carrito = isset($_SESSION['carrito']) ? count($_SESSION['carrito']) :
                     </li>
                     
                     <?php if ($usuario_logueado): ?>
-                    <!-- Usuario logueado: mostrar carrito, perfil y logout -->
+                    <!-- Usuario logueado: mostrar acceso a dashboard según rol, carrito, perfil y logout -->
+                    <?php
+                        // Determinar URL y etiqueta del dashboard según el rol actual
+                        $dashboard_url = '';
+                        $dashboard_label = '';
+                        if (isAdmin()) {
+                            $dashboard_url = 'admin.php';
+                            $dashboard_label = 'ADMIN';
+                        } elseif (isMarketing()) {
+                            $dashboard_url = 'marketing.php';
+                            $dashboard_label = 'MARKETING';
+                        } elseif (isVentas()) {
+                            $dashboard_url = 'ventas.php';
+                            $dashboard_label = 'VENTAS';
+                        }
+                    ?>
+                    <?php if ($dashboard_url): ?>
+                    <li class="nav-item">
+                        <a class="nav-link link-tienda" href="<?= $dashboard_url ?>" title="Ir al Panel">
+                            <i class="fas fa-gauge-high me-1"></i>Panel <?= $dashboard_label ?>
+                        </a>
+                    </li>
+                    <?php endif; ?>
                     <li class="nav-item">
                         <a class="nav-link position-relative" href="carrito.php" title="Carrito">
                             <i class="fas fa-shopping-cart fa-lg"></i>

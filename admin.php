@@ -387,9 +387,13 @@ $sql_productos = "
            p.precio_actual,
            p.genero,
            p.id_categoria,
-           c.nombre_categoria AS categoria
+           c.nombre_categoria AS categoria,
+           COUNT(DISTINCT fp.color) as colores_disponibles,
+           GROUP_CONCAT(DISTINCT fp.color ORDER BY fp.color SEPARATOR ', ') as lista_colores
     FROM Productos p
     INNER JOIN Categorias c ON c.id_categoria = p.id_categoria
+    LEFT JOIN Fotos_Producto fp ON fp.id_producto = p.id_producto AND fp.color IS NOT NULL
+    GROUP BY p.id_producto, p.nombre_producto, p.precio_actual, p.genero, p.id_categoria, c.nombre_categoria
     ORDER BY p.id_producto DESC
     LIMIT 200
 ";
@@ -783,6 +787,7 @@ if ($res_categorias) {
                                 <th>Categoría</th>
                                 <th>Género</th>
                                 <th>Precio</th>
+                                <th>Colores</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
@@ -795,6 +800,14 @@ if ($res_categorias) {
                                     <td><?= htmlspecialchars($prod['categoria']) ?></td>
                                     <td><?= ucfirst($prod['genero']) ?></td>
                                     <td>$<?= number_format($prod['precio_actual'], 2, ',', '.') ?></td>
+                                    <td>
+                                        <?php if ($prod['colores_disponibles'] > 0): ?>
+                                            <span class="badge bg-info"><?= $prod['colores_disponibles'] ?> colores</span>
+                                            <small class="text-muted d-block"><?= htmlspecialchars($prod['lista_colores']) ?></small>
+                                        <?php else: ?>
+                                            <span class="badge bg-secondary">Sin colores</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td>
                                         <button type="button" class="btn btn-primary btn-sm me-1" data-bs-toggle="modal" data-bs-target="#editarProductoModal<?= $prod['id_producto'] ?>">
                                             <i class="fas fa-pen me-1"></i>Modificar

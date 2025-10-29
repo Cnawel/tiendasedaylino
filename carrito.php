@@ -53,6 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             $_SESSION['mensaje_carrito'] = "Producto agregado al carrito";
+        } else {
+            $_SESSION['mensaje_carrito'] = "Error: Datos inválidos para agregar al carrito";
         }
         
         header('Location: carrito.php');
@@ -241,16 +243,9 @@ if ($mensaje) {
                     </div>
                     <div class="card-body p-0">
                         <?php foreach ($productos_carrito as $producto): ?>
-                        <div class="row g-0 border-bottom p-3">
-                            <!-- Imagen del producto -->
-                            <div class="col-md-2">
-                                <img src="<?php echo htmlspecialchars($producto['foto_prod_miniatura'] ?: 'imagenes/imagen.png'); ?>" 
-                                     class="img-fluid rounded" 
-                                     alt="<?php echo htmlspecialchars($producto['nombre_producto']); ?>">
-                            </div>
-                            
+                        <div class="row g-0 border-bottom p-3 align-items-center text-center text-md-start">
                             <!-- Información del producto -->
-                            <div class="col-md-4">
+                            <div class="col-md-5 d-flex flex-column align-items-center align-items-md-start">
                                 <h6 class="mb-2">
                                     <a href="detalle-producto.php?id=<?php echo $producto['id_producto']; ?>" class="text-decoration-none text-dark">
                                         <?php echo htmlspecialchars($producto['nombre_producto']); ?>
@@ -265,15 +260,13 @@ if ($mensaje) {
                             </div>
                             
                             <!-- Precio unitario -->
-                            <div class="col-md-2 text-center d-flex align-items-center justify-content-center">
-                                <div>
-                                    <small class="text-muted d-block">Precio</small>
-                                    <strong>$<?php echo number_format($producto['precio_actual'], 2); ?></strong>
-                                </div>
+                            <div class="col-md-2 d-flex flex-column align-items-center justify-content-center">
+                                <small class="text-muted">Precio</small>
+                                <strong>$<?php echo number_format($producto['precio_actual'], 2); ?></strong>
                             </div>
                             
                             <!-- Cantidad -->
-                            <div class="col-md-2 text-center d-flex align-items-center justify-content-center">
+                            <div class="col-md-2 d-flex align-items-center justify-content-center">
                                 <form method="POST" action="carrito.php" class="d-inline">
                                     <input type="hidden" name="accion" value="actualizar">
                                     <input type="hidden" name="clave" value="<?php echo htmlspecialchars($producto['clave']); ?>">
@@ -290,20 +283,22 @@ if ($mensaje) {
                             </div>
                             
                             <!-- Subtotal -->
-                            <div class="col-md-2 text-center d-flex align-items-center justify-content-between">
-                                <div class="flex-grow-1">
-                                    <small class="text-muted d-block">Subtotal</small>
-                                    <strong class="text-primary">$<?php echo number_format($producto['subtotal'], 2); ?></strong>
+                            <div class="col-md-3">
+                                <div class="d-flex flex-column flex-md-row align-items-center justify-content-center gap-2">
+                                    <div class="text-center">
+                                        <small class="text-muted d-block">Subtotal</small>
+                                        <strong class="text-primary">$<?php echo number_format($producto['subtotal'], 2); ?></strong>
+                                    </div>
+
+                                    <!-- Botón eliminar -->
+                                    <form method="POST" action="carrito.php" class="d-inline">
+                                        <input type="hidden" name="accion" value="eliminar">
+                                        <input type="hidden" name="clave" value="<?php echo htmlspecialchars($producto['clave']); ?>">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger d-flex align-items-center justify-content-center" title="Eliminar">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
                                 </div>
-                                
-                                <!-- Botón eliminar -->
-                                <form method="POST" action="carrito.php" class="d-inline ms-2">
-                                    <input type="hidden" name="accion" value="eliminar">
-                                    <input type="hidden" name="clave" value="<?php echo htmlspecialchars($producto['clave']); ?>">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </form>
                             </div>
                         </div>
                         <?php endforeach; ?>

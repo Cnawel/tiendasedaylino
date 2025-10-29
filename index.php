@@ -32,56 +32,7 @@ session_start();
 </head>
 <body>
     
-    <header>
-        <nav class="navbar navbar-expand-lg bg-body-tertiary">
-            <div class="container-fluid">
-                <a class="navbar-brand nombre-tienda" href="index.php">SEDA Y LINO</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                 <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-                    <ul class="navbar-nav lista-nav">
-                        <li class="nav-item">
-                          <a class="nav-link link-tienda" aria-current="page" href="index.php">INICIO</a>
-                        </li>
-                        <li class="nav-item">
-                          <a class="nav-link link-tienda" href="nosotros.php">NOSOTROS</a>
-                        </li>
-                        <li class="nav-item">
-                          <a class="nav-link link-tienda" href="#productos">PRODUCTOS</a>
-                        </li>
-                        <li class="nav-item">
-                          <a class="nav-link link-tienda" href="#contacto">CONTACTO</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link position-relative" href="carrito.php" title="Carrito">
-                                <i class="fas fa-shopping-cart fa-lg"></i>
-                                <?php 
-                                $num_items_carrito = isset($_SESSION['carrito']) ? count($_SESSION['carrito']) : 0;
-                                if ($num_items_carrito > 0): 
-                                ?>
-                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                                    <?php echo $num_items_carrito; ?>
-                                </span>
-                                <?php endif; ?>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <?php if (isset($_SESSION['id_usuario'])): ?>
-                                <a class="nav-link" href="perfil.php" title="Mi Perfil">
-                                    <img src="iconos/avatar-usuario.png" alt="icono de avatar de usuario">
-                                </a>
-                            <?php else: ?>
-                                <a class="nav-link" href="login.php" title="Iniciar Sesión">
-                                    <img src="iconos/avatar-usuario.png" alt="icono de avatar de usuario">
-                                </a>
-                            <?php endif; ?>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </nav>
-    </header>
+    <?php include 'includes/navigation.php'; ?>
 
     <main>
         <section>

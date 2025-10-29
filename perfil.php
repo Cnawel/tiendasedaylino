@@ -193,6 +193,16 @@ if (!$usuario) {
                                 <i class="fas fa-shield-alt me-2"></i>Panel de Administración
                             </a>
                             <?php endif; ?>
+                            <?php if (isMarketing()): ?>
+                            <a href="marketing.php" class="btn btn-warning">
+                                <i class="fas fa-bullhorn me-2"></i>Panel de Marketing
+                            </a>
+                            <?php endif; ?>
+                            <?php if (isVentas()): ?>
+                            <a href="ventas.php" class="btn btn-info">
+                                <i class="fas fa-briefcase me-2"></i>Panel de Ventas
+                            </a>
+                            <?php endif; ?>
                             <a href="index.php" class="btn btn-outline-primary">
                                 <i class="fas fa-home me-2"></i>Volver al Inicio
                             </a>
