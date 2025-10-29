@@ -19,6 +19,9 @@ session_start();
 
 require_once 'config/database.php';
 
+// Configurar título de la página
+$titulo_pagina = 'Carrito de Compras';
+
 // Inicializar carrito si no existe
 if (!isset($_SESSION['carrito'])) {
     $_SESSION['carrito'] = array();
@@ -150,19 +153,11 @@ if ($mensaje) {
 }
 ?>
 
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carrito de Compras - Seda y Lino</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-</head>
 
-<body>
-    <header>
+<?php include 'includes/header.php'; ?>
+
+<!-- Contenido del carrito -->
+    <div style="display:none">
         <nav class="navbar navbar-expand-lg bg-body-tertiary">
             <div class="container-fluid">
                 <a class="navbar-brand nombre-tienda" href="index.php">SEDA Y LINO</a>
@@ -449,6 +444,6 @@ if ($mensaje) {
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+
+<?php include 'includes/footer.php'; render_footer(); ?>
 

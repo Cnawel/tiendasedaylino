@@ -14,6 +14,9 @@
 
 session_start();
 
+// Configurar título de la página
+$titulo_pagina = 'Confirmación de Pedido';
+
 // Verificar que existe información del pedido
 if (!isset($_SESSION['pedido_exitoso'])) {
     header('Location: index.php');
@@ -29,56 +32,10 @@ $email_enviado = isset($_SESSION['email_enviado']) ? $_SESSION['email_enviado'] 
 
 ?>
 
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pedido Confirmado - Seda y Lino</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-</head>
+<?php include 'includes/header.php'; ?>
 
-<body>
-    <header>
-        <nav class="navbar navbar-expand-lg bg-body-tertiary">
-            <div class="container-fluid">
-                <a class="navbar-brand nombre-tienda" href="index.php">SEDA Y LINO</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                     <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-                    <ul class="navbar-nav lista-nav">
-                        <li class="nav-item">
-                          <a class="nav-link link-tienda" href="index.php">INICIO</a>
-                        </li>
-                        <li class="nav-item">
-                          <a class="nav-link link-tienda" href="nosotros.php">NOSOTROS</a>
-                        </li>
-                        <li class="nav-item">
-                          <a class="nav-link link-tienda" href="index.php#productos">PRODUCTOS</a>
-                        </li>
-                        <li class="nav-item">
-                          <a class="nav-link link-tienda" href="index.php#contacto">CONTACTO</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link position-relative" href="carrito.php" title="Carrito">
-                                <i class="fas fa-shopping-cart fa-lg"></i>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="perfil.php" title="Mi Perfil">
-                                <img src="iconos/avatar-usuario.png" alt="icono de avatar de usuario">
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </nav>
-    </header>
-
-    <main class="container my-5">
+<!-- Contenido de confirmación -->
+<main class="container my-5">
         <!-- Mensaje de éxito con animación -->
         <div class="text-center mb-5 success-animation">
             <i class="fas fa-check-circle check-icon"></i>
@@ -330,6 +287,6 @@ $email_enviado = isset($_SESSION['email_enviado']) ? $_SESSION['email_enviado'] 
             }
         });
     </script>
-</body>
-</html>
+
+<?php include 'includes/footer.php'; render_footer(); ?>
 

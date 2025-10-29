@@ -17,6 +17,9 @@ session_start();
 
 require_once 'config/database.php';
 
+// Configurar título de la página
+$titulo_pagina = 'Checkout';
+
 // Verificar que el usuario esté logueado
 if (!isset($_SESSION['id_usuario'])) {
     $_SESSION['mensaje_error'] = "Debes iniciar sesión para continuar con la compra";
@@ -35,11 +38,12 @@ if (!isset($_SESSION['carrito']) || empty($_SESSION['carrito'])) {
  * Obtener datos del usuario logueado
  */
 $id_usuario = $_SESSION['id_usuario'];
-$sql_usuario = "SELECT * FROM Usuarios WHERE id_usuario = :id_usuario";
-$stmt_usuario = $pdo->prepare($sql_usuario);
-$stmt_usuario->bindParam(':id_usuario', $id_usuario, PDO::PARAM_INT);
+$sql_usuario = "SELECT * FROM Usuarios WHERE id_usuario = ? LIMIT 1";
+$stmt_usuario = $mysqli->prepare($sql_usuario);
+$stmt_usuario->bind_param('i', $id_usuario);
 $stmt_usuario->execute();
-$usuario = $stmt_usuario->fetch(PDO::FETCH_ASSOC);
+$result_usuario = $stmt_usuario->get_result();
+$usuario = $result_usuario->fetch_assoc();
 
 if (!$usuario) {
     session_destroy();
@@ -51,8 +55,13 @@ if (!$usuario) {
  * Obtener formas de pago disponibles
  */
 $sql_pagos = "SELECT * FROM Forma_Pagos ORDER BY id_forma_pago";
-$stmt_pagos = $pdo->query($sql_pagos);
-$formas_pago = $stmt_pagos->fetchAll(PDO::FETCH_ASSOC);
+$result_pagos = $mysqli->query($sql_pagos);
+$formas_pago = [];
+if ($result_pagos) {
+    while ($row = $result_pagos->fetch_assoc()) {
+        $formas_pago[] = $row;
+    }
+}
 
 /**
  * Calcular resumen del pedido
@@ -76,17 +85,17 @@ foreach ($_SESSION['carrito'] as $clave => $item) {
         FROM Productos p
         LEFT JOIN Fotos_Producto fp ON p.id_producto = fp.id_producto
         LEFT JOIN Stock_Variantes sv ON p.id_producto = sv.id_producto 
-            AND sv.talle = :talle 
-            AND sv.color = :color
-        WHERE p.id_producto = :id_producto
+            AND sv.talle = ? 
+            AND sv.color = ?
+        WHERE p.id_producto = ?
+        LIMIT 1
     ";
     
-    $stmt = $pdo->prepare($sql);
-    $stmt->bindParam(':id_producto', $item['id_producto'], PDO::PARAM_INT);
-    $stmt->bindParam(':talle', $item['talla'], PDO::PARAM_STR);
-    $stmt->bindParam(':color', $item['color'], PDO::PARAM_STR);
+    $stmt = $mysqli->prepare($sql);
+    $stmt->bind_param('ssi', $item['talla'], $item['color'], $item['id_producto']);
     $stmt->execute();
-    $producto = $stmt->fetch(PDO::FETCH_ASSOC);
+    $result = $stmt->get_result();
+    $producto = $result->fetch_assoc();
     
     if ($producto) {
         $subtotal = $producto['precio_actual'] * $item['cantidad'];
@@ -122,22 +131,14 @@ foreach ($productos_carrito as $producto) {
 
 ?>
 
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Checkout - Seda y Lino</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-</head>
 
-<body>
-    <header>
-        <nav class="navbar navbar-expand-lg bg-body-tertiary">
+<?php include 'includes/header.php'; ?>
+
+<!-- Contenido del checkout -->
+<div style="display:none">
+        <nav class="navbar">
             <div class="container-fluid">
-                <a class="navbar-brand nombre-tienda" href="index.php">SEDA Y LINO</a>
+                <a class="navbar-brand" href="index.php">SEDA Y LINO</a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                      <span class="navbar-toggler-icon"></span>
                 </button>
@@ -491,7 +492,6 @@ foreach ($productos_carrito as $producto) {
         </div>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+
+<?php include 'includes/footer.php'; render_footer(); ?>
 

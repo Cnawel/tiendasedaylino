@@ -18,6 +18,9 @@ $usuario_actual = getCurrentUser();
 // Conectar a la base de datos (usar configuración centralizada)
 require_once 'config/database.php';
 
+// Configurar título de la página
+$titulo_pagina = 'Panel de Administración';
+
 // ============================================================================
 // PROCESAMIENTO DE FORMULARIOS (MENSAJES COMPARTIDOS)
 // ============================================================================
@@ -411,21 +414,8 @@ if ($res_categorias) {
     }
 }
 ?>
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Administración | Seda y Lino</title>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-    <!-- Font Awesome CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/style.css?v=2.1">
-</head>
-<body>
-    <?php include 'includes/navigation.php'; ?>
+
+<?php include 'includes/header.php'; ?>
 
     <main class="admin-page">
         <div class="container">
@@ -472,43 +462,51 @@ if ($res_categorias) {
             <!-- Estadísticas -->
             <div class="row mb-4">
                 <div class="col-lg-3 col-md-6 mb-3">
-                    <div class="stats-card text-center">
-                        <div class="stats-icon text-primary">
-                            <i class="fas fa-users"></i>
+                    <a href="#usuarios" class="text-decoration-none">
+                        <div class="stats-card text-center hover-stats">
+                            <div class="stats-icon text-primary">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <h3><?= $stats['total'] ?></h3>
+                            <p class="text-muted mb-0">Total Usuarios</p>
                         </div>
-                        <h3><?= $stats['total'] ?></h3>
-                        <p class="text-muted mb-0">Total Usuarios</p>
-                    </div>
+                    </a>
                 </div>
                 
                 <div class="col-lg-3 col-md-6 mb-3">
-                    <div class="stats-card text-center">
-                        <div class="stats-icon text-danger">
-                            <i class="fas fa-shield-alt"></i>
+                    <a href="#usuarios" class="text-decoration-none">
+                        <div class="stats-card text-center hover-stats">
+                            <div class="stats-icon text-danger">
+                                <i class="fas fa-shield-alt"></i>
+                            </div>
+                            <h3><?= $stats['admins'] ?></h3>
+                            <p class="text-muted mb-0">Administradores</p>
                         </div>
-                        <h3><?= $stats['admins'] ?></h3>
-                        <p class="text-muted mb-0">Administradores</p>
-                    </div>
+                    </a>
                 </div>
                 
                 <div class="col-lg-3 col-md-6 mb-3">
-                    <div class="stats-card text-center">
-                        <div class="stats-icon text-info">
-                            <i class="fas fa-briefcase"></i>
+                    <a href="#usuarios" class="text-decoration-none">
+                        <div class="stats-card text-center hover-stats">
+                            <div class="stats-icon text-info">
+                                <i class="fas fa-briefcase"></i>
+                            </div>
+                            <h3><?= $stats['ventas'] + $stats['marketing'] ?></h3>
+                            <p class="text-muted mb-0">Staff (Ventas + Marketing)</p>
                         </div>
-                        <h3><?= $stats['ventas'] + $stats['marketing'] ?></h3>
-                        <p class="text-muted mb-0">Staff (Ventas + Marketing)</p>
-                    </div>
+                    </a>
                 </div>
                 
                 <div class="col-lg-3 col-md-6 mb-3">
-                    <div class="stats-card text-center">
-                        <div class="stats-icon text-secondary">
-                            <i class="fas fa-shopping-bag"></i>
+                    <a href="#pedidos" class="text-decoration-none">
+                        <div class="stats-card text-center hover-stats">
+                            <div class="stats-icon text-secondary">
+                                <i class="fas fa-receipt"></i>
+                            </div>
+                            <h3><?= $pedidos_en_curso->num_rows ?? 0 ?></h3>
+                            <p class="text-muted mb-0">Pedidos en Curso</p>
                         </div>
-                        <h3><?= $stats['clientes'] ?></h3>
-                        <p class="text-muted mb-0">Clientes</p>
-                    </div>
+                    </a>
                 </div>
             </div>
             
@@ -546,7 +544,7 @@ if ($res_categorias) {
             </div>
             
             <!-- Tabla de Usuarios -->
-            <div class="users-table">
+            <div class="users-table" id="usuarios">
                 <h3 class="mb-4"><i class="fas fa-list me-2"></i>Gestión de Usuarios</h3>
                 
                 <div class="table-responsive">
@@ -717,7 +715,7 @@ if ($res_categorias) {
             </div>
             
             <!-- Pedidos en curso -->
-            <div class="users-table mt-4">
+            <div class="users-table mt-4" id="pedidos">
                 <h3 class="mb-4"><i class="fas fa-receipt me-2"></i>Pedidos en curso</h3>
                 <div class="table-responsive">
                     <table class="table table-hover">
@@ -776,7 +774,7 @@ if ($res_categorias) {
             </div>
 
             <!-- Lista de productos -->
-            <div class="users-table mt-4">
+            <div class="users-table mt-4" id="productos">
                 <h3 class="mb-4"><i class="fas fa-boxes-stacked me-2"></i>Artículos en la base de datos</h3>
                 <div class="table-responsive">
                     <table class="table table-hover">
@@ -1078,6 +1076,6 @@ if ($res_categorias) {
         return true;
     }
     </script>
-</body>
-</html>
+
+<?php include 'includes/footer.php'; render_footer(); ?>
 
