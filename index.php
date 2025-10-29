@@ -12,27 +12,16 @@
  * - Formulario de contacto con validación
  * 
  * @author Tienda Seda y Lino
- * @version 1.0
+ * @version 2.0
  * ========================================================================
  */
-session_start();
+
+// Configurar título de la página
+$titulo_pagina = 'Inicio';
+
+// Incluir header completo (head + navigation)
+include 'includes/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- CSS Personalizado -->
-     <link rel="stylesheet" href="css/style.css">
-    <!-- Bootstrap 5.3.8 -->
-     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-    <!-- Font Awesome 6.5.1 para iconos -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <title>Seda y Lino - Inicio</title>
-</head>
-<body>
-    
-    <?php include 'includes/navigation.php'; ?>
 
     <main>
         <section>
@@ -444,5 +433,5 @@ session_start();
             });
         })();
     </script>
-</body>
-</html>
+
+<?php include 'includes/footer.php'; render_footer(); ?>
