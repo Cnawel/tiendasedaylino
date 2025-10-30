@@ -22,6 +22,15 @@ if (session_status() === PHP_SESSION_NONE) {
 if (!isset($titulo_pagina)) {
     $titulo_pagina = 'Seda y Lino';
 }
+
+// Detectar si estamos en un panel administrativo para aplicar tema específico
+$is_panel_page = false;
+$current_page = basename($_SERVER['PHP_SELF']);
+$panel_pages = ['admin.php', 'ventas.php', 'marketing.php'];
+
+if (in_array($current_page, $panel_pages)) {
+    $is_panel_page = true;
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -31,7 +40,7 @@ if (!isset($titulo_pagina)) {
     render_head($titulo_pagina); 
     ?>
 </head>
-<body>
+<body<?php echo $is_panel_page ? ' class="panel-theme"' : ''; ?>>
     <?php 
     // Verificar que auth_check.php esté disponible para navigation
     if (!function_exists('isLoggedIn')) {
