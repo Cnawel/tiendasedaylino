@@ -3,24 +3,59 @@
  * ========================================================================
  * PANEL DE ADMINISTRACIÓN - Tienda Seda y Lino
  * ========================================================================
- * Panel exclusivo para administradores que permite:
- * - Gestionar usuarios (crear, editar, eliminar, cambiar roles)
- * - Ver y gestionar pedidos
- * - Ver estadísticas de ventas
- * - Gestionar productos (crear, editar)
+ * Panel exclusivo para administradores con acceso total al sistema
  * 
- * Funciones principales:
- * - CRUD de usuarios (CREATE, READ, UPDATE, DELETE)
- * - Gestión de roles (Admin, Marketing, Ventas, Cliente)
- * - Visualización de pedidos con filtros
- * - Estadísticas básicas de ventas
+ * FUNCIONALIDADES PRINCIPALES:
+ * 1. GESTIÓN DE USUARIOS:
+ *    - Crear usuarios de staff (Ventas/Marketing) con contraseña automática
+ *    - Modificar datos de usuarios (nombre, apellido, email, rol, contraseña)
+ *    - Cambiar roles de usuarios (cliente, ventas, marketing, admin)
+ *    - Eliminar usuarios (si no tienen pedidos asociados)
  * 
- * Variables principales:
- * - $id_usuario: ID del usuario administrador actual
- * - $usuario_actual: Datos del usuario actual
- * - $mensaje/$mensaje_tipo: Mensajes de feedback al usuario
+ * 2. GESTIÓN DE PEDIDOS:
+ *    - Ver pedidos en curso con información del cliente
+ *    - Eliminar pedidos (borra también detalle y pagos con transacción)
  * 
- * Tablas utilizadas: Usuarios, Pedidos, Detalle_Pedidos, Productos
+ * 3. GESTIÓN DE PRODUCTOS:
+ *    - Actualizar productos (nombre, precio, categoría, género)
+ *    - Eliminar productos (si no tienen ventas asociadas)
+ *    - Ver lista completa de productos con estadísticas
+ * 
+ * 4. ESTADÍSTICAS:
+ *    - Total de usuarios por rol
+ *    - Contador de pedidos en curso
+ * 
+ * FUNCIONES DEL ARCHIVO:
+ * - crear_usuario_staff(): Crea usuario con rol ventas/marketing y genera contraseña aleatoria
+ * - cambiar_rol(): Cambia el rol de un usuario (con validación)
+ * - actualizar_usuario(): Actualiza datos personales y/o contraseña de usuario
+ * - eliminar_usuario(): Elimina usuario (valida referencias con pedidos)
+ * - eliminar_pedido(): Elimina pedido completo usando transacción MySQLi
+ * - actualizar_producto(): Modifica nombre, precio, categoría o género de producto
+ * - eliminar_producto(): Elimina producto completo (valida si tiene ventas)
+ * 
+ * FUNCIONES JavaScript:
+ * - confirmLogout(): Confirma cierre de sesión
+ * - validarContrasenaUsuario(): Valida que las contraseñas coincidan antes de enviar
+ * 
+ * VARIABLES PRINCIPALES:
+ * - $id_usuario: ID del administrador actual
+ * - $usuario_actual: Datos del usuario administrador
+ * - $usuarios: ResultSet con todos los usuarios ordenados por rol
+ * - $stats: Estadísticas de usuarios por rol (total, admins, ventas, marketing, clientes)
+ * - $pedidos_en_curso: ResultSet con pedidos pendientes/pagados/enviados
+ * - $lista_productos: ResultSet con productos y sus estadísticas
+ * - $categorias_list: Array con categorías para selects
+ * - $mensaje/$mensaje_tipo: Mensajes de feedback
+ * 
+ * VALIDACIONES IMPORTANTES:
+ * - No permite que admin se quite su propio rol
+ * - No permite eliminar usuarios con pedidos
+ * - No permite eliminar productos con ventas
+ * - Valida emails únicos antes de crear/actualizar usuarios
+ * 
+ * TABLAS UTILIZADAS: Usuarios, Pedidos, Detalle_Pedido, Pagos, Productos, Fotos_Producto, Stock_Variantes, Categorias, Movimientos_Stock
+ * ACCESO: Solo usuarios con rol 'admin' (mediante requireAdmin())
  * ========================================================================
  */
 session_start();

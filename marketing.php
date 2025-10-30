@@ -3,25 +3,86 @@
  * ========================================================================
  * PANEL DE MARKETING - Tienda Seda y Lino
  * ========================================================================
- * Panel para usuarios con rol Marketing que permite:
- * - Gestionar productos (crear, editar, eliminar)
- * - Subir imágenes de productos
- * - Gestionar stock y variantes (tallas, colores)
- * - Importar productos desde CSV
- * - Descargar template CSV para importación
+ * Panel para usuarios con rol Marketing para gestión completa de productos
  * 
- * Funciones principales:
- * - CRUD completo de productos
- * - Gestión de fotos de productos
- * - Gestión de stock por talle y color
- * - Importación masiva desde CSV
+ * FUNCIONALIDADES PRINCIPALES:
+ * 1. CREAR PRODUCTOS INDIVIDUALES:
+ *    - Formulario completo para crear producto nuevo
+ *    - Subir hasta 4 imágenes (miniatura, principal, extra1, extra2)
+ *    - Agregar múltiples variantes (talle + color + stock inicial)
+ *    - Usa transacciones MySQLi para garantizar integridad
  * 
- * Variables principales:
+ * 2. CARGA MASIVA DESDE CSV:
+ *    - Subir archivo CSV con productos
+ *    - Validación de headers y datos del CSV
+ *    - Procesa múltiples productos y variantes desde un solo archivo
+ *    - Redirige a marketing-confirmar-csv.php para vista previa antes de insertar
+ * 
+ * 3. GESTIÓN DE PRODUCTOS:
+ *    - Ver lista de todos los productos con estadísticas
+ *    - Ver stock total y cantidad de variantes por producto
+ *    - Enlaces para editar productos (marketing-editar-producto.php)
+ *    - Ver productos en el catálogo público
+ * 
+ * 4. ESTADÍSTICAS:
+ *    - Total de productos en el sistema
+ *    - Stock total de todos los productos
+ *    - Enlaces rápidos a diferentes secciones
+ * 
+ * FUNCIONES DEL ARCHIVO:
+ * - procesar_csv(): Procesa archivo CSV, valida datos y retorna array de productos
+ *   * Valida headers requeridos
+ *   * Valida cada línea (nombre, precio, género, categoría, talle, color, stock)
+ *   * Normaliza datos y guarda errores en sesión
+ * 
+ * - subirImagenIndividual(): Sube una imagen localmente al servidor
+ *   * Crea directorio por producto si no existe
+ *   * Valida formato (JPG, PNG, GIF) y tamaño (máx 5MB)
+ *   * Genera nombre único con timestamp e ID producto
+ *   * Retorna ruta completa de la imagen guardada
+ * 
+ * - crear_producto(): Procesa formulario para crear producto nuevo
+ *   * Inserta producto en tabla Productos
+ *   * Sube imágenes y las guarda en Fotos_Producto
+ *   * Crea variantes en Stock_Variantes con stock inicial
+ *   * Registra movimiento inicial en Movimientos_Stock
+ *   * Usa transacción para rollback si algo falla
+ * 
+ * FUNCIONES JavaScript:
+ * - previewImage(): Muestra preview de imagen antes de subir
+ * - toggleNuevoProducto(): Muestra/oculta campo para crear producto nuevo
+ * - agregarVariante(): Agrega dinámicamente campos para nueva variante (talle/color/stock)
+ * - eliminarVariante(): Elimina una variante del formulario
+ * - scrollToSection(): Scroll suave a secciones del panel
+ * - confirmLogout(): Confirma cierre de sesión
+ * 
+ * VARIABLES PRINCIPALES:
  * - $id_usuario: ID del usuario marketing actual
- * - $usuario_actual: Datos del usuario actual
+ * - $usuario_actual: Array con datos del usuario
+ * - $categorias: ResultSet con categorías disponibles
+ * - $productos_existentes: ResultSet con productos y sus estadísticas
+ * - $nombres_productos: Array con nombres únicos de productos (para select)
+ * - $talles_disponibles: Array con talles permitidos (XS, S, M, L, XL, etc.)
+ * - $colores_disponibles: Array con colores disponibles
  * - $mensaje/$mensaje_tipo: Mensajes de feedback
  * 
- * Tablas utilizadas: Productos, Fotos_Producto, Stock_Variantes, Categorias
+ * ESTRUCTURA DE IMÁGENES:
+ * - IMAGEN 0 (Miniatura): Se mantiene fija para todos los colores
+ * - IMAGEN 1 (Principal): Cambia según color seleccionado
+ * - IMAGEN 2 (Extra 1): Cambia según color seleccionado  
+ * - IMAGEN 3 (Extra 2): Se mantiene fija para todos los colores
+ * Las imágenes se guardan en: imagenes/productos/producto_{id}/
+ * 
+ * VALIDACIONES IMPORTANTES:
+ * - Valida formato CSV y headers requeridos
+ * - Valida género (hombre/mujer/unisex)
+ * - Valida tipo y tamaño de imágenes (máx 5MB)
+ * - Valida precio mayor a 0
+ * - Valida que talle y color no estén vacíos en variantes
+ * 
+ * TABLAS UTILIZADAS: Productos, Fotos_Producto, Stock_Variantes, Categorias, Movimientos_Stock
+ * ARCHIVOS RELACIONADOS: marketing-confirmar-csv.php, marketing-editar-producto.php, marketing-descargar-template.php
+ * ACCESO: Solo usuarios con rol 'marketing' o 'admin' (mediante requireRole('marketing'))
  * ========================================================================
  */
 session_start();
