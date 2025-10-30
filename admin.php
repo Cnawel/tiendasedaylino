@@ -70,12 +70,38 @@ require_once 'includes/auth_check.php';
 // Verificar que el usuario esté logueado y sea admin
 requireAdmin();
 
-// Obtener información del usuario actual
-$id_usuario = getCurrentUserId();
-$usuario_actual = getCurrentUser();
-
 // Conectar a la base de datos
 require_once 'config/database.php';
+
+// Verificación adicional: validar que el rol en sesión coincide con el rol en BD
+// Esto previene manipulación de sesiones
+$id_usuario = getCurrentUserId();
+$stmt_verificar = $mysqli->prepare("SELECT rol FROM Usuarios WHERE id_usuario = ? LIMIT 1");
+$stmt_verificar->bind_param('i', $id_usuario);
+$stmt_verificar->execute();
+$result_verificar = $stmt_verificar->get_result();
+
+if ($row_verificar = $result_verificar->fetch_assoc()) {
+    $rol_en_bd = strtolower($row_verificar['rol']);
+    
+    // Si el rol en BD no es admin, cerrar sesión y redirigir
+    if ($rol_en_bd !== 'admin') {
+        session_destroy();
+        header('Location: login.php?error=acceso_denegado');
+        exit;
+    }
+    
+    // Actualizar sesión con rol correcto desde BD (por seguridad)
+    $_SESSION['rol'] = $rol_en_bd;
+} else {
+    // Usuario no existe en BD, cerrar sesión
+    session_destroy();
+    header('Location: login.php?error=usuario_no_valido');
+    exit;
+}
+
+// Obtener información del usuario actual
+$usuario_actual = getCurrentUser();
 
 // Configurar título de la página
 $titulo_pagina = 'Panel de Administración';
@@ -95,6 +121,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['crear_usuario_staff']
     $apellido_staff = trim($_POST['apellido_staff'] ?? '');
     $email_staff = trim($_POST['email_staff'] ?? '');
     $rol_staff = $_POST['rol_staff'] ?? '';
+    // IMPORTANTE: NO usar trim() en passwords - puede cambiar la contraseña
+    $password_temporal = $_POST['password_temporal'] ?? '';
+    $confirmar_password_temporal = $_POST['confirmar_password_temporal'] ?? '';
 
     // Validar rol permitido
     $roles_staff_validos = ['ventas', 'marketing'];
@@ -113,19 +142,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['crear_usuario_staff']
             $mensaje = 'El email ya está registrado en el sistema.';
             $mensaje_tipo = 'warning';
         } else {
-            // Generar contraseña aleatoria segura
-            $password_plano = substr(str_replace(['/', '+', '='], '', base64_encode(random_bytes(12))), 0, 12);
-            $password_hash = password_hash($password_plano, PASSWORD_BCRYPT);
-
-            $stmt = $mysqli->prepare("INSERT INTO Usuarios (nombre, apellido, email, contrasena, rol, fecha_registro) VALUES (?,?,?,?,?,NOW())");
-            $stmt->bind_param('sssss', $nombre_staff, $apellido_staff, $email_staff, $password_hash, $rol_staff);
-
-            if ($stmt->execute()) {
-                $mensaje = 'Usuario de ' . strtoupper($rol_staff) . ' creado. Contraseña: ' . $password_plano;
-                $mensaje_tipo = 'success';
-            } else {
-                $mensaje = 'Error al crear el usuario de staff.';
+            // Validar contraseña temporal (permite contraseñas débiles para staff)
+            if ($password_temporal === '' || strlen($password_temporal) === 0) {
+                $mensaje = 'Debes proporcionar una contraseña temporal para el usuario.';
                 $mensaje_tipo = 'danger';
+            } elseif ($confirmar_password_temporal === '' || strlen($confirmar_password_temporal) === 0) {
+                $mensaje = 'Debes confirmar la contraseña temporal.';
+                $mensaje_tipo = 'danger';
+            } elseif ($password_temporal !== $confirmar_password_temporal) {
+                $mensaje = 'Las contraseñas no coinciden.';
+                $mensaje_tipo = 'danger';
+            } elseif (strlen($password_temporal) < 4) {
+                // Mínimo 4 caracteres para contraseña temporal débil
+                $mensaje = 'La contraseña temporal debe tener al menos 4 caracteres.';
+                $mensaje_tipo = 'danger';
+            } elseif (strlen($password_temporal) > 128) {
+                $mensaje = 'La contraseña temporal no puede exceder 128 caracteres.';
+                $mensaje_tipo = 'danger';
+            } else {
+                // Hash de la contraseña temporal (permite contraseñas débiles)
+                $password_hash = password_hash($password_temporal, PASSWORD_BCRYPT);
+                
+                if ($password_hash === false) {
+                    $mensaje = 'Error al procesar la contraseña temporal.';
+                    $mensaje_tipo = 'danger';
+                } else {
+                    $stmt = $mysqli->prepare("INSERT INTO Usuarios (nombre, apellido, email, contrasena, rol, fecha_registro) VALUES (?,?,?,?,?,NOW())");
+                    $stmt->bind_param('sssss', $nombre_staff, $apellido_staff, $email_staff, $password_hash, $rol_staff);
+
+                    if ($stmt->execute()) {
+                        $mensaje = 'Usuario de ' . strtoupper($rol_staff) . ' creado exitosamente. Contraseña temporal: ' . htmlspecialchars($password_temporal) . ' (El usuario debe cambiarla al iniciar sesión)';
+                        $mensaje_tipo = 'success';
+                        
+                        // Limpiar variables sensibles de memoria
+                        $password_temporal = null;
+                        $confirmar_password_temporal = null;
+                        $password_hash = null;
+                    } else {
+                        $mensaje = 'Error al crear el usuario de staff.';
+                        $mensaje_tipo = 'danger';
+                    }
+                }
             }
         }
     }
@@ -173,8 +230,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_usuario'])
     $edit_apellido = trim($_POST['edit_apellido'] ?? '');
     $edit_email = trim($_POST['edit_email'] ?? '');
     $edit_rol = $_POST['nuevo_rol'] ?? '';
-    $nueva_contrasena = trim($_POST['nueva_contrasena'] ?? '');
-    $confirmar_contrasena = trim($_POST['confirmar_contrasena'] ?? '');
+    // IMPORTANTE: NO usar trim() en passwords - puede cambiar la contraseña
+    $nueva_contrasena = $_POST['nueva_contrasena'] ?? '';
+    $confirmar_contrasena = $_POST['confirmar_contrasena'] ?? '';
 
     $roles_validos = ['cliente', 'ventas', 'marketing', 'admin'];
 
@@ -183,19 +241,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_usuario'])
         $mensaje = 'Datos inválidos al actualizar usuario';
         $mensaje_tipo = 'danger';
     } else {
-        // Validar contraseña si se proporciona
+        // Validar contraseña si se proporciona (validaciones estrictas)
         $cambiar_contrasena = false;
-        if (!empty($nueva_contrasena) && !empty($confirmar_contrasena)) {
+        if (($nueva_contrasena !== '' && strlen($nueva_contrasena) > 0) && 
+            ($confirmar_contrasena !== '' && strlen($confirmar_contrasena) > 0)) {
             if ($nueva_contrasena !== $confirmar_contrasena) {
                 $mensaje = 'Las contraseñas no coinciden';
                 $mensaje_tipo = 'danger';
-            } elseif (strlen($nueva_contrasena) < 6) {
-                $mensaje = 'La contraseña debe tener al menos 6 caracteres';
+            } elseif (strlen($nueva_contrasena) < 8) {
+                // Actualizado: mínimo 8 caracteres (igual que login y registro)
+                $mensaje = 'La contraseña debe tener al menos 8 caracteres';
+                $mensaje_tipo = 'danger';
+            } elseif (strlen($nueva_contrasena) > 128) {
+                $mensaje = 'La contraseña no puede exceder 128 caracteres';
+                $mensaje_tipo = 'danger';
+            } elseif (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/', $nueva_contrasena)) {
+                // Validar complejidad igual que login y registro
+                $mensaje = 'La contraseña debe contener al menos: 1 minúscula, 1 mayúscula, 1 número y 1 carácter especial (@$!%*?&)';
                 $mensaje_tipo = 'danger';
             } else {
                 $cambiar_contrasena = true;
             }
-        } elseif (!empty($nueva_contrasena) || !empty($confirmar_contrasena)) {
+        } elseif (($nueva_contrasena !== '' && strlen($nueva_contrasena) > 0) || 
+                  ($confirmar_contrasena !== '' && strlen($confirmar_contrasena) > 0)) {
             // Si solo uno de los campos está lleno
             $mensaje = 'Debes completar ambos campos de contraseña o dejarlos vacíos';
             $mensaje_tipo = 'danger';
@@ -220,20 +288,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_usuario'])
                 } else {
                     // Actualizar usuario con o sin contraseña
                     if ($cambiar_contrasena) {
-                        $contrasena_hash = password_hash($nueva_contrasena, PASSWORD_DEFAULT);
-                        $stmt = $mysqli->prepare("UPDATE Usuarios SET nombre = ?, apellido = ?, email = ?, rol = ?, contrasena = ? WHERE id_usuario = ?");
-                        $stmt->bind_param('sssssi', $edit_nombre, $edit_apellido, $edit_email, $edit_rol, $contrasena_hash, $edit_user_id);
+                        // Usar PASSWORD_BCRYPT para consistencia con el resto del sistema
+                        $contrasena_hash = password_hash($nueva_contrasena, PASSWORD_BCRYPT);
+                        
+                        // Verificar que el hash se generó correctamente
+                        if ($contrasena_hash === false) {
+                            $mensaje = 'Error al procesar la nueva contraseña';
+                            $mensaje_tipo = 'danger';
+                        } else {
+                            $stmt = $mysqli->prepare("UPDATE Usuarios SET nombre = ?, apellido = ?, email = ?, rol = ?, contrasena = ? WHERE id_usuario = ?");
+                            $stmt->bind_param('sssssi', $edit_nombre, $edit_apellido, $edit_email, $edit_rol, $contrasena_hash, $edit_user_id);
+                            
+                            if ($stmt->execute()) {
+                                $mensaje = 'Usuario y contraseña actualizados correctamente';
+                                $mensaje_tipo = 'success';
+                                
+                                // Limpiar variables sensibles de memoria
+                                $nueva_contrasena = null;
+                                $confirmar_contrasena = null;
+                                $contrasena_hash = null;
+                            } else {
+                                $mensaje = 'Error al actualizar el usuario';
+                                $mensaje_tipo = 'danger';
+                            }
+                        }
                     } else {
                         $stmt = $mysqli->prepare("UPDATE Usuarios SET nombre = ?, apellido = ?, email = ?, rol = ? WHERE id_usuario = ?");
                         $stmt->bind_param('ssssi', $edit_nombre, $edit_apellido, $edit_email, $edit_rol, $edit_user_id);
-                    }
-                    
-                    if ($stmt->execute()) {
-                        $mensaje = $cambiar_contrasena ? 'Usuario y contraseña actualizados correctamente' : 'Usuario actualizado correctamente';
-                        $mensaje_tipo = 'success';
-                    } else {
-                        $mensaje = 'Error al actualizar el usuario';
-                        $mensaje_tipo = 'danger';
+                        
+                        if ($stmt->execute()) {
+                            $mensaje = 'Usuario actualizado correctamente';
+                            $mensaje_tipo = 'success';
+                        } else {
+                            $mensaje = 'Error al actualizar el usuario';
+                            $mensaje_tipo = 'danger';
+                        }
                     }
                 }
             }
@@ -582,22 +671,70 @@ if ($res_categorias) {
                         <label class="form-label">Apellido</label>
                         <input type="text" class="form-control" name="apellido_staff" required>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label">Email</label>
                         <input type="email" class="form-control" name="email_staff" required>
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-3">
                         <label class="form-label">Rol</label>
                         <select class="form-select" name="rol_staff" required>
                             <option value="ventas">Ventas</option>
                             <option value="marketing">Marketing</option>
                         </select>
                     </div>
+                    <div class="col-md-6">
+                        <label class="form-label">
+                            <i class="fas fa-key me-1"></i>Contraseña Temporal
+                        </label>
+                        <div class="password-input-wrapper">
+                            <input type="password" 
+                                   class="form-control" 
+                                   name="password_temporal" 
+                                   id="password_temporal"
+                                   required
+                                   minlength="4"
+                                   maxlength="128"
+                                   placeholder="Mínimo 4 caracteres (contraseña débil permitida)"
+                                   autocomplete="new-password">
+                            <button type="button" class="btn-toggle-password" onclick="togglePasswordStaff('password_temporal')" aria-label="Mostrar contraseña">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Puedes usar una contraseña temporal débil (mínimo 4 caracteres). El usuario deberá cambiarla al iniciar sesión.
+                        </small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">
+                            <i class="fas fa-key me-1"></i>Confirmar Contraseña Temporal
+                        </label>
+                        <div class="password-input-wrapper">
+                            <input type="password" 
+                                   class="form-control" 
+                                   name="confirmar_password_temporal" 
+                                   id="confirmar_password_temporal"
+                                   required
+                                   minlength="4"
+                                   maxlength="128"
+                                   placeholder="Repite la contraseña temporal"
+                                   autocomplete="new-password">
+                            <button type="button" class="btn-toggle-password" onclick="togglePasswordStaff('confirmar_password_temporal')" aria-label="Mostrar contraseña">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        <div class="invalid-feedback" id="password-match-feedback" style="display: none;">
+                            Las contraseñas no coinciden.
+                        </div>
+                        <div class="valid-feedback" id="password-match-success" style="display: none;">
+                            Las contraseñas coinciden.
+                        </div>
+                    </div>
                     <div class="col-12">
                         <button type="submit" class="btn btn-success">
                             <i class="fas fa-save me-2"></i>Crear usuario
                         </button>
-                        <small class="text-muted ms-2">La contraseña se generará automáticamente y se mostrará una vez creado.</small>
+                        <small class="text-muted ms-2">La contraseña temporal se mostrará una vez creado el usuario.</small>
                     </div>
                 </form>
             </div>
@@ -1099,6 +1236,110 @@ if ($res_categorias) {
     </script>
     
     <script>
+    /**
+     * Función para mostrar/ocultar contraseña en formulario de creación de staff
+     * @param {string} inputId - ID del input de contraseña
+     */
+    function togglePasswordStaff(inputId) {
+        const input = document.getElementById(inputId) || document.querySelector('input[name="' + inputId + '"]');
+        if (!input) return;
+        
+        const wrapper = input.closest('.password-input-wrapper');
+        if (!wrapper) return;
+        
+        const button = wrapper.querySelector('.btn-toggle-password');
+        const icon = button ? button.querySelector('i') : null;
+        
+        if (input.type === 'password') {
+            input.type = 'text';
+            if (icon) {
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+                button.setAttribute('aria-label', 'Ocultar contraseña');
+            }
+        } else {
+            input.type = 'password';
+            if (icon) {
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+                button.setAttribute('aria-label', 'Mostrar contraseña');
+            }
+        }
+        
+        // Validar coincidencia de contraseñas cuando se cambia la visibilidad
+        if (inputId === 'password_temporal' || inputId === 'confirmar_password_temporal') {
+            validarCoincidenciaPasswordStaff();
+        }
+    }
+    
+    /**
+     * Validar que las contraseñas coincidan en el formulario de creación de staff
+     */
+    function validarCoincidenciaPasswordStaff() {
+        const password = document.getElementById('password_temporal');
+        const confirmar = document.getElementById('confirmar_password_temporal');
+        const feedbackError = document.getElementById('password-match-feedback');
+        const feedbackSuccess = document.getElementById('password-match-success');
+        
+        if (!password || !confirmar) return;
+        
+        if (confirmar.value === '') {
+            // Si el campo de confirmación está vacío, ocultar ambos mensajes
+            if (feedbackError) feedbackError.style.display = 'none';
+            if (feedbackSuccess) feedbackSuccess.style.display = 'none';
+            confirmar.classList.remove('is-invalid', 'is-valid');
+            return;
+        }
+        
+        if (password.value === confirmar.value && password.value.length >= 4) {
+            // Contraseñas coinciden
+            confirmar.classList.remove('is-invalid');
+            confirmar.classList.add('is-valid');
+            if (feedbackError) feedbackError.style.display = 'none';
+            if (feedbackSuccess) feedbackSuccess.style.display = 'block';
+        } else {
+            // Contraseñas no coinciden
+            confirmar.classList.remove('is-valid');
+            confirmar.classList.add('is-invalid');
+            if (feedbackError) feedbackError.style.display = 'block';
+            if (feedbackSuccess) feedbackSuccess.style.display = 'none';
+        }
+    }
+    
+    // Agregar listeners para validación en tiempo real
+    document.addEventListener('DOMContentLoaded', function() {
+        const passwordInput = document.getElementById('password_temporal');
+        const confirmarInput = document.getElementById('confirmar_password_temporal');
+        
+        if (passwordInput && confirmarInput) {
+            passwordInput.addEventListener('input', validarCoincidenciaPasswordStaff);
+            confirmarInput.addEventListener('input', validarCoincidenciaPasswordStaff);
+            
+            // Validar antes de enviar el formulario
+            const formStaff = document.querySelector('form input[name="crear_usuario_staff"]')?.closest('form');
+            if (formStaff) {
+                formStaff.addEventListener('submit', function(e) {
+                    const password = document.getElementById('password_temporal').value;
+                    const confirmar = document.getElementById('confirmar_password_temporal').value;
+                    
+                    if (password !== confirmar) {
+                        e.preventDefault();
+                        alert('Las contraseñas no coinciden. Por favor, verifica que ambas contraseñas sean iguales.');
+                        document.getElementById('confirmar_password_temporal').focus();
+                        return false;
+                    }
+                    
+                    if (password.length < 4) {
+                        e.preventDefault();
+                        alert('La contraseña debe tener al menos 4 caracteres.');
+                        document.getElementById('password_temporal').focus();
+                        return false;
+                    }
+                });
+            }
+        }
+    });
+    
     /**
      * Validación de contraseña para el formulario de edición de usuarios
      * @param {number} userId - ID del usuario

@@ -66,9 +66,97 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $mensaje_tipo = 'danger';
         }
     }
+    
+    // ============================================================================
+    // PROCESAR CAMBIO DE CONTRASEÑA
+    // ============================================================================
+    if (isset($_POST['cambiar_contrasena'])) {
+        // IMPORTANTE: NO usar trim() en passwords - puede cambiar la contraseña
+        $contrasena_actual = $_POST['contrasena_actual'] ?? '';
+        $nueva_contrasena = $_POST['nueva_contrasena'] ?? '';
+        $confirmar_contrasena = $_POST['confirmar_contrasena'] ?? '';
+        
+        // Validar que todos los campos estén completos (validación estricta)
+        if ($contrasena_actual === '' || strlen($contrasena_actual) === 0 || 
+            $nueva_contrasena === '' || strlen($nueva_contrasena) === 0 || 
+            $confirmar_contrasena === '' || strlen($confirmar_contrasena) === 0) {
+            $mensaje = 'Todos los campos de contraseña son requeridos';
+            $mensaje_tipo = 'danger';
+        } else {
+            // Obtener hash de contraseña actual del usuario
+            $stmt_pass = $mysqli->prepare("SELECT contrasena FROM Usuarios WHERE id_usuario = ? LIMIT 1");
+            $stmt_pass->bind_param('i', $id_usuario);
+            $stmt_pass->execute();
+            $result_pass = $stmt_pass->get_result();
+            $usuario_pass = $result_pass->fetch_assoc();
+            
+            if (!$usuario_pass) {
+                $mensaje = 'Error al obtener datos del usuario';
+                $mensaje_tipo = 'danger';
+            } elseif (empty($usuario_pass['contrasena']) || $usuario_pass['contrasena'] === null || 
+                      trim($usuario_pass['contrasena']) === '' || strlen($usuario_pass['contrasena']) === 0) {
+                // Hash vacío o NULL en BD
+                $mensaje = 'Error de seguridad: cuenta sin contraseña válida. Contacta al administrador.';
+                $mensaje_tipo = 'danger';
+            } elseif (!preg_match('/^\$2[ayb]\$|\$argon2/', $usuario_pass['contrasena']) || strlen($usuario_pass['contrasena']) < 60) {
+                // Formato de hash inválido
+                $mensaje = 'Error de seguridad: formato de contraseña inválido. Contacta al administrador.';
+                $mensaje_tipo = 'danger';
+            } elseif (password_verify($contrasena_actual, $usuario_pass['contrasena']) !== true) {
+                // Contraseña actual incorrecta (validación estricta)
+                $mensaje = 'La contraseña actual es incorrecta';
+                $mensaje_tipo = 'danger';
+            } elseif ($nueva_contrasena !== $confirmar_contrasena) {
+                // Las nuevas contraseñas no coinciden
+                $mensaje = 'Las nuevas contraseñas no coinciden';
+                $mensaje_tipo = 'danger';
+            } elseif (strlen($nueva_contrasena) < 8) {
+                // Validar longitud mínima
+                $mensaje = 'La nueva contraseña debe tener al menos 8 caracteres';
+                $mensaje_tipo = 'danger';
+            } elseif (strlen($nueva_contrasena) > 128) {
+                // Validar longitud máxima
+                $mensaje = 'La nueva contraseña no puede exceder 128 caracteres';
+                $mensaje_tipo = 'danger';
+            } elseif (!preg_match('/^(?=.*\d)(?=.*[@$!%*?&]).+$/', $nueva_contrasena)) {
+                // Validar complejidad: 1 número y 1 carácter especial
+                $mensaje = 'La nueva contraseña debe contener al menos: 1 número y 1 carácter especial (@$!%*?&)';
+                $mensaje_tipo = 'danger';
+            } elseif (password_verify($nueva_contrasena, $usuario_pass['contrasena']) === true) {
+                // La nueva contraseña no puede ser igual a la actual (validación estricta)
+                $mensaje = 'La nueva contraseña debe ser diferente a la contraseña actual';
+                $mensaje_tipo = 'warning';
+            } else {
+                // Todo válido, cambiar contraseña
+                $nueva_contrasena_hash = password_hash($nueva_contrasena, PASSWORD_BCRYPT);
+                
+                if ($nueva_contrasena_hash === false) {
+                    $mensaje = 'Error al procesar la nueva contraseña';
+                    $mensaje_tipo = 'danger';
+                } else {
+                    $stmt_update = $mysqli->prepare("UPDATE Usuarios SET contrasena = ? WHERE id_usuario = ?");
+                    $stmt_update->bind_param('si', $nueva_contrasena_hash, $id_usuario);
+                    
+                    if ($stmt_update->execute()) {
+                        $mensaje = 'Contraseña actualizada correctamente';
+                        $mensaje_tipo = 'success';
+                        
+                        // Limpiar variables sensibles de memoria
+                        $contrasena_actual = null;
+                        $nueva_contrasena = null;
+                        $confirmar_contrasena = null;
+                        $nueva_contrasena_hash = null;
+                    } else {
+                        $mensaje = 'Error al actualizar la contraseña en la base de datos';
+                        $mensaje_tipo = 'danger';
+                    }
+                }
+            }
+        }
+    }
 }
 
-// Obtener datos del usuario
+// Obtener datos del usuario (sin contraseña por seguridad)
 $stmt = $mysqli->prepare("SELECT nombre, apellido, email, telefono, direccion, localidad, provincia, codigo_postal FROM Usuarios WHERE id_usuario = ? LIMIT 1");
 $stmt->bind_param('i', $id_usuario);
 $stmt->execute();
@@ -203,18 +291,12 @@ if (!$usuario) {
                         
                         <div class="d-grid gap-2">
                             <?php 
-                            // Mostrar todos los paneles disponibles según el rol del usuario
-                            // Los admins pueden acceder a todos los paneles
+                            // Mostrar paneles según el rol del usuario
+                            // Los admins SOLO tienen acceso a su panel de administración
                             ?>
                             <?php if (isAdmin()): ?>
                             <a href="admin.php" class="btn btn-danger">
                                 <i class="fas fa-shield-alt me-2"></i>Panel de Administración
-                            </a>
-                            <a href="marketing.php" class="btn btn-warning">
-                                <i class="fas fa-bullhorn me-2"></i>Panel de Marketing
-                            </a>
-                            <a href="ventas.php" class="btn btn-info">
-                                <i class="fas fa-briefcase me-2"></i>Panel de Ventas
                             </a>
                             <?php else: ?>
                                 <?php if (isMarketing()): ?>
@@ -237,6 +319,80 @@ if (!$usuario) {
                         </div>
                     </div>
                     
+                    <!-- Cambio de Contraseña -->
+                    <div class="perfil-card mt-3">
+                        <h5><i class="fas fa-key me-2"></i>Cambiar Contraseña</h5>
+                        
+                        <form method="POST" action="" id="formCambiarContrasena">
+                            <div class="mb-3">
+                                <label for="contrasena_actual" class="form-label">
+                                    <i class="fas fa-lock me-1"></i>Contraseña Actual
+                                </label>
+                                <div class="password-input-wrapper">
+                                    <input type="password" 
+                                           class="form-control" 
+                                           id="contrasena_actual" 
+                                           name="contrasena_actual" 
+                                           required
+                                           autocomplete="current-password">
+                                    <button type="button" class="btn-toggle-password" onclick="togglePassword('contrasena_actual')" aria-label="Mostrar contraseña">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="nueva_contrasena" class="form-label">
+                                    <i class="fas fa-key me-1"></i>Nueva Contraseña
+                                </label>
+                                <div class="password-input-wrapper">
+                                    <input type="password" 
+                                           class="form-control" 
+                                           id="nueva_contrasena" 
+                                           name="nueva_contrasena" 
+                                           required
+                                           minlength="8"
+                                           maxlength="128"
+                                           autocomplete="new-password"
+                                           pattern="^(?=.*\d)(?=.*[@$!%*?&]).+$"
+                                           title="Debe contener: 1 número y 1 carácter especial (@$!%*?&)">
+                                    <button type="button" class="btn-toggle-password" onclick="togglePassword('nueva_contrasena')" aria-label="Mostrar contraseña">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>Debe contener: 1 número y 1 carácter especial (@$!%*?&)
+                                </small>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="confirmar_contrasena" class="form-label">
+                                    <i class="fas fa-key me-1"></i>Confirmar Nueva Contraseña
+                                </label>
+                                <div class="password-input-wrapper">
+                                    <input type="password" 
+                                           class="form-control" 
+                                           id="confirmar_contrasena" 
+                                           name="confirmar_contrasena" 
+                                           required
+                                           minlength="8"
+                                           maxlength="128"
+                                           autocomplete="new-password">
+                                    <button type="button" class="btn-toggle-password" onclick="togglePassword('confirmar_contrasena')" aria-label="Mostrar contraseña">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                <div id="password-match" class="mt-2"></div>
+                            </div>
+                            
+                            <div class="d-grid gap-2">
+                                <button type="submit" name="cambiar_contrasena" class="btn btn-warning">
+                                    <i class="fas fa-save me-2"></i>Cambiar Contraseña
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    
                     <!-- Tips de Seguridad -->
                     <div class="perfil-card mt-3">
                         <h5><i class="fas fa-shield-alt me-2"></i>Consejos de Seguridad</h5>
@@ -245,6 +401,7 @@ if (!$usuario) {
                             <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Mantén tu información actualizada</li>
                             <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Cierra sesión en dispositivos compartidos</li>
                             <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Verifica tus datos de envío antes de comprar</li>
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Cambia tu contraseña periódicamente</li>
                         </ul>
                     </div>
                 </div>
@@ -364,5 +521,74 @@ if (!$usuario) {
         </div>
     </footer>
 
+
+<script>
+// Función para mostrar/ocultar contraseña
+function togglePassword(inputId) {
+    const input = document.getElementById(inputId);
+    const button = input.nextElementSibling;
+    const icon = button.querySelector('i');
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+        button.setAttribute('aria-label', 'Ocultar contraseña');
+    } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+        button.setAttribute('aria-label', 'Mostrar contraseña');
+    }
+}
+
+// Validación de coincidencia de contraseñas
+document.addEventListener('DOMContentLoaded', function() {
+    const nuevaContrasena = document.getElementById('nueva_contrasena');
+    const confirmarContrasena = document.getElementById('confirmar_contrasena');
+    const passwordMatch = document.getElementById('password-match');
+    const formCambiarContrasena = document.getElementById('formCambiarContrasena');
+    
+    function validatePasswordMatch() {
+        if (confirmarContrasena.value === '') {
+            passwordMatch.innerHTML = '';
+            return;
+        }
+        
+        if (nuevaContrasena.value === confirmarContrasena.value) {
+            passwordMatch.innerHTML = '<small class="text-success"><i class="fas fa-check-circle me-1"></i>Las contraseñas coinciden</small>';
+            confirmarContrasena.setCustomValidity('');
+        } else {
+            passwordMatch.innerHTML = '<small class="text-danger"><i class="fas fa-times-circle me-1"></i>Las contraseñas no coinciden</small>';
+            confirmarContrasena.setCustomValidity('Las contraseñas no coinciden');
+        }
+    }
+    
+    nuevaContrasena.addEventListener('input', validatePasswordMatch);
+    confirmarContrasena.addEventListener('input', validatePasswordMatch);
+    
+    // Validación del formulario antes de enviar
+    formCambiarContrasena.addEventListener('submit', function(e) {
+        // Validar que las contraseñas coincidan
+        if (nuevaContrasena.value !== confirmarContrasena.value) {
+            e.preventDefault();
+            passwordMatch.innerHTML = '<small class="text-danger"><i class="fas fa-exclamation-circle me-1"></i>Las contraseñas no coinciden</small>';
+            confirmarContrasena.focus();
+            return false;
+        }
+        
+        // Validar formato de contraseña
+        const passwordPattern = /^(?=.*\d)(?=.*[@$!%*?&]).+$/;
+        if (!passwordPattern.test(nuevaContrasena.value)) {
+            e.preventDefault();
+            alert('La contraseña debe contener al menos: 1 número y 1 carácter especial (@$!%*?&)');
+            nuevaContrasena.focus();
+            return false;
+        }
+        
+        return true;
+    });
+});
+</script>
 
 <?php include 'includes/footer.php'; render_footer(); ?>

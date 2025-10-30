@@ -98,6 +98,14 @@
     --color-footer-link-hover: #8B8B7A;
     --color-footer-divider: #E8E8E5;
     --color-footer-accent: linear-gradient(90deg, #8B8B7A, #7A7A6B, #8B8B7A);
+    
+    /* ============================================
+       ACCIONES - Botones de acción principales (celeste azulado)
+       ============================================ */
+    --color-action-primary: #4A9FD6;
+    --color-action-primary-hover: #3A8FC6;
+    --color-action-primary-light: #E3F2F8;
+    --color-action-shadow: rgba(74, 159, 214, 0.3);
 }
 
 /* ========================================================================

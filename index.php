@@ -57,11 +57,10 @@ include 'includes/header.php';
 
         <section id="productos" class="secciones seccion-productos">
             <div class="container">
-                <h2 class="text-center mb-4">NUESTROS PRODUCTOS</h2>
-                <p class="text-center mb-5 descripcion-productos">Descubre nuestra colección de prendas elegantes confeccionadas con los mejores materiales</p>
+                <p class="text-center mb-4 descripcion-productos">Descubre nuestra colección de prendas elegantes confeccionadas con los mejores materiales</p>
                 
-                <div class="row justify-content-center">
-                    <div class="col-lg-3 col-md-6 col-sm-12 mb-4">
+                <div class="row justify-content-center g-4 mt-3">
+                    <div class="col-lg-3 col-md-6 col-sm-12">
                         <a href="catalogo.php?categoria=Camisas" class="text-decoration-none">
                             <div class="card tarjeta h-100 shadow-sm">
                                 <div class="card-img-wrapper">
@@ -70,16 +69,16 @@ include 'includes/header.php';
                                         <span class="overlay-text">Explorar Colección</span>
                                     </div>
                                 </div>
-                                <div class="card-body d-flex flex-column">
-                                   <h5 class="card-title titulo-tarjeta">Camisas</h5>
-                                   <p class="card-text texto-tarjeta">Camisas elegantes de seda y lino para todas las ocasiones</p>
+                                <div class="card-body d-flex flex-column p-3">
+                                   <h5 class="card-title titulo-tarjeta mb-2">Camisas</h5>
+                                   <p class="card-text texto-tarjeta mb-3 flex-grow-1">Camisas elegantes de seda y lino para todas las ocasiones</p>
                                    <span class="btn boton-tarjeta mt-auto">Ver Colección</span>
                                 </div>
                             </div>
                         </a>
                     </div>
 
-                    <div class="col-lg-3 col-md-6 col-sm-12 mb-4">
+                    <div class="col-lg-3 col-md-6 col-sm-12">
                         <a href="catalogo.php?categoria=Blusas" class="text-decoration-none">
                             <div class="card tarjeta h-100 shadow-sm">
                                 <div class="card-img-wrapper">
@@ -88,16 +87,16 @@ include 'includes/header.php';
                                         <span class="overlay-text">Explorar Colección</span>
                                     </div>
                                 </div>
-                                <div class="card-body d-flex flex-column">
-                                  <h5 class="card-title titulo-tarjeta">Blusas</h5>
-                                  <p class="card-text texto-tarjeta">Blusas elegantes de seda que realzan tu silueta con diseños únicos y refinados</p>
+                                <div class="card-body d-flex flex-column p-3">
+                                  <h5 class="card-title titulo-tarjeta mb-2">Blusas</h5>
+                                  <p class="card-text texto-tarjeta mb-3 flex-grow-1">Blusas elegantes de seda que realzan tu silueta con diseños únicos y refinados</p>
                                   <span class="btn boton-tarjeta mt-auto">Ver Colección</span>
                                 </div>
                             </div>
                         </a>
                     </div>
 
-                    <div class="col-lg-3 col-md-6 col-sm-12 mb-4">
+                    <div class="col-lg-3 col-md-6 col-sm-12">
                         <a href="catalogo.php?categoria=Shorts" class="text-decoration-none">
                             <div class="card tarjeta h-100 shadow-sm">
                                 <div class="card-img-wrapper">
@@ -106,16 +105,16 @@ include 'includes/header.php';
                                         <span class="overlay-text">Explorar Colección</span>
                                     </div>
                                 </div>
-                                <div class="card-body d-flex flex-column">
-                                   <h5 class="card-title titulo-tarjeta">Shorts</h5>
-                                   <p class="card-text texto-tarjeta">Shorts de lino premium, ligeros y frescos, perfectos para días de verano con estilo</p>
+                                <div class="card-body d-flex flex-column p-3">
+                                   <h5 class="card-title titulo-tarjeta mb-2">Shorts</h5>
+                                   <p class="card-text texto-tarjeta mb-3 flex-grow-1">Shorts de lino premium, ligeros y frescos, perfectos para días de verano con estilo</p>
                                    <span class="btn boton-tarjeta mt-auto">Ver Colección</span>
                                 </div>
                             </div>
                         </a>
                     </div>
 
-                    <div class="col-lg-3 col-md-6 col-sm-12 mb-4">
+                    <div class="col-lg-3 col-md-6 col-sm-12">
                         <a href="catalogo.php?categoria=Pantalones" class="text-decoration-none">
                             <div class="card tarjeta h-100 shadow-sm">
                                 <div class="card-img-wrapper">
@@ -124,9 +123,9 @@ include 'includes/header.php';
                                         <span class="overlay-text">Explorar Colección</span>
                                     </div>
                                 </div>
-                                <div class="card-body d-flex flex-column">
-                                    <h5 class="card-title titulo-tarjeta">Pantalón de Lino</h5>
-                                    <p class="card-text texto-tarjeta">Pantalón de lino premium, disponible en varios colores.</p>
+                                <div class="card-body d-flex flex-column p-3">
+                                    <h5 class="card-title titulo-tarjeta mb-2">Pantalón de Lino</h5>
+                                    <p class="card-text texto-tarjeta mb-3 flex-grow-1">Pantalón de lino premium, disponible en varios colores.</p>
                                     <span class="btn boton-tarjeta mt-auto">Ver Colección</span>
                                 </div>
                             </div>
