@@ -44,18 +44,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // AGREGAR producto al carrito
     if (isset($_POST['accion']) && $_POST['accion'] === 'agregar') {
-        $id_producto = (int)$_POST['id_producto'];
-        $talla = $_POST['talla'] ?? '';
-        $color = $_POST['color'] ?? '';
-        $cantidad = (int)$_POST['cantidad'];
+        $id_producto = isset($_POST['id_producto']) ? (int)$_POST['id_producto'] : 0;
+        $talla = isset($_POST['talla']) ? trim($_POST['talla']) : '';
+        $color = isset($_POST['color']) ? trim($_POST['color']) : '';
+        $cantidad = isset($_POST['cantidad']) ? (int)$_POST['cantidad'] : 0;
         
-        if ($id_producto > 0 && $talla && $color && $cantidad > 0) {
+        // Validación más estricta
+        if ($id_producto > 0 && !empty($talla) && !empty($color) && $cantidad > 0 && $cantidad <= 10) {
             // Clave única para cada variante en el carrito
             $clave_carrito = $id_producto . '-' . $talla . '-' . $color;
             
             // Si ya existe, sumar cantidad; si no, crear nueva entrada
             if (isset($_SESSION['carrito'][$clave_carrito])) {
                 $_SESSION['carrito'][$clave_carrito]['cantidad'] += $cantidad;
+                // Limitar cantidad máxima
+                if ($_SESSION['carrito'][$clave_carrito]['cantidad'] > 10) {
+                    $_SESSION['carrito'][$clave_carrito]['cantidad'] = 10;
+                }
             } else {
                 $_SESSION['carrito'][$clave_carrito] = array(
                     'id_producto' => $id_producto,
@@ -67,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $_SESSION['mensaje_carrito'] = "Producto agregado al carrito";
         } else {
-            $_SESSION['mensaje_carrito'] = "Error: Datos inválidos para agregar al carrito";
+            $_SESSION['mensaje_carrito'] = "Error: Datos inválidos para agregar al carrito. Verifica que hayas seleccionado talle y color.";
         }
         
         header('Location: carrito.php');
@@ -118,6 +123,11 @@ $total_carrito = 0;
 
 if (!empty($_SESSION['carrito'])) {
     foreach ($_SESSION['carrito'] as $clave => $item) {
+        // Validar que el item tenga los datos necesarios
+        if (!isset($item['id_producto']) || !isset($item['talla']) || !isset($item['color']) || !isset($item['cantidad'])) {
+            continue; // Saltar items inválidos
+        }
+        
         // Consultar datos del producto desde la base de datos
         $sql = "
             SELECT 
@@ -128,30 +138,38 @@ if (!empty($_SESSION['carrito'])) {
             FROM Productos p
             LEFT JOIN Fotos_Producto fp ON p.id_producto = fp.id_producto
             WHERE p.id_producto = :id_producto
+            LIMIT 1
         ";
         
-        $stmt = $pdo->prepare($sql);
-        $stmt->bindParam(':id_producto', $item['id_producto'], PDO::PARAM_INT);
-        $stmt->execute();
-        $producto = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($producto) {
-            // Calcular subtotal
-            $subtotal = $producto['precio_actual'] * $item['cantidad'];
-            $total_carrito += $subtotal;
+        try {
+            $stmt = $pdo->prepare($sql);
+            $stmt->bindParam(':id_producto', $item['id_producto'], PDO::PARAM_INT);
+            $stmt->execute();
+            $producto = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            // Agregar datos del carrito
-            $productos_carrito[] = array(
-                'clave' => $clave,
-                'id_producto' => $producto['id_producto'],
-                'nombre_producto' => $producto['nombre_producto'],
-                'precio_actual' => $producto['precio_actual'],
-                'foto_prod_miniatura' => $producto['foto_prod_miniatura'],
-                'talla' => $item['talla'],
-                'color' => $item['color'],
-                'cantidad' => $item['cantidad'],
-                'subtotal' => $subtotal
-            );
+            if ($producto && isset($producto['id_producto'])) {
+                // Calcular subtotal
+                $subtotal = $producto['precio_actual'] * $item['cantidad'];
+                $total_carrito += $subtotal;
+                
+                // Agregar datos del carrito
+                $productos_carrito[] = array(
+                    'clave' => $clave,
+                    'id_producto' => $producto['id_producto'],
+                    'nombre_producto' => $producto['nombre_producto'],
+                    'precio_actual' => $producto['precio_actual'],
+                    'foto_prod_miniatura' => $producto['foto_prod_miniatura'] ?? 'imagenes/imagen.png',
+                    'talla' => $item['talla'],
+                    'color' => $item['color'],
+                    'cantidad' => $item['cantidad'],
+                    'subtotal' => $subtotal
+                );
+            }
+        } catch (PDOException $e) {
+            // Log del error (en producción usar un sistema de logs)
+            error_log("Error al obtener producto del carrito: " . $e->getMessage());
+            // Continuar con el siguiente item
+            continue;
         }
     }
 }
@@ -167,55 +185,7 @@ if ($mensaje) {
 <?php include 'includes/header.php'; ?>
 
 <!-- Contenido del carrito -->
-    <div style="display:none">
-        <nav class="navbar navbar-expand-lg bg-body-tertiary">
-            <div class="container-fluid">
-                <a class="navbar-brand nombre-tienda" href="index.php">SEDA Y LINO</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                     <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-                    <ul class="navbar-nav lista-nav">
-                        <li class="nav-item">
-                          <a class="nav-link link-tienda" href="index.php">INICIO</a>
-                        </li>
-                        <li class="nav-item">
-                          <a class="nav-link link-tienda" href="nosotros.php">NOSOTROS</a>
-                        </li>
-                        <li class="nav-item">
-                          <a class="nav-link link-tienda" href="index.php#productos">PRODUCTOS</a>
-                        </li>
-                        <li class="nav-item">
-                          <a class="nav-link link-tienda" href="index.php#contacto">CONTACTO</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link position-relative" href="carrito.php" title="Carrito">
-                                <i class="fas fa-shopping-cart fa-lg"></i>
-                                <?php if (count($_SESSION['carrito']) > 0): ?>
-                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                                    <?php echo count($_SESSION['carrito']); ?>
-                                </span>
-                                <?php endif; ?>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <?php if (isset($_SESSION['id_usuario'])): ?>
-                                <a class="nav-link" href="perfil.php" title="Mi Perfil">
-                                    <img src="iconos/avatar-usuario.png" alt="icono de avatar de usuario">
-                                </a>
-                            <?php else: ?>
-                            <a class="nav-link" href="login.php" title="Iniciar Sesión">
-                                    <img src="iconos/avatar-usuario.png" alt="icono de avatar de usuario">
-                            </a>
-                            <?php endif; ?>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </nav>
-    </header>
-
-    <main class="container my-5">
+<main class="container my-5">
         <h1 class="mb-4">
             <i class="fas fa-shopping-cart me-2"></i>
             Carrito de Compras

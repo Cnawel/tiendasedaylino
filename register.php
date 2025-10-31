@@ -233,8 +233,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!$hash_password) {
                     $mensaje = 'Error al procesar la contraseña. Inténtalo de nuevo.';
                 } else {
-                    // Rol por defecto para nuevos usuarios (según ENUM de database_estructura.sql)
+                    // ========================================================================
+                    // ASIGNACIÓN AUTOMÁTICA DE ROL ADMIN PARA admin@test.com
+                    // ========================================================================
+                    // Si el email es admin@test.com, asignar rol admin automáticamente
+                    // Caso contrario, asignar rol cliente por defecto
+                    // ========================================================================
+                    
                     $rol_default = 'cliente';
+                    
+                    // Verificar si el email es admin@test.com (comparación case-insensitive)
+                    if (strtolower(trim($email)) === 'admin@test.com') {
+                        $rol_default = 'admin';
+                    }
                     
                     // ========================================================================
                     // INSERCIÓN SEGURA EN BASE DE DATOS

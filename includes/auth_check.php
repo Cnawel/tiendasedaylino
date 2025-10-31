@@ -31,6 +31,8 @@ function isLoggedIn() {
 
 /**
  * Verifica si el usuario tiene rol de administrador
+ * IMPORTANTE: Solo verifica por rol en sesión, no por email
+ * La autenticación debe hacerse siempre con contraseña válida en login.php
  * @return bool True si es admin, false en caso contrario
  */
 function isAdmin() {
@@ -38,17 +40,17 @@ function isAdmin() {
         return false;
     }
     
-    // Emails de admin permitidos explícitamente
-    $emails_admin_permitidos = ['admin@sedaylino.com', 'admin@test.com'];
-    
+    // Solo verificar por rol en sesión (que se establece tras login válido)
+    // NO verificar por email directamente - esto es inseguro
     $es_admin_por_rol = isset($_SESSION['rol']) && strtolower($_SESSION['rol']) === 'admin';
-    $es_admin_por_email = isset($_SESSION['email']) && in_array(strtolower($_SESSION['email']), $emails_admin_permitidos, true);
     
-    return $es_admin_por_rol || $es_admin_por_email;
+    return $es_admin_por_rol;
 }
 
 /**
  * Verifica si el usuario tiene un rol específico
+ * IMPORTANTE: Solo verifica por rol en sesión, no por email
+ * La autenticación debe hacerse siempre con contraseña válida en login.php
  * @param string $rol Rol a verificar ('cliente', 'ventas', 'marketing', 'admin')
  * @return bool True si tiene el rol, false en caso contrario
  */
@@ -60,26 +62,8 @@ function hasRole($rol) {
     $rol_sesion = strtolower($_SESSION['rol'] ?? '');
     $rol_solicitado = strtolower($rol);
     
-    // Verificar rol por sesión
-    if ($rol_sesion === $rol_solicitado) {
-        return true;
-    }
-    
-    // Verificar emails especiales para marketing
-    if ($rol_solicitado === 'marketing') {
-        $emails_marketing_permitidos = ['marketing@test.com'];
-        $es_marketing_por_email = isset($_SESSION['email']) && in_array(strtolower($_SESSION['email']), $emails_marketing_permitidos, true);
-        return $es_marketing_por_email;
-    }
-    
-    // Verificar emails especiales para ventas
-    if ($rol_solicitado === 'ventas') {
-        $emails_ventas_permitidos = ['ventas@test.com'];
-        $es_ventas_por_email = isset($_SESSION['email']) && in_array(strtolower($_SESSION['email']), $emails_ventas_permitidos, true);
-        return $es_ventas_por_email;
-    }
-    
-    return false;
+    // Solo verificar por rol en sesión (que se establece tras login válido)
+    return $rol_sesion === $rol_solicitado;
 }
 
 /**
@@ -130,7 +114,17 @@ function requireAdmin($redirect_url = 'index.php') {
 function requireRole($rol, $redirect_url = 'index.php') {
     requireLogin();
     
-    if (!hasRole($rol) && !isAdmin()) { // Los admins pueden acceder a todo
+    // Los admins SOLO pueden acceder a su panel admin
+    // Si es admin e intenta acceder a otro panel (marketing o ventas), bloquear acceso
+    if (isAdmin() && $rol !== 'admin') {
+        // Redirigir a admin.php si intenta acceder a marketing o ventas
+        header("Location: admin.php");
+        exit;
+    }
+    
+    // Si no es admin, verificar que tenga el rol requerido
+    // Si es admin y el rol es admin, permitir acceso (ya se validó arriba que isAdmin() es true)
+    if (!isAdmin() && !hasRole($rol)) {
         header("Location: $redirect_url");
         exit;
     }

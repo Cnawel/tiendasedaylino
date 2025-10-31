@@ -30,6 +30,7 @@ include 'includes/header.php';
 ?>
 
     <main>
+        <!-- Carrusel de imágenes destacadas -->
         <section>
             <div id="carouselExampleIndicators" class="carousel slide" data-bs-ride="carousel" data-bs-interval="4000">
                 <div class="carousel-indicators">
@@ -39,13 +40,13 @@ include 'includes/header.php';
                 </div>
                 <div class="carousel-inner">
                     <div class="carousel-item active">
-                      <img src="imagenes/productos/camisas/camisa_grupal.png" class="d-block w-100" alt="Colección de camisas elegantes de seda y lino">
+                      <img src="imagenes/productos/camisas/camisa_grupal.png" class="d-block w-100" alt="Colección de camisas elegantes de seda y lino" loading="lazy">
                     </div>
                     <div class="carousel-item">
-                      <img src="imagenes/productos/pantalones/pantalon_grupal.png" class="d-block w-100" alt="Colección de pantalones de lino premium">
+                      <img src="imagenes/productos/pantalones/pantalon_grupal.png" class="d-block w-100" alt="Colección de pantalones de lino premium" loading="lazy">
                     </div>
                     <div class="carousel-item">
-                      <img src="imagenes/productos/camisas/camisa_grupal.png" class="d-block w-100" alt="Camisas de calidad para todas las ocasiones">
+                      <img src="imagenes/productos/blusas/blusa_mujer_modelogrupal_oficina.png" class="d-block w-100" alt="Blusas elegantes de seda y lino" loading="lazy">
                     </div>
                 </div>
             </div>
@@ -57,9 +58,9 @@ include 'includes/header.php';
 
         <section id="productos" class="secciones seccion-productos">
             <div class="container">
-                <p class="text-center mb-4 descripcion-productos">Descubre nuestra colección de prendas elegantes confeccionadas con los mejores materiales</p>
+                <p class="text-center mb-5 descripcion-productos">Descubre nuestra colección de prendas elegantes confeccionadas con los mejores materiales</p>
                 
-                <div class="row justify-content-center g-4 mt-3">
+                <div class="row justify-content-center g-5 mt-4">
                     <div class="col-lg-3 col-md-6 col-sm-12">
                         <a href="catalogo.php?categoria=Camisas" class="text-decoration-none">
                             <div class="card tarjeta h-100 shadow-sm">
@@ -82,7 +83,7 @@ include 'includes/header.php';
                         <a href="catalogo.php?categoria=Blusas" class="text-decoration-none">
                             <div class="card tarjeta h-100 shadow-sm">
                                 <div class="card-img-wrapper">
-                                    <img src="imagenes/imagen.png" class="card-img-top" alt="Blusas femeninas de calidad">
+                                    <img src="imagenes/productos/blusas/blusa_mujer_modelogrupal_oficina.png" class="card-img-top" alt="Blusas femeninas de calidad" loading="lazy">
                                     <div class="card-overlay">
                                         <span class="overlay-text">Explorar Colección</span>
                                     </div>
@@ -100,7 +101,7 @@ include 'includes/header.php';
                         <a href="catalogo.php?categoria=Shorts" class="text-decoration-none">
                             <div class="card tarjeta h-100 shadow-sm">
                                 <div class="card-img-wrapper">
-                                    <img src="imagenes/imagen.png" class="card-img-top" alt="Shorts cómodos y elegantes">
+                                    <img src="imagenes/productos/shorts/short_hombre_negro.png" class="card-img-top" alt="Shorts cómodos y elegantes" loading="lazy">
                                     <div class="card-overlay">
                                         <span class="overlay-text">Explorar Colección</span>
                                     </div>
@@ -124,8 +125,8 @@ include 'includes/header.php';
                                     </div>
                                 </div>
                                 <div class="card-body d-flex flex-column p-3">
-                                    <h5 class="card-title titulo-tarjeta mb-2">Pantalón de Lino</h5>
-                                    <p class="card-text texto-tarjeta mb-3 flex-grow-1">Pantalón de lino premium, disponible en varios colores.</p>
+                                    <h5 class="card-title titulo-tarjeta mb-2">Pantalones</h5>
+                                    <p class="card-text texto-tarjeta mb-3 flex-grow-1">Pantalones de lino premium, cómodos y elegantes, disponibles en varios colores.</p>
                                     <span class="btn boton-tarjeta mt-auto">Ver Colección</span>
                                 </div>
                             </div>

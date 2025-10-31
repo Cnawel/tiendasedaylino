@@ -135,26 +135,69 @@ if (!empty($colores_seleccionados)) {
 }
 
 // Ejecutar consulta final de productos con todos los filtros aplicados
-// MIN(sv.color) muestra un color representativo del producto
-// SUM(sv.stock) calcula el stock total sumando todas las variantes
-$sql = "SELECT p.id_producto, p.nombre_producto, p.descripcion_producto, p.precio_actual, 
-               p.genero, c.nombre_categoria, MIN(sv.color) as color, SUM(sv.stock) as total_stock
-        FROM Productos p
-        INNER JOIN Categorias c ON p.id_categoria = c.id_categoria
-        INNER JOIN Stock_Variantes sv ON p.id_producto = sv.id_producto
-        WHERE " . implode(' AND ', $where_parts) . "
-        GROUP BY p.id_producto, p.nombre_producto, p.descripcion_producto, p.precio_actual, p.genero, c.nombre_categoria
-        HAVING total_stock > 0
-        ORDER BY p.nombre_producto";
+// SOLUCIÓN PARA EVITAR DUPLICADOS: primero obtener IDs únicos de productos que cumplen los filtros
+// Luego obtener los datos completos de esos productos usando subconsultas
+$sql_ids = "SELECT DISTINCT p.id_producto
+            FROM Productos p
+            INNER JOIN Stock_Variantes sv ON p.id_producto = sv.id_producto
+            INNER JOIN Categorias c ON p.id_categoria = c.id_categoria
+            WHERE " . implode(' AND ', $where_parts);
 
-// Preparar y ejecutar consulta con parámetros dinámicos
-$stmt = $mysqli->prepare($sql);
+$stmt_ids = $mysqli->prepare($sql_ids);
 if (!empty($params)) {
-    $stmt->bind_param($types, ...$params);
+    $stmt_ids->bind_param($types, ...$params);
 }
-$stmt->execute();
-// Resultado final con productos filtrados
-$productos = $stmt->get_result();
+$stmt_ids->execute();
+$result_ids = $stmt_ids->get_result();
+$productos_ids = [];
+while ($row = $result_ids->fetch_assoc()) {
+    $productos_ids[] = $row['id_producto'];
+}
+
+// Si hay productos que cumplen filtros, obtener sus datos completos sin duplicados
+// Usar GROUP BY correctamente para evitar duplicados
+if (!empty($productos_ids)) {
+    $placeholders = str_repeat('?,', count($productos_ids) - 1) . '?';
+    
+    // Consulta simplificada: obtener datos del producto y usar subconsultas simples para color y stock
+    // Las subconsultas filtran internamente pero no necesitan parámetros adicionales ya que el filtro principal ya se aplicó
+    $sql_final = "SELECT DISTINCT
+                         p.id_producto, 
+                         p.nombre_producto, 
+                         p.descripcion_producto, 
+                         p.precio_actual, 
+                         p.genero, 
+                         c.nombre_categoria,
+                         (SELECT MIN(sv_min.color) 
+                          FROM Stock_Variantes sv_min 
+                          WHERE sv_min.id_producto = p.id_producto 
+                          AND sv_min.stock > 0) as color,
+                         (SELECT SUM(sv_sum.stock) 
+                          FROM Stock_Variantes sv_sum 
+                          WHERE sv_sum.id_producto = p.id_producto 
+                          AND sv_sum.stock > 0) as total_stock
+                   FROM Productos p
+                   INNER JOIN Categorias c ON p.id_categoria = c.id_categoria
+                   WHERE p.id_producto IN ($placeholders)
+                   GROUP BY p.id_producto, p.nombre_producto, p.descripcion_producto, p.precio_actual, p.genero, c.nombre_categoria
+                   ORDER BY p.nombre_producto";
+    
+    $stmt = $mysqli->prepare($sql_final);
+    $types_final = str_repeat('i', count($productos_ids));
+    $stmt->bind_param($types_final, ...$productos_ids);
+    $stmt->execute();
+    $productos = $stmt->get_result();
+} else {
+    // Si no hay productos, ejecutar consulta vacía para obtener estructura de resultado
+    $sql_final = "SELECT p.id_producto, p.nombre_producto, p.descripcion_producto, p.precio_actual, 
+                          p.genero, c.nombre_categoria, '' as color, 0 as total_stock
+                   FROM Productos p
+                   INNER JOIN Categorias c ON p.id_categoria = c.id_categoria
+                   WHERE 1=0";
+    $stmt = $mysqli->prepare($sql_final);
+    $stmt->execute();
+    $productos = $stmt->get_result();
+}
 ?>
 
 <main class="productos">
@@ -174,22 +217,66 @@ $productos = $stmt->get_result();
     <div class="container-fluid px-3 py-2">
         <div class="row g-3">
             <!-- Sidebar de filtros -->
-            <aside class="col-lg-3 col-md-4 col-12">
+            <aside class="col-lg-2 col-md-3 col-12">
                 <div class="catalogo-sidebar">
                     <!-- Filtros avanzados -->
                     <?php if (!empty($talles_disponibles) || !empty($colores_disponibles)): ?>
+                    
+                    <?php
+                    /**
+                     * Función para obtener código hexadecimal de color según nombre
+                     * @param string $color_nombre Nombre del color (ej: "negro", "blanco", "azul")
+                     * @return string Código hexadecimal del color
+                     */
+                    function obtenerColorHex($color_nombre) {
+                        $colores_map = array(
+                            'negro' => '#000000',
+                            'blanco' => '#FFFFFF',
+                            'azul' => '#0066CC',
+                            'rojo' => '#CC0000',
+                            'verde' => '#00CC00',
+                            'amarillo' => '#FFCC00',
+                            'rosa' => '#FF99CC',
+                            'gris' => '#808080',
+                            'beige' => '#F5F5DC',
+                            'marron' => '#8B4513',
+                            'marrón' => '#8B4513',
+                            'naranja' => '#FF6600',
+                            'violeta' => '#9966CC',
+                            'morado' => '#9933CC',
+                            'turquesa' => '#40E0D0',
+                            'coral' => '#FF7F50',
+                            'ocre' => '#CC7722',
+                            'lila' => '#C8A2C8',
+                            'bordo' => '#800020',
+                            'burgundy' => '#800020',
+                            'verde oliva' => '#808000',
+                            'verde oliva' => '#808000'
+                        );
+                        
+                        $color_lower = strtolower(trim($color_nombre));
+                        return isset($colores_map[$color_lower]) ? $colores_map[$color_lower] : '#CCCCCC';
+                    }
+                    ?>
+                    
                     <form method="GET" action="catalogo.php" id="filtros-form" class="filtros-sidebar">
                         <input type="hidden" name="categoria" value="<?= htmlspecialchars($categoria_nombre) ?>">
                         
+                        <!-- Título del filtro -->
+                        <div class="filtro-header">
+                            <h5 class="filtro-header-titulo">
+                                <i class="fas fa-filter me-2"></i>Filtrar por
+                            </h5>
+                        </div>
+                        
                         <?php if (!empty($talles_disponibles)): ?>
-                        <div class="filtro-grupo-compacto mb-3">
+                        <div class="filtro-grupo-compacto">
                             <div class="filtro-titulo">
-                                <i class="fas fa-ruler-vertical me-1"></i>Talle
+                                <i class="fas fa-ruler-vertical me-1"></i>TALLE
                             </div>
                             <div class="filtro-opciones-compactas">
                                 <?php 
                                 // Ordenar talles según orden estándar (XS, S, M, L, XL, etc.)
-                                // Primero agregar los talles estándar que existen en stock
                                 $orden_talles = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
                                 $talles_ordenados = [];
                                 foreach ($orden_talles as $t) {
@@ -205,43 +292,50 @@ $productos = $stmt->get_result();
                                 }
                                 // Renderizar cada opción de talle con su stock
                                 foreach ($talles_ordenados as $talle => $stock): 
-                                    // Variables para estado del checkbox
                                     $checked = in_array($talle, $talles_seleccionados) ? 'checked' : '';
                                     $active = in_array($talle, $talles_seleccionados) ? 'active' : '';
                                 ?>
-                                    <label class="filtro-option-compact <?= $active ?>">
+                                    <label class="filtro-option-checkbox <?= $active ?>">
                                         <input type="checkbox" name="talle[]" value="<?= htmlspecialchars($talle) ?>" 
-                                               <?= $checked ?> onchange="document.getElementById('filtros-form').submit();">
-                                        <span class="filtro-texto-compact">
+                                               <?= $checked ?> 
+                                               onchange="document.getElementById('filtros-form').submit();"
+                                               class="filtro-checkbox-input">
+                                        <span class="filtro-checkbox-custom"></span>
+                                        <span class="filtro-texto-checkbox">
                                             <?= htmlspecialchars($talle) ?>
-                                            <span class="filtro-count-compact">(<?= $stock ?>)</span>
+                                            <span class="filtro-count-checkbox">(<?= $stock ?>)</span>
                                         </span>
                                     </label>
                                 <?php endforeach; ?>
                             </div>
                         </div>
+                        <hr class="filtro-divider">
                         <?php endif; ?>
 
                         <?php if (!empty($colores_disponibles)): ?>
-                        <div class="filtro-grupo-compacto mb-3">
+                        <div class="filtro-grupo-compacto">
                             <div class="filtro-titulo">
-                                <i class="fas fa-palette me-1"></i>Color
+                                <i class="fas fa-palette me-1"></i>COLOR
                             </div>
                             <div class="filtro-opciones-compactas">
                                 <?php 
-                                // Renderizar cada color disponible con su stock
+                                // Renderizar cada color disponible con su stock y círculo de color
                                 foreach ($colores_disponibles as $color => $stock): 
-                                    // Variables para estado del checkbox
                                     $checked = in_array($color, $colores_seleccionados) ? 'checked' : '';
                                     $active = in_array($color, $colores_seleccionados) ? 'active' : '';
+                                    $color_hex = obtenerColorHex($color);
                                 ?>
-                                    <label class="filtro-option-compact color-option <?= $active ?>">
+                                    <label class="filtro-option-checkbox color-option-checkbox <?= $active ?>">
                                         <input type="checkbox" name="color[]" value="<?= htmlspecialchars($color) ?>" 
-                                               <?= $checked ?> onchange="document.getElementById('filtros-form').submit();">
-                                        <span class="filtro-texto-compact">
+                                               <?= $checked ?> 
+                                               onchange="document.getElementById('filtros-form').submit();"
+                                               class="filtro-checkbox-input">
+                                        <span class="filtro-checkbox-custom"></span>
+                                        <span class="filtro-texto-checkbox">
                                             <?= htmlspecialchars(ucfirst($color)) ?>
-                                            <span class="filtro-count-compact">(<?= $stock ?>)</span>
+                                            <span class="filtro-count-checkbox">(<?= $stock ?>)</span>
                                         </span>
+                                        <span class="filtro-color-circle" style="background-color: <?= htmlspecialchars($color_hex) ?>; border: 1px solid <?= $color_hex === '#FFFFFF' ? '#E8E8E5' : 'transparent' ?>;"></span>
                                     </label>
                                 <?php endforeach; ?>
                             </div>
@@ -261,7 +355,7 @@ $productos = $stmt->get_result();
             </aside>
 
             <!-- Contenido principal de productos -->
-            <div class="col-lg-9 col-md-8 col-12">
+            <div class="col-lg-10 col-md-9 col-12">
                 <div class="row g-3">
                     <?php if ($productos->num_rows > 0): ?>
                         <?php while ($producto = $productos->fetch_assoc()): ?>

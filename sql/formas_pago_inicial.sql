@@ -5,6 +5,11 @@
 -- Inserta las formas de pago básicas disponibles en el sistema
 -- Ejecutar después de database_estructura.sql
 
+-- Configuración de codificación UTF-8
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
+SET character_set_connection = utf8mb4;
+
 USE tiendasedaylino_db;
 
 -- Insertar formas de pago
