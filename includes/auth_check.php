@@ -114,7 +114,17 @@ function requireAdmin($redirect_url = 'index.php') {
 function requireRole($rol, $redirect_url = 'index.php') {
     requireLogin();
     
-    if (!hasRole($rol) && !isAdmin()) { // Los admins pueden acceder a todo
+    // Los admins SOLO pueden acceder a su panel admin
+    // Si es admin e intenta acceder a otro panel (marketing o ventas), bloquear acceso
+    if (isAdmin() && $rol !== 'admin') {
+        // Redirigir a admin.php si intenta acceder a marketing o ventas
+        header("Location: admin.php");
+        exit;
+    }
+    
+    // Si no es admin, verificar que tenga el rol requerido
+    // Si es admin y el rol es admin, permitir acceso (ya se validó arriba que isAdmin() es true)
+    if (!isAdmin() && !hasRole($rol)) {
         header("Location: $redirect_url");
         exit;
     }

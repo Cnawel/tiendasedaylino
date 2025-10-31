@@ -1369,6 +1369,7 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
         function agregarAlCarrito() {
             const talla = document.querySelector('input[name="talla"]:checked');
             const color = document.querySelector('input[name="color"]:checked');
+            const cantidadInput = document.getElementById('cantidad');
             
             if (!talla) {
                 alert('Por favor selecciona una talla');
@@ -1380,13 +1381,41 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
                 return false;
             }
             
-            // Llenar campos hidden
-            document.getElementById('talla_hidden').value = talla.value;
-            document.getElementById('color_hidden').value = color.value;
-            document.getElementById('cantidad_hidden').value = document.getElementById('cantidad').value;
+            // Validar cantidad
+            const cantidad = parseInt(cantidadInput.value) || 1;
+            if (cantidad < 1 || cantidad > 10) {
+                alert('La cantidad debe estar entre 1 y 10');
+                return false;
+            }
             
-            // Enviar formulario
-            document.getElementById('formCarrito').submit();
+            // Verificar stock antes de agregar
+            const stock = stockVariantes[talla.value + '-' + color.value] || 0;
+            if (stock <= 0) {
+                alert('No hay stock disponible para esta combinación de talle y color');
+                return false;
+            }
+            
+            if (cantidad > stock) {
+                alert('No hay suficiente stock. Disponible: ' + stock + ' unidades');
+                return false;
+            }
+            
+            // Llenar campos hidden
+            const tallaHidden = document.getElementById('talla_hidden');
+            const colorHidden = document.getElementById('color_hidden');
+            const cantidadHidden = document.getElementById('cantidad_hidden');
+            
+            if (tallaHidden && colorHidden && cantidadHidden) {
+                tallaHidden.value = talla.value;
+                colorHidden.value = color.value;
+                cantidadHidden.value = cantidad;
+                
+                // Enviar formulario
+                document.getElementById('formCarrito').submit();
+            } else {
+                alert('Error: No se pudieron cargar los datos del formulario');
+                return false;
+            }
         }
         
         function comprarAhora() { 

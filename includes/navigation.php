@@ -22,6 +22,25 @@ require_once 'auth_check.php';
 // Verificar si el usuario está logueado
 $usuario_logueado = isLoggedIn();
 $num_items_carrito = isset($_SESSION['carrito']) ? count($_SESSION['carrito']) : 0;
+
+// Detectar página actual para marcar enlace activo
+$current_page = basename($_SERVER['PHP_SELF']);
+$current_url = $_SERVER['REQUEST_URI'] ?? '';
+
+// Función para verificar si un enlace está activo
+function isActiveLink($url, $current_page, $current_url) {
+    // Si la URL contiene un hash, verificar por hash
+    if (strpos($url, '#') !== false) {
+        $hash = explode('#', $url)[1];
+        if (strpos($current_url, '#' . $hash) !== false) {
+            return true;
+        }
+    }
+    
+    // Verificar por nombre de archivo
+    $page_name = basename(explode('?', explode('#', $url)[0])[0]);
+    return ($page_name === $current_page);
+}
 ?>
 
 <header>
@@ -34,16 +53,16 @@ $num_items_carrito = isset($_SESSION['carrito']) ? count($_SESSION['carrito']) :
             <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
                 <ul class="navbar-nav lista-nav">
                     <li class="nav-item">
-                        <a class="nav-link link-tienda" href="index.php">INICIO</a>
+                        <a class="nav-link link-tienda <?= isActiveLink('index.php', $current_page, $current_url) ? 'active-page' : '' ?>" href="index.php">INICIO</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link link-tienda" href="nosotros.php">NOSOTROS</a>
+                        <a class="nav-link link-tienda <?= isActiveLink('nosotros.php', $current_page, $current_url) ? 'active-page' : '' ?>" href="nosotros.php">NOSOTROS</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link link-tienda" href="index.php#productos">PRODUCTOS</a>
+                        <a class="nav-link link-tienda <?= (strpos($current_url, '#productos') !== false || ($current_page === 'index.php' && strpos($current_url, '#productos') !== false)) ? 'active-page' : '' ?>" href="index.php#productos">PRODUCTOS</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link link-tienda" href="index.php#contacto">CONTACTO</a>
+                        <a class="nav-link link-tienda <?= (strpos($current_url, '#contacto') !== false || ($current_page === 'index.php' && strpos($current_url, '#contacto') !== false)) ? 'active-page' : '' ?>" href="index.php#contacto">CONTACTO</a>
                     </li>
                     
                     <?php if ($usuario_logueado): ?>
@@ -51,21 +70,21 @@ $num_items_carrito = isset($_SESSION['carrito']) ? count($_SESSION['carrito']) :
                     <?php if (isAdmin()): ?>
                     <!-- Administradores: SOLO acceso a su panel Admin, sin Marketing ni Ventas -->
                     <li class="nav-item">
-                        <a class="nav-link link-tienda" href="admin.php" title="Ir al Panel de Administración">
+                        <a class="nav-link link-tienda <?= isActiveLink('admin.php', $current_page, $current_url) ? 'active-page' : '' ?>" href="admin.php" title="Ir al Panel de Administración">
                             <i class="fas fa-shield-alt me-1"></i>Panel ADMIN
                         </a>
                     </li>
                     <?php else: ?>
                         <?php if (isMarketing()): ?>
                         <li class="nav-item">
-                            <a class="nav-link link-tienda" href="marketing.php" title="Ir al Panel de Marketing">
+                            <a class="nav-link link-tienda <?= isActiveLink('marketing.php', $current_page, $current_url) ? 'active-page' : '' ?>" href="marketing.php" title="Ir al Panel de Marketing">
                                 <i class="fas fa-bullhorn me-1"></i>Panel MARKETING
                             </a>
                         </li>
                         <?php endif; ?>
                         <?php if (isVentas()): ?>
                         <li class="nav-item">
-                            <a class="nav-link link-tienda" href="ventas.php" title="Ir al Panel de Ventas">
+                            <a class="nav-link link-tienda <?= isActiveLink('ventas.php', $current_page, $current_url) ? 'active-page' : '' ?>" href="ventas.php" title="Ir al Panel de Ventas">
                                 <i class="fas fa-briefcase me-1"></i>Panel VENTAS
                             </a>
                         </li>
