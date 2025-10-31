@@ -46,15 +46,52 @@
     // 2. INDICADOR DE PÁGINA ACTIVA EN NAVBAR
     // ====================================================================
     function highlightActivePage() {
-        const currentPage = window.location.pathname.split('/').pop() || 'index.php';
+        const currentPath = window.location.pathname.split('/').pop() || 'index.php';
+        const currentHash = window.location.hash;
         const navLinks = document.querySelectorAll('.link-tienda');
         
+        // Remover todas las clases activas primero
+        navLinks.forEach(link => link.classList.remove('active-page'));
+        
+        // Buscar el enlace más específico que coincida
+        let activeLink = null;
+        let bestMatch = null;
+        
         navLinks.forEach(link => {
-            const linkPage = link.getAttribute('href');
-            if (linkPage && linkPage.includes(currentPage)) {
-                link.classList.add('active-page');
+            const href = link.getAttribute('href');
+            if (!href) return;
+            
+            // Extraer página y hash del href
+            const [linkPath, linkHash] = href.split('#');
+            const linkPage = linkPath.split('/').pop() || 'index.php';
+            
+            // Si el enlace apunta a la página actual
+            if (linkPage === currentPath) {
+                // Si hay hash en ambos, deben coincidir
+                if (linkHash && currentHash) {
+                    if (linkHash === currentHash.replace('#', '')) {
+                        activeLink = link;
+                    }
+                }
+                // Si el enlace tiene hash pero la página actual no, no es activo
+                else if (linkHash && !currentHash) {
+                    // No hacer nada - enlaces con hash solo se activan cuando estás en esa sección
+                }
+                // Si no hay hash en el enlace y estamos en la página base
+                else if (!linkHash && !currentHash) {
+                    // Este es un match básico - solo lo usamos si no hay mejor match
+                    if (!bestMatch) {
+                        bestMatch = link;
+                    }
+                }
             }
         });
+        
+        // Usar el enlace más específico encontrado, o el mejor match básico
+        const finalLink = activeLink || bestMatch;
+        if (finalLink) {
+            finalLink.classList.add('active-page');
+        }
     }
     
     // ====================================================================
@@ -241,6 +278,21 @@
         initTooltips();
         initStickyNavbar();
         initCardAnimations();
+        
+        // Actualizar enlace activo cuando cambia el hash (scroll a secciones)
+        window.addEventListener('hashchange', highlightActivePage);
+        
+        // También actualizar cuando se hace scroll (para secciones con hash)
+        let scrollTimeout;
+        window.addEventListener('scroll', function() {
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(function() {
+                // Solo actualizar si hay un hash en la URL
+                if (window.location.hash) {
+                    highlightActivePage();
+                }
+            }, 100);
+        });
         
         console.log('✅ Mejoras UX cargadas correctamente');
     });

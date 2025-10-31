@@ -48,24 +48,11 @@ $num_items_carrito = isset($_SESSION['carrito']) ? count($_SESSION['carrito']) :
                     
                     <?php if ($usuario_logueado): ?>
                     <!-- Usuario logueado: mostrar acceso a dashboard según rol, carrito, perfil y logout -->
-                    <?php
-                        // Mostrar todos los paneles disponibles según el rol del usuario
-                        // Los admins pueden acceder a todos los paneles
-                    ?>
                     <?php if (isAdmin()): ?>
+                    <!-- Administradores: SOLO acceso a su panel Admin, sin Marketing ni Ventas -->
                     <li class="nav-item">
                         <a class="nav-link link-tienda" href="admin.php" title="Ir al Panel de Administración">
                             <i class="fas fa-shield-alt me-1"></i>Panel ADMIN
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link link-tienda" href="marketing.php" title="Ir al Panel de Marketing">
-                            <i class="fas fa-bullhorn me-1"></i>Panel MARKETING
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link link-tienda" href="ventas.php" title="Ir al Panel de Ventas">
-                            <i class="fas fa-briefcase me-1"></i>Panel VENTAS
                         </a>
                     </li>
                     <?php else: ?>

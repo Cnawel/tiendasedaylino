@@ -27,14 +27,14 @@ $username = 'root';               // Usuario de MySQL
 $password = '';                   // Contraseña de MySQL
 
 try {
-    // Crear conexión PDO con manejo de errores
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
+    // Crear conexión PDO con manejo de errores y charset UTF-8
+    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
     
     // Configurar modo de errores para lanzar excepciones
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
     // Establecer charset UTF-8 para compatibilidad con caracteres especiales
-    $pdo->setAttribute(PDO::MYSQL_ATTR_INIT_COMMAND, "SET NAMES utf8");
+    $pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
     
 } catch(PDOException $e) {
     // Manejo de errores de conexión
@@ -51,7 +51,7 @@ if ($mysqli->connect_errno) {
     die('Error de conexión a la base de datos (MySQLi): ' . $mysqli->connect_error);
 }
 
-// Establecer charset UTF-8
-$mysqli->set_charset("utf8");
+// Establecer charset UTF-8 (utf8mb4 para soporte completo de caracteres especiales)
+$mysqli->set_charset("utf8mb4");
 // ========================================================================
 

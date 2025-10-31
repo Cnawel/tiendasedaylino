@@ -204,16 +204,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cambiar_rol'])) {
             $mensaje = 'No puedes cambiar tu propio rol de administrador';
             $mensaje_tipo = 'warning';
         } else {
-            $stmt = $mysqli->prepare("UPDATE Usuarios SET rol = ? WHERE id_usuario = ?");
-            $stmt->bind_param('si', $nuevo_rol, $usuario_id);
+            // Verificar si el usuario a modificar es admin actualmente
+            $stmt_check = $mysqli->prepare("SELECT rol FROM Usuarios WHERE id_usuario = ? LIMIT 1");
+            $stmt_check->bind_param('i', $usuario_id);
+            $stmt_check->execute();
+            $result_check = $stmt_check->get_result();
+            
+            if ($row_check = $result_check->fetch_assoc()) {
+                $rol_actual = strtolower(trim($row_check['rol']));
+                
+                // Si el usuario actual es admin y se intenta cambiar a otro rol
+                if ($rol_actual === 'admin' && $nuevo_rol !== 'admin') {
+                    // Verificar cuántos admins hay en total
+                    $stmt_count = $mysqli->query("SELECT COUNT(*) as total FROM Usuarios WHERE rol = 'admin'");
+                    $row_count = $stmt_count->fetch_assoc();
+                    $total_admins = $row_count['total'] ?? 0;
+                    
+                    // Si solo hay 1 admin, no permitir el cambio
+                    if ($total_admins <= 1) {
+                        $mensaje = 'No se puede cambiar el rol: debe existir al menos 1 administrador en el sistema';
+                        $mensaje_tipo = 'danger';
+                    } else {
+                        // Hay más de 1 admin, permitir el cambio
+                        $stmt = $mysqli->prepare("UPDATE Usuarios SET rol = ? WHERE id_usuario = ?");
+                        $stmt->bind_param('si', $nuevo_rol, $usuario_id);
 
-            if ($stmt->execute()) {
-                $mensaje = 'Rol actualizado correctamente';
-                $mensaje_tipo = 'success';
+                        if ($stmt->execute()) {
+                            $mensaje = 'Rol actualizado correctamente';
+                            $mensaje_tipo = 'success';
+                        } else {
+                            $mensaje = 'Error al actualizar el rol';
+                            $mensaje_tipo = 'danger';
+                        }
+                    }
+                } else {
+                    // No es admin o se mantiene como admin, permitir cambio
+                    $stmt = $mysqli->prepare("UPDATE Usuarios SET rol = ? WHERE id_usuario = ?");
+                    $stmt->bind_param('si', $nuevo_rol, $usuario_id);
+
+                    if ($stmt->execute()) {
+                        $mensaje = 'Rol actualizado correctamente';
+                        $mensaje_tipo = 'success';
+                    } else {
+                        $mensaje = 'Error al actualizar el rol';
+                        $mensaje_tipo = 'danger';
+                    }
+                }
             } else {
-                $mensaje = 'Error al actualizar el rol';
+                $mensaje = 'Usuario no encontrado';
                 $mensaje_tipo = 'danger';
             }
+            $stmt_check->close();
         }
     } else {
         $mensaje = 'Rol no válido';
@@ -271,57 +312,140 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_usuario'])
         
         // Solo continuar si no hay errores de contraseña
         if (empty($mensaje)) {
-            // Evitar quitarse el rol de admin a sí mismo
-            if ($edit_user_id == $id_usuario && $edit_rol !== 'admin') {
-                $mensaje = 'No puedes quitarte tu rol de ADMIN';
-                $mensaje_tipo = 'warning';
-            } else {
-                // Verificar email único (excluyendo el mismo usuario)
-                $stmt = $mysqli->prepare("SELECT 1 FROM Usuarios WHERE email = ? AND id_usuario <> ? LIMIT 1");
-                $stmt->bind_param('si', $edit_email, $edit_user_id);
-                $stmt->execute();
-                $dup = $stmt->get_result()->num_rows > 0;
-                
-                if ($dup) {
-                    $mensaje = 'El email ya está en uso por otro usuario';
-                    $mensaje_tipo = 'warning';
-                } else {
-                    // Actualizar usuario con o sin contraseña
-                    if ($cambiar_contrasena) {
-                        // Usar PASSWORD_BCRYPT para consistencia con el resto del sistema
-                        $contrasena_hash = password_hash($nueva_contrasena, PASSWORD_BCRYPT);
-                        
-                        // Verificar que el hash se generó correctamente
-                        if ($contrasena_hash === false) {
-                            $mensaje = 'Error al procesar la nueva contraseña';
-                            $mensaje_tipo = 'danger';
-                        } else {
-                            $stmt = $mysqli->prepare("UPDATE Usuarios SET nombre = ?, apellido = ?, email = ?, rol = ?, contrasena = ? WHERE id_usuario = ?");
-                            $stmt->bind_param('sssssi', $edit_nombre, $edit_apellido, $edit_email, $edit_rol, $contrasena_hash, $edit_user_id);
-                            
-                            if ($stmt->execute()) {
-                                $mensaje = 'Usuario y contraseña actualizados correctamente';
-                                $mensaje_tipo = 'success';
-                                
-                                // Limpiar variables sensibles de memoria
-                                $nueva_contrasena = null;
-                                $confirmar_contrasena = null;
-                                $contrasena_hash = null;
-                            } else {
-                                $mensaje = 'Error al actualizar el usuario';
-                                $mensaje_tipo = 'danger';
-                            }
-                        }
+                    // Evitar quitarse el rol de admin a sí mismo
+                    if ($edit_user_id == $id_usuario && $edit_rol !== 'admin') {
+                        $mensaje = 'No puedes quitarte tu rol de ADMIN';
+                        $mensaje_tipo = 'warning';
                     } else {
-                        $stmt = $mysqli->prepare("UPDATE Usuarios SET nombre = ?, apellido = ?, email = ?, rol = ? WHERE id_usuario = ?");
-                        $stmt->bind_param('ssssi', $edit_nombre, $edit_apellido, $edit_email, $edit_rol, $edit_user_id);
+                        // Verificar si el usuario a modificar es admin actualmente
+                        $stmt_check_rol = $mysqli->prepare("SELECT rol FROM Usuarios WHERE id_usuario = ? LIMIT 1");
+                        $stmt_check_rol->bind_param('i', $edit_user_id);
+                        $stmt_check_rol->execute();
+                        $result_check_rol = $stmt_check_rol->get_result();
                         
-                        if ($stmt->execute()) {
-                            $mensaje = 'Usuario actualizado correctamente';
-                            $mensaje_tipo = 'success';
-                        } else {
-                            $mensaje = 'Error al actualizar el usuario';
-                            $mensaje_tipo = 'danger';
+                        if ($row_check_rol = $result_check_rol->fetch_assoc()) {
+                            $rol_actual_edit = strtolower(trim($row_check_rol['rol']));
+                            
+                            // Si el usuario actual es admin y se intenta cambiar a otro rol
+                            if ($rol_actual_edit === 'admin' && $edit_rol !== 'admin') {
+                                // Verificar cuántos admins hay en total
+                                $stmt_count_edit = $mysqli->query("SELECT COUNT(*) as total FROM Usuarios WHERE rol = 'admin'");
+                                $row_count_edit = $stmt_count_edit->fetch_assoc();
+                                $total_admins_edit = $row_count_edit['total'] ?? 0;
+                                
+                                // Si solo hay 1 admin, no permitir el cambio
+                                if ($total_admins_edit <= 1) {
+                                    $mensaje = 'No se puede cambiar el rol: debe existir al menos 1 administrador en el sistema';
+                                    $mensaje_tipo = 'danger';
+                                    $stmt_check_rol->close();
+                                } else {
+                                    // Hay más de 1 admin, continuar con la actualización
+                                    $stmt_check_rol->close();
+                                    
+                                    // Verificar email único (excluyendo el mismo usuario)
+                                    $stmt = $mysqli->prepare("SELECT 1 FROM Usuarios WHERE email = ? AND id_usuario <> ? LIMIT 1");
+                                    $stmt->bind_param('si', $edit_email, $edit_user_id);
+                                    $stmt->execute();
+                                    $dup = $stmt->get_result()->num_rows > 0;
+                                    
+                                    if ($dup) {
+                                        $mensaje = 'El email ya está en uso por otro usuario';
+                                        $mensaje_tipo = 'warning';
+                                    } else {
+                                        // Actualizar usuario con o sin contraseña
+                                        if ($cambiar_contrasena) {
+                                            // Usar PASSWORD_BCRYPT para consistencia con el resto del sistema
+                                            $contrasena_hash = password_hash($nueva_contrasena, PASSWORD_BCRYPT);
+                                            
+                                            // Verificar que el hash se generó correctamente
+                                            if ($contrasena_hash === false) {
+                                                $mensaje = 'Error al procesar la nueva contraseña';
+                                                $mensaje_tipo = 'danger';
+                                            } else {
+                                                $stmt = $mysqli->prepare("UPDATE Usuarios SET nombre = ?, apellido = ?, email = ?, rol = ?, contrasena = ? WHERE id_usuario = ?");
+                                                $stmt->bind_param('sssssi', $edit_nombre, $edit_apellido, $edit_email, $edit_rol, $contrasena_hash, $edit_user_id);
+                                                
+                                                if ($stmt->execute()) {
+                                                    $mensaje = 'Usuario y contraseña actualizados correctamente';
+                                                    $mensaje_tipo = 'success';
+                                                    
+                                                    // Limpiar variables sensibles de memoria
+                                                    $nueva_contrasena = null;
+                                                    $confirmar_contrasena = null;
+                                                    $contrasena_hash = null;
+                                                } else {
+                                                    $mensaje = 'Error al actualizar el usuario';
+                                                    $mensaje_tipo = 'danger';
+                                                }
+                                            }
+                                        } else {
+                                            $stmt = $mysqli->prepare("UPDATE Usuarios SET nombre = ?, apellido = ?, email = ?, rol = ? WHERE id_usuario = ?");
+                                            $stmt->bind_param('ssssi', $edit_nombre, $edit_apellido, $edit_email, $edit_rol, $edit_user_id);
+                                            
+                                            if ($stmt->execute()) {
+                                                $mensaje = 'Usuario actualizado correctamente';
+                                                $mensaje_tipo = 'success';
+                                            } else {
+                                                $mensaje = 'Error al actualizar el usuario';
+                                                $mensaje_tipo = 'danger';
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                // No es admin o se mantiene como admin, continuar con actualización normal
+                                $stmt_check_rol->close();
+                                
+                                // Verificar email único (excluyendo el mismo usuario)
+                                $stmt = $mysqli->prepare("SELECT 1 FROM Usuarios WHERE email = ? AND id_usuario <> ? LIMIT 1");
+                                $stmt->bind_param('si', $edit_email, $edit_user_id);
+                                $stmt->execute();
+                                $dup = $stmt->get_result()->num_rows > 0;
+                                
+                                if ($dup) {
+                                    $mensaje = 'El email ya está en uso por otro usuario';
+                                    $mensaje_tipo = 'warning';
+                                } else {
+                                    // Actualizar usuario con o sin contraseña
+                                    if ($cambiar_contrasena) {
+                                        // Usar PASSWORD_BCRYPT para consistencia con el resto del sistema
+                                        $contrasena_hash = password_hash($nueva_contrasena, PASSWORD_BCRYPT);
+                                        
+                                        // Verificar que el hash se generó correctamente
+                                        if ($contrasena_hash === false) {
+                                            $mensaje = 'Error al procesar la nueva contraseña';
+                                            $mensaje_tipo = 'danger';
+                                        } else {
+                                            $stmt = $mysqli->prepare("UPDATE Usuarios SET nombre = ?, apellido = ?, email = ?, rol = ?, contrasena = ? WHERE id_usuario = ?");
+                                            $stmt->bind_param('sssssi', $edit_nombre, $edit_apellido, $edit_email, $edit_rol, $contrasena_hash, $edit_user_id);
+                                            
+                                            if ($stmt->execute()) {
+                                                $mensaje = 'Usuario y contraseña actualizados correctamente';
+                                                $mensaje_tipo = 'success';
+                                                
+                                                // Limpiar variables sensibles de memoria
+                                                $nueva_contrasena = null;
+                                                $confirmar_contrasena = null;
+                                                $contrasena_hash = null;
+                                            } else {
+                                                $mensaje = 'Error al actualizar el usuario';
+                                                $mensaje_tipo = 'danger';
+                                            }
+                                        }
+                                    } else {
+                                        $stmt = $mysqli->prepare("UPDATE Usuarios SET nombre = ?, apellido = ?, email = ?, rol = ? WHERE id_usuario = ?");
+                                        $stmt->bind_param('ssssi', $edit_nombre, $edit_apellido, $edit_email, $edit_rol, $edit_user_id);
+                                        
+                                        if ($stmt->execute()) {
+                                            $mensaje = 'Usuario actualizado correctamente';
+                                            $mensaje_tipo = 'success';
+                                        } else {
+                                            $mensaje = 'Error al actualizar el usuario';
+                                            $mensaje_tipo = 'danger';
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -342,29 +466,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar_usuario'])) 
         $mensaje = 'No puedes eliminar tu propio usuario';
         $mensaje_tipo = 'warning';
     } else {
-        // Verificar si tiene pedidos
-        $stmt = $mysqli->prepare("SELECT 1 FROM Pedidos WHERE id_usuario = ? LIMIT 1");
-        $stmt->bind_param('i', $del_user_id);
-        $stmt->execute();
-        $tiene_pedidos = $stmt->get_result()->num_rows > 0;
+        // Verificar si el usuario a eliminar es admin
+        $stmt_check_admin = $mysqli->prepare("SELECT rol FROM Usuarios WHERE id_usuario = ? LIMIT 1");
+        $stmt_check_admin->bind_param('i', $del_user_id);
+        $stmt_check_admin->execute();
+        $result_check_admin = $stmt_check_admin->get_result();
+        
+        if ($row_check_admin = $result_check_admin->fetch_assoc()) {
+            $rol_eliminar = strtolower(trim($row_check_admin['rol']));
+            
+            // Si es admin, verificar que no sea el último
+            if ($rol_eliminar === 'admin') {
+                $stmt_count_admin = $mysqli->query("SELECT COUNT(*) as total FROM Usuarios WHERE rol = 'admin'");
+                $row_count_admin = $stmt_count_admin->fetch_assoc();
+                $total_admins = $row_count_admin['total'] ?? 0;
+                
+                // Si solo hay 1 admin, no permitir eliminarlo
+                if ($total_admins <= 1) {
+                    $mensaje = 'No se puede eliminar: debe existir al menos 1 administrador en el sistema';
+                    $mensaje_tipo = 'danger';
+                    $stmt_check_admin->close();
+                } else {
+                    // Hay más de 1 admin, continuar con eliminación
+                    $stmt_check_admin->close();
+                    
+                    // Verificar si tiene pedidos
+                    $stmt = $mysqli->prepare("SELECT 1 FROM Pedidos WHERE id_usuario = ? LIMIT 1");
+                    $stmt->bind_param('i', $del_user_id);
+                    $stmt->execute();
+                    $tiene_pedidos = $stmt->get_result()->num_rows > 0;
 
-        if ($tiene_pedidos) {
-            $mensaje = 'No se puede eliminar: el usuario tiene pedidos asociados';
-            $mensaje_tipo = 'danger';
-        } else {
-            // Desasociar movimientos de stock
-            $stmt = $mysqli->prepare("UPDATE Movimientos_Stock SET id_usuario = NULL WHERE id_usuario = ?");
-            $stmt->bind_param('i', $del_user_id);
-            $stmt->execute();
+                    if ($tiene_pedidos) {
+                        $mensaje = 'No se puede eliminar: el usuario tiene pedidos asociados';
+                        $mensaje_tipo = 'danger';
+                    } else {
+                        // Desasociar movimientos de stock
+                        $stmt = $mysqli->prepare("UPDATE Movimientos_Stock SET id_usuario = NULL WHERE id_usuario = ?");
+                        $stmt->bind_param('i', $del_user_id);
+                        $stmt->execute();
 
-            $stmt = $mysqli->prepare("DELETE FROM Usuarios WHERE id_usuario = ?");
-            $stmt->bind_param('i', $del_user_id);
-            if ($stmt->execute()) {
-                $mensaje = 'Usuario eliminado correctamente';
-                $mensaje_tipo = 'success';
+                        $stmt = $mysqli->prepare("DELETE FROM Usuarios WHERE id_usuario = ?");
+                        $stmt->bind_param('i', $del_user_id);
+                        if ($stmt->execute()) {
+                            $mensaje = 'Usuario eliminado correctamente';
+                            $mensaje_tipo = 'success';
+                        } else {
+                            $mensaje = 'Error al eliminar usuario';
+                            $mensaje_tipo = 'danger';
+                        }
+                    }
+                }
             } else {
-                $mensaje = 'Error al eliminar usuario';
-                $mensaje_tipo = 'danger';
+                // No es admin, continuar con eliminación normal
+                $stmt_check_admin->close();
+                
+                // Verificar si tiene pedidos
+                $stmt = $mysqli->prepare("SELECT 1 FROM Pedidos WHERE id_usuario = ? LIMIT 1");
+                $stmt->bind_param('i', $del_user_id);
+                $stmt->execute();
+                $tiene_pedidos = $stmt->get_result()->num_rows > 0;
+
+                if ($tiene_pedidos) {
+                    $mensaje = 'No se puede eliminar: el usuario tiene pedidos asociados';
+                    $mensaje_tipo = 'danger';
+                } else {
+                    // Desasociar movimientos de stock
+                    $stmt = $mysqli->prepare("UPDATE Movimientos_Stock SET id_usuario = NULL WHERE id_usuario = ?");
+                    $stmt->bind_param('i', $del_user_id);
+                    $stmt->execute();
+
+                    $stmt = $mysqli->prepare("DELETE FROM Usuarios WHERE id_usuario = ?");
+                    $stmt->bind_param('i', $del_user_id);
+                    if ($stmt->execute()) {
+                        $mensaje = 'Usuario eliminado correctamente';
+                        $mensaje_tipo = 'success';
+                    } else {
+                        $mensaje = 'Error al eliminar usuario';
+                        $mensaje_tipo = 'danger';
+                    }
+                }
             }
         }
     }

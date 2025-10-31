@@ -1,16 +1,17 @@
 -- =========================
--- FORMAS DE PAGO INICIALES
+-- FORMAS DE PAGO INICIALES - HOSTING
 -- Tienda Seda y Lino
+-- Base de datos: if0_40082852_tiendasedaylino_db
 -- =========================
 -- Inserta las formas de pago básicas disponibles en el sistema
--- Ejecutar después de database_estructura.sql
+-- Ejecutar después de database_estructura_hosting.sql
 
 -- Configuración de codificación UTF-8
 SET NAMES utf8mb4;
 SET CHARACTER SET utf8mb4;
 SET character_set_connection = utf8mb4;
 
-USE tiendasedaylino_db;
+USE if0_40082852_tiendasedaylino_db;
 
 -- Insertar formas de pago
 INSERT INTO Forma_Pagos (id_forma_pago, nombre, descripcion) VALUES

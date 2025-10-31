@@ -1,5 +1,6 @@
 -- =========================
--- SQL Tienda Seda y Lino
+-- SQL Tienda Seda y Lino - HOSTING
+-- Base de datos: if0_40082852_tiendasedaylino_db
 -- =========================
 
 -- Configuración de codificación UTF-8
@@ -7,11 +8,13 @@ SET NAMES utf8mb4;
 SET CHARACTER SET utf8mb4;
 SET character_set_connection = utf8mb4;
 
-CREATE DATABASE IF NOT EXISTS tiendasedaylino_db 
-CHARACTER SET utf8mb4 
-COLLATE utf8mb4_unicode_ci;
+-- NOTA: En algunos hostings la base de datos ya está creada
+-- Si necesitas crearla, descomenta las siguientes líneas:
+-- CREATE DATABASE IF NOT EXISTS if0_40082852_tiendasedaylino_db 
+-- CHARACTER SET utf8mb4 
+-- COLLATE utf8mb4_unicode_ci;
 
-USE tiendasedaylino_db;
+USE if0_40082852_tiendasedaylino_db;
 
 -- =========================
 -- Tabla Usuarios
@@ -142,4 +145,8 @@ CREATE TABLE IF NOT EXISTS Movimientos_Stock (
 -- =========================
 -- COMANDO EXTRA: Agregar columna color a Fotos_Producto
 -- =========================
-ALTER TABLE Fotos_Producto ADD COLUMN color VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL;
+-- Si la columna ya existe, este comando dará error pero no afectará el resto
+-- Para verificar: SHOW COLUMNS FROM Fotos_Producto LIKE 'color';
+-- MySQL no soporta IF NOT EXISTS en ADD COLUMN, usar solo si la columna no existe
+-- ALTER TABLE Fotos_Producto ADD COLUMN color VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL;
+
