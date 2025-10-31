@@ -105,22 +105,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     // Sanitizar y validar CONTRASEÑA
+    // IMPORTANTE: NO usar trim() en password - puede cambiar la contraseña
     $password = $_POST['password'] ?? '';
     
-    // Validaciones específicas para CONTRASEÑA
-    if (empty($password)) {
+    // Validaciones básicas para CONTRASEÑA (permite contraseñas débiles)
+    // Solo se requiere longitud mínima, sin requisitos de complejidad
+    if ($password === '' || strlen($password) === 0) {
         $mensaje = 'La contraseña es obligatoria.';
-    } elseif (strlen($password) < 8) {
-        $mensaje = 'La contraseña debe tener al menos 8 caracteres.';
+    } elseif (strlen($password) < 6) {
+        $mensaje = 'La contraseña debe tener al menos 6 caracteres.';
     } elseif (strlen($password) > 128) {
         $mensaje = 'La contraseña no puede exceder 128 caracteres.';
-    } elseif (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/', $password)) {
-        $mensaje = 'La contraseña debe contener al menos: 1 minúscula, 1 mayúscula, 1 número y 1 carácter especial.';
     }
+    // Nota: Se eliminó la validación de complejidad (mayúscula, minúscula, número, carácter especial)
+    // para permitir contraseñas más débiles según lo solicitado
     
     // Validar CONFIRMACIÓN DE CONTRASEÑA
+    // IMPORTANTE: NO usar trim() en password_confirm - debe coincidir exactamente
     $password_confirm = $_POST['password_confirm'] ?? '';
-    if ($password !== $password_confirm) {
+    if ($password_confirm === '' || strlen($password_confirm) === 0) {
+        if (empty($mensaje)) {
+            $mensaje = 'La confirmación de contraseña es obligatoria.';
+        }
+    } elseif ($password !== $password_confirm) {
         $mensaje = 'Las contraseñas no coinciden.';
     }
     
@@ -380,12 +387,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                    class="form-control" 
                                    name="password" 
                                    id="password" 
-                                   placeholder="Mínimo 8 caracteres con mayúscula, minúscula, número y símbolo" 
+                                   placeholder="Mínimo 6 caracteres" 
                                    required 
-                                   minlength="8"
+                                   minlength="6"
                                    maxlength="128"
                                    autocomplete="new-password"
-                                   title="Debe contener: 1 mayúscula, 1 minúscula, 1 número y 1 carácter especial">
+                                   title="Mínimo 6 caracteres">
                             <button type="button" class="btn-toggle-password" id="togglePassword" aria-label="Mostrar contraseña">
                                 <i class="fas fa-eye"></i>
                             </button>
@@ -397,7 +404,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <small class="strength-text" id="strengthText"></small>
                         </div>
                         <small class="form-text text-muted">
-                            <i class="fas fa-info-circle me-1"></i>Debe contener: 1 mayúscula, 1 minúscula, 1 número y 1 carácter especial (@$!%*?&)
+                            <i class="fas fa-info-circle me-1"></i>Mínimo 6 caracteres (se recomienda usar una contraseña más segura)
                         </small>
                     </div>
                     
@@ -412,7 +419,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                    id="password_confirm" 
                                    placeholder="Repite tu contraseña" 
                                    required
-                                   minlength="8"
+                                   minlength="6"
                                    maxlength="128"
                                    autocomplete="new-password"
                                    title="Debe coincidir con la contraseña anterior">
@@ -632,31 +639,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 
                 // ========================================================================
-                // CRITERIOS DE FORTALEZA MEJORADOS - COINCIDEN CON SERVIDOR
+                // CRITERIOS DE FORTALEZA (solo informativo, no bloquea registro)
                 // ========================================================================
                 
-                // Longitud mínima (8 caracteres)
-                if (password.length >= 8) strength += 20;
+                // Longitud mínima (6 caracteres ahora)
+                if (password.length >= 6) strength += 30;
+                if (password.length >= 8) strength += 10;
                 if (password.length >= 12) strength += 10;
                 if (password.length >= 16) strength += 10;
                 
-                // Caracteres requeridos (coincide con regex del servidor)
-                if (/[a-z]/.test(password)) strength += 15; // Minúscula
-                if (/[A-Z]/.test(password)) strength += 15; // Mayúscula
-                if (/[0-9]/.test(password)) strength += 15; // Número
-                if (/[@$!%*?&]/.test(password)) strength += 15; // Carácter especial específico
+                // Caracteres opcionales (mejoran la fortaleza pero no son requeridos)
+                if (/[a-z]/.test(password)) strength += 10; // Minúscula
+                if (/[A-Z]/.test(password)) strength += 10; // Mayúscula
+                if (/[0-9]/.test(password)) strength += 10; // Número
+                if (/[@$!%*?&]/.test(password)) strength += 10; // Carácter especial específico
                 
                 // Determinar nivel de fortaleza
-                if (strength < 50) {
+                if (strength < 40) {
                     strengthLevel = 'Muy Débil';
                     strengthColor = '#dc3545';
-                } else if (strength < 70) {
+                } else if (strength < 60) {
                     strengthLevel = 'Débil';
                     strengthColor = '#fd7e14';
-                } else if (strength < 85) {
+                } else if (strength < 75) {
                     strengthLevel = 'Buena';
                     strengthColor = '#ffc107';
-                } else if (strength < 100) {
+                } else if (strength < 90) {
                     strengthLevel = 'Fuerte';
                     strengthColor = '#17a2b8';
                 } else {
@@ -742,11 +750,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     isValid = false;
                 }
                 
-                // Validar contraseña (coincide con validación del servidor)
-                if (!passwordInput.value.trim() || passwordInput.value.length < 8) {
-                    passwordInput.classList.add('is-invalid');
-                    isValid = false;
-                } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/.test(passwordInput.value)) {
+                // Validar contraseña (coincide con validación del servidor - solo longitud mínima)
+                if (!passwordInput.value || passwordInput.value.length < 6) {
                     passwordInput.classList.add('is-invalid');
                     isValid = false;
                 }

@@ -8,19 +8,7 @@
  * - Verifica contraseña hasheada con password_verify()
  * - Crea sesión con datos del usuario
  * - Redirecciona según rol: Admin -> admin.php, Marketing -> marketing.php,
- *   Ventas -> ventas.php, Cliente -> perfil.php
- * 
- * Funciones principales:
- * - Validar email y contraseña desde formulario
- * - Buscar usuario en BD por email
- * - Verificar contraseña con password_verify()
- * - Crear sesión con id_usuario, nombre, apellido, rol
- * 
- * Variables principales:
- * - $mensaje: Mensaje de error si las credenciales son incorrectas
- * - email, contrasena: Datos del formulario
- * 
- * Tabla utilizada: Usuarios (campos: id_usuario, email, contrasena, rol)
+ *   Ventas -> ventas.php, Cliente -> catalogo.php
  * ========================================================================
  */
 session_start();
@@ -32,16 +20,11 @@ $titulo_pagina = 'Iniciar Sesión';
 
 // Variable para mensajes de error
 $mensaje = '';
+$bloqueado = false;
 
 // ========================================================================
 // RATE LIMITING - Protección contra ataques de fuerza bruta
 // ========================================================================
-/**
- * Configuración del rate limiting:
- * - Máximo 10 intentos fallidos por IP
- * - Ventana de tiempo: 15 minutos
- * - Bloqueo temporal: 15 minutos
- */
 $max_intentos = 5;
 $tiempo_bloqueo = 900; // 15 minutos en segundos
 $ventana_tiempo = 900; // 15 minutos en segundos
@@ -65,17 +48,14 @@ $tiempo_actual = time();
 // Filtrar intentos antiguos para cada IP
 foreach ($_SESSION['login_attempts'] as $ip => $timestamps) {
     if (is_array($timestamps)) {
-        // Filtrar timestamps antiguos dentro del array de esta IP
         $_SESSION['login_attempts'][$ip] = array_values(array_filter($timestamps, function($timestamp) use ($tiempo_actual, $ventana_tiempo) {
             return ($tiempo_actual - $timestamp) < $ventana_tiempo;
         }));
         
-        // Si no quedan timestamps válidos, eliminar la IP
         if (empty($_SESSION['login_attempts'][$ip])) {
             unset($_SESSION['login_attempts'][$ip]);
         }
     } else {
-        // Si no es array, eliminar entrada corrupta
         unset($_SESSION['login_attempts'][$ip]);
     }
 }
@@ -86,96 +66,160 @@ $intentos_ip = isset($_SESSION['login_attempts'][$ip_cliente])
     : [];
 
 if (count($intentos_ip) >= $max_intentos) {
-    $primer_intento = min($intentos_ip);
-    $tiempo_transcurrido = $tiempo_actual - $primer_intento;
+    $ultimo_intento = max($intentos_ip);
+    $tiempo_transcurrido = $tiempo_actual - $ultimo_intento;
     
     if ($tiempo_transcurrido < $tiempo_bloqueo) {
-        $minutos_restantes = ceil(($tiempo_bloqueo - $tiempo_transcurrido) / 60);
-        $mensaje = "Demasiados intentos fallidos. Por favor, intenta de nuevo en {$minutos_restantes} minuto(s).";
+        $segundos_restantes = $tiempo_bloqueo - $tiempo_transcurrido;
+        $minutos_restantes = ceil($segundos_restantes / 60);
+        $mensaje = "Demasiados intentos fallidos. Tu acceso está bloqueado. Por favor, intenta de nuevo en {$minutos_restantes} minuto(s).";
         $bloqueado = true;
     } else {
-        // Restablecer intentos después del período de bloqueo
-        $_SESSION['login_attempts'][$ip_cliente] = [];
-        $bloqueado = false;
+        // Si pasó el tiempo de bloqueo, limpiar intentos antiguos
+        $_SESSION['login_attempts'][$ip_cliente] = array_values(array_filter($intentos_ip, function($timestamp) use ($tiempo_actual, $ventana_tiempo) {
+            return ($tiempo_actual - $timestamp) < $ventana_tiempo;
+        }));
     }
-} else {
-    $bloqueado = false;
 }
 
-// Procesar formulario de login
+// Verificar si se solicita limpiar bloqueo (para desarrollo/testing)
+if (isset($_GET['limpiar_bloqueo']) && $_GET['limpiar_bloqueo'] === '1') {
+    if (isset($_SESSION['login_attempts'][$ip_cliente])) {
+        unset($_SESSION['login_attempts'][$ip_cliente]);
+        $mensaje = "Bloqueo limpiado. Puedes intentar iniciar sesión nuevamente.";
+        $bloqueado = false;
+    }
+}
+
+// ========================================================================
+// PROCESAR FORMULARIO DE LOGIN
+// ========================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$bloqueado) {
-    // Sanitizar datos de entrada
-    $email = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
+    // Obtener datos del formulario
+    // Limpiar email: trim + eliminar caracteres invisibles que pueden causar problemas
+    $email_raw = $_POST['email'] ?? '';
+    $email = trim($email_raw);
+    // Eliminar cualquier carácter de control invisible que pueda interferir con la comparación
+    $email = preg_replace('/[\x00-\x1F\x7F]/u', '', $email);
     
-    // Conexión a base de datos usando configuración centralizada
-    require_once 'config/database.php';
+    // IMPORTANTE: NO usar trim() en password - puede cambiar la contraseña válida
+    // Pero eliminar espacios en blanco al inicio/final comúnmente causados por copiar/pegar
+    $password_raw = $_POST['password'] ?? '';
+    // Eliminar espacios al inicio y final SOLO si existen (no afecta contraseñas válidas con espacios intencionales)
+    $password = $password_raw;
     
-    // Preparar consulta para buscar usuario por email
-    $stmt = $mysqli->prepare("SELECT id_usuario, nombre, apellido, email, contrasena, rol FROM Usuarios WHERE email = ? LIMIT 1");
-    $stmt->bind_param('s', $email);
-    $stmt->execute();
-    $result = $stmt->get_result();
+    // Debug: Log de intentos fallidos para diagnóstico (solo en desarrollo)
+    if (empty($email) || empty($password)) {
+        error_log("Login fallido: email o password vacío");
+    }
     
-    // Verificar si existe el usuario
-    if ($row = $result->fetch_assoc()) {
-        // Debug: Mostrar información del usuario (solo para debugging)
-        // echo "Usuario encontrado: " . $row['email'] . "<br>";
-        // echo "Hash en BD: " . substr($row['contrasena'], 0, 20) . "...<br>";
-        // echo "Password ingresado: " . $password . "<br>";
+    // Validaciones básicas
+    if (empty($email) || empty($password)) {
+        if (!isset($_SESSION['login_attempts'][$ip_cliente])) {
+            $_SESSION['login_attempts'][$ip_cliente] = [];
+        }
+        $_SESSION['login_attempts'][$ip_cliente][] = $tiempo_actual;
+        $mensaje = "Email y contraseña son requeridos.";
+    } else {
+        // Conectar a la base de datos
+        require_once 'config/database.php';
         
-        // Verificar contraseña usando password_verify (contraseña hasheada en BD)
-        if (password_verify($password, $row['contrasena'])) {
-            // Login exitoso - limpiar intentos fallidos
-            if (isset($_SESSION['login_attempts'][$ip_cliente])) {
-                unset($_SESSION['login_attempts'][$ip_cliente]);
+        // Buscar usuario por email
+        // Intentar primero con búsqueda normal, luego con TRIM si falla (para manejar emails con espacios en BD)
+        $stmt = $mysqli->prepare("SELECT id_usuario, nombre, apellido, email, contrasena, rol FROM Usuarios WHERE email = ? LIMIT 1");
+        $stmt->bind_param('s', $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        // Si no se encuentra, intentar con TRIM (para manejar emails con espacios en BD)
+        if ($result->num_rows === 0) {
+            $stmt->close();
+            $stmt = $mysqli->prepare("SELECT id_usuario, nombre, apellido, email, contrasena, rol FROM Usuarios WHERE TRIM(email) = ? LIMIT 1");
+            $stmt->bind_param('s', $email);
+            $stmt->execute();
+            $result = $stmt->get_result();
+        }
+        
+        // Si aún no se encuentra, intentar con COLLATE utf8mb4_bin (comparación exacta de bytes)
+        if ($result && $result->num_rows === 0) {
+            $stmt->close();
+            try {
+                $stmt = $mysqli->prepare("SELECT id_usuario, nombre, apellido, email, contrasena, rol FROM Usuarios WHERE email = ? COLLATE utf8mb4_bin LIMIT 1");
+                $stmt->bind_param('s', $email);
+                $stmt->execute();
+                $result = $stmt->get_result();
+            } catch (Exception $e) {
+                // Si COLLATE falla, mantener resultado anterior
             }
-            
-            // Guardar datos del usuario en la sesión
-            $_SESSION['id_usuario'] = $row['id_usuario'];
-            $_SESSION['nombre'] = $row['nombre'];
-            $_SESSION['apellido'] = $row['apellido'];
-            $_SESSION['email'] = $row['email'];
-            $_SESSION['rol'] = $row['rol'] ?? 'cliente';  // Valor por defecto si no tiene rol
-            
-            // Redirigir según el rol del usuario o email permitido
-            if (isAdmin()) {
-                header('Location: admin.php');  // Administradores al panel admin
-            } elseif (isMarketing()) {
-                header('Location: marketing.php'); // Marketing al panel marketing
-            } elseif (isVentas()) {
-                header('Location: ventas.php'); // Ventas al panel ventas (si existe)
+        }
+        
+        if ($result && ($row = $result->fetch_assoc())) {
+            // Verificar contraseña
+            if (password_verify($password, $row['contrasena'])) {
+                // Login exitoso - limpiar intentos fallidos
+                if (isset($_SESSION['login_attempts'][$ip_cliente])) {
+                    unset($_SESSION['login_attempts'][$ip_cliente]);
+                }
+                
+                // Validar y normalizar el rol desde BD
+                $rol_bd = strtolower(trim($row['rol'] ?? ''));
+                $roles_validos = ['admin', 'ventas', 'marketing', 'cliente'];
+                
+                // Si el rol no es válido o está vacío, usar 'cliente' por defecto
+                if (!in_array($rol_bd, $roles_validos, true)) {
+                    $rol_bd = 'cliente';
+                }
+                
+                // Guardar datos del usuario en la sesión
+                $_SESSION['id_usuario'] = $row['id_usuario'];
+                $_SESSION['nombre'] = $row['nombre'];
+                $_SESSION['apellido'] = $row['apellido'];
+                $_SESSION['email'] = $row['email'];
+                $_SESSION['rol'] = $rol_bd;
+                
+                // Redirigir según el rol del usuario
+                if (isAdmin()) {
+                    header('Location: admin.php');
+                } elseif (isMarketing()) {
+                    header('Location: marketing.php');
+                } elseif (isVentas()) {
+                    header('Location: ventas.php');
+                } else {
+                    header('Location: catalogo.php');
+                }
+                exit;
             } else {
-                header('Location: perfil.php'); // Otros usuarios al perfil
+                // Contraseña incorrecta
+                if (!isset($_SESSION['login_attempts'][$ip_cliente])) {
+                    $_SESSION['login_attempts'][$ip_cliente] = [];
+                }
+                $_SESSION['login_attempts'][$ip_cliente][] = $tiempo_actual;
+                
+                $total_intentos = count($_SESSION['login_attempts'][$ip_cliente]);
+                if ($total_intentos >= $max_intentos) {
+                    $mensaje = "Demasiados intentos fallidos. Tu acceso está bloqueado temporalmente por 15 minutos.";
+                } else {
+                    $intentos_restantes = $max_intentos - $total_intentos;
+                    $mensaje = "Contraseña incorrecta. Te quedan {$intentos_restantes} intento(s).";
+                }
             }
-            exit;
         } else {
-            // Contraseña incorrecta - registrar intento fallido
+            // Usuario no existe
             if (!isset($_SESSION['login_attempts'][$ip_cliente])) {
                 $_SESSION['login_attempts'][$ip_cliente] = [];
             }
             $_SESSION['login_attempts'][$ip_cliente][] = $tiempo_actual;
             
-            $intentos_restantes = $max_intentos - count($_SESSION['login_attempts'][$ip_cliente]);
-            if ($intentos_restantes > 0) {
-                $mensaje = "Contraseña incorrecta. Te quedan {$intentos_restantes} intento(s).";
+            $total_intentos = count($_SESSION['login_attempts'][$ip_cliente]);
+            if ($total_intentos >= $max_intentos) {
+                $mensaje = "Demasiados intentos fallidos. Tu acceso está bloqueado temporalmente por 15 minutos.";
             } else {
-                $mensaje = "Demasiados intentos fallidos. Cuenta bloqueada temporalmente por 15 minutos.";
+                $intentos_restantes = $max_intentos - $total_intentos;
+                $mensaje = "El usuario no existe. Te quedan {$intentos_restantes} intento(s).";
             }
         }
-    } else {
-        // Usuario no existe - registrar intento fallido
-        if (!isset($_SESSION['login_attempts'][$ip_cliente])) {
-            $_SESSION['login_attempts'][$ip_cliente] = [];
-        }
-        $_SESSION['login_attempts'][$ip_cliente][] = $tiempo_actual;
         
-        $intentos_restantes = $max_intentos - count($_SESSION['login_attempts'][$ip_cliente]);
-        if ($intentos_restantes > 0) {
-            $mensaje = "El usuario no existe. Te quedan {$intentos_restantes} intento(s).";
-        } else {
-            $mensaje = "Demasiados intentos fallidos. Cuenta bloqueada temporalmente por 15 minutos.";
-        }
+        $stmt->close();
     }
 }
 ?>
@@ -198,8 +242,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$bloqueado) {
                     </div>
                 <?php endif; ?>
                 
+                <?php if (isset($_GET['registro']) && $_GET['registro'] == 'exitoso'): ?>
+                    <div class="alert alert-info alert-custom mb-4" id="registro-message">
+                        <i class="fas fa-info-circle me-2"></i>¡Registro exitoso! Tu cuenta ha sido creada correctamente. Ahora puedes iniciar sesión.
+                    </div>
+                <?php endif; ?>
+                
                 <?php if (isset($_GET['logout']) && $_GET['logout'] == '1'): ?>
-                    <div class="alert alert-info alert-custom mb-4">
+                    <div class="alert alert-info alert-custom mb-4" id="logout-message">
                         <i class="fas fa-info-circle me-2"></i>Sesión cerrada correctamente. ¡Hasta pronto!
                     </div>
                 <?php endif; ?>
@@ -207,6 +257,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$bloqueado) {
                 <?php if ($mensaje): ?>
                     <div class="alert alert-danger alert-custom alert-danger-custom mb-4">
                         <i class="fas fa-exclamation-circle me-2"></i><?= htmlspecialchars($mensaje) ?>
+                        <?php if ($bloqueado): ?>
+                            <br><br>
+                            <small>
+                                <i class="fas fa-info-circle me-1"></i>
+                                Si necesitas acceso inmediato, puedes 
+                                <a href="limpiar-sesion-login.php" class="alert-link">limpiar el bloqueo</a> 
+                                (solo para desarrollo/testing).
+                            </small>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
                 
@@ -222,7 +281,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$bloqueado) {
                                placeholder="tu@email.com" 
                                required 
                                autofocus
-                               autocomplete="email">
+                               autocomplete="email"
+                               value="<?= isset($_POST['email']) ? htmlspecialchars($_POST['email']) : '' ?>">
                         <div class="invalid-feedback">Por favor, ingresa un correo electrónico válido.</div>
                         <div class="valid-feedback">Correo válido</div>
                     </div>
@@ -469,7 +529,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$bloqueado) {
                     isValid = false;
                 }
                 
-                if (!passwordInput.value.trim()) {
+                if (!passwordInput.value || passwordInput.value.length === 0) {
                     passwordInput.classList.add('is-invalid');
                     isValid = false;
                 }
@@ -503,6 +563,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$bloqueado) {
             });
             
             // ========================================================================
+            // Limpiar parámetros de la URL después de mostrar el mensaje
+            // ========================================================================
+            if (window.location.search.includes('logout=1')) {
+                // Esperar 3 segundos antes de limpiar la URL
+                setTimeout(function() {
+                    // Limpiar el parámetro de la URL sin recargar la página
+                    const url = new URL(window.location);
+                    url.searchParams.delete('logout');
+                    window.history.replaceState({}, '', url.toString());
+                }, 3000);
+            }
+            
+            // Limpiar parámetro registro exitoso de la URL después de mostrar el mensaje
+            if (window.location.search.includes('registro=exitoso')) {
+                // Esperar 3 segundos antes de limpiar la URL
+                setTimeout(function() {
+                    // Limpiar el parámetro de la URL sin recargar la página
+                    const url = new URL(window.location);
+                    url.searchParams.delete('registro');
+                    window.history.replaceState({}, '', url.toString());
+                }, 3000);
+            }
+            
+            // ========================================================================
             // Animación suave de entrada
             // ========================================================================
             const authCard = document.querySelector('.auth-card');
@@ -518,3 +602,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$bloqueado) {
     </script>
 
 <?php include 'includes/footer.php'; render_footer(); ?>
+

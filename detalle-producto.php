@@ -879,7 +879,7 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
         .precio-actual-compacto {
             font-size: 2rem;
             font-weight: 700;
-            color: #28a745;
+            color: #4A9FD6;
         }
         
         /* Selectores compactos */
@@ -967,7 +967,7 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
         }
         
         .stock-indicador-compacto .text-success {
-            color: #28a745 !important;
+            color: #4A9FD6 !important;
         }
         
         .stock-indicador-compacto .text-danger {
@@ -1015,7 +1015,7 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
         
         /* Botones de acción compactos */
         .btn-comprar-compacto {
-            background: #28a745;
+            background: #4A9FD6;
             color: #fff;
             border: none;
             padding: 12px 20px;
@@ -1028,9 +1028,9 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
         }
         
         .btn-comprar-compacto:hover {
-            background: #218838;
+            background: #3A8FC6;
             transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+            box-shadow: 0 4px 8px rgba(74, 159, 214, 0.3);
         }
         
         .btn-carrito-compacto {
@@ -1240,8 +1240,8 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
                         if (stock > 0) {
                             stockEl.textContent = stock + ' unidades disponibles';
                             stockEl.className = 'text-success';
-                            stockContainer.style.borderLeftColor = '#28a745';
-                            stockContainer.style.background = '#d4edda';
+                            stockContainer.style.borderLeftColor = '#4A9FD6';
+                            stockContainer.style.background = '#E3F2F8';
                         } else {
                             stockEl.textContent = 'Sin stock disponible para esta combinación';
                             stockEl.className = 'text-danger';

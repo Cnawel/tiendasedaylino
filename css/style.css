@@ -168,6 +168,8 @@ span{
     font-weight: 300;
     font-family: "Quicksand", sans-serif;
     font-size: 1em;
+    position: relative;
+    display: inline-block;
 }
 
 
@@ -175,36 +177,40 @@ span{
 
 .seccion-productos{
     background: linear-gradient(135deg, #FAFAF8 0%, #F5F5F0 100%);
-    padding: 3.5rem 0; /* Reducido de 4rem */
+    padding: 2.5rem 0 3rem 0;
 }
 
 .descripcion-productos {
     font-family: "DM Sans", sans-serif;
-    font-size: 1em; /* Reducido de 1.1em */
-    color: #666;
-    max-width: 550px; /* Reducido de 600px */
+    font-size: 0.95rem;
+    color: #6B6B6B;
+    max-width: 600px;
     margin: 0 auto;
+    line-height: 1.6;
+    letter-spacing: 0.3px;
 }
 
 .tarjeta{
     text-align: center;
-    border: none;
-    border-radius: 15px;
+    border: 1.5px solid #E8E8E5;
+    border-radius: 12px;
     transition: all 0.3s ease;
     overflow: hidden;
-    background: white;
+    background: linear-gradient(135deg, #FFFFFF 0%, #FBFBF9 100%);
+    box-shadow: 0 4px 12px rgba(107, 107, 107, 0.08);
 }
 
 .tarjeta:hover {
-    transform: translateY(-10px);
-    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+    transform: translateY(-8px);
+    box-shadow: 0 12px 28px rgba(107, 107, 107, 0.15);
+    border-color: #D4D4D0;
 }
 
 .card-img-wrapper {
     position: relative;
     overflow: hidden;
-    height: 225px; /* Reducido de 250px */
-    background-color: #f5f5f5;
+    height: 240px;
+    background: linear-gradient(135deg, #FBFBF9 0%, #F5F5F0 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -227,7 +233,7 @@ span{
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0,0,0,0.7);
+    background: linear-gradient(135deg, rgba(139, 139, 122, 0.85) 0%, rgba(107, 107, 95, 0.9) 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -248,17 +254,19 @@ span{
 
 .titulo-tarjeta{
     font-family: "Quicksand", sans-serif;
-    font-size: 1.17em; /* Reducido de 1.3em */
+    font-size: 1.15em;
     font-weight: 600;
-    color: #333;
+    color: #4A4A4A;
     margin-bottom: 0.5rem;
+    letter-spacing: 0.2px;
 }
 
 .texto-tarjeta {
     font-family: "DM Sans", sans-serif;
-    font-size: 0.85em; /* Reducido de 0.9em */
-    color: #666;
-    line-height: 1.4;
+    font-size: 0.875rem;
+    color: #6B6B6B;
+    line-height: 1.5;
+    letter-spacing: 0.1px;
 }
 
 .boton-tarjeta{
@@ -1625,15 +1633,10 @@ h6{
 .nav-link.active-page {
     font-weight: 600;
     color: #333 !important;
-    border-bottom: 2px solid #333;
 }
 
-/* Mejora visual en hover de links */
-.link-tienda {
-    position: relative;
-}
-
-.link-tienda::after {
+/* Pseudo-elemento base para todos los enlaces - inicialmente oculto */
+.nav-link.link-tienda::after {
     content: '';
     position: absolute;
     width: 0;
@@ -1641,11 +1644,24 @@ h6{
     bottom: 0;
     left: 50%;
     background-color: #333;
-    transition: all 0.3s ease;
+    transition: width 0.3s ease;
     transform: translateX(-50%);
+    z-index: 1;
+    pointer-events: none;
 }
 
-.link-tienda:hover::after {
+/* Subrayado permanente para enlace activo (sin hover) */
+.nav-link.link-tienda.active-page::after {
+    width: 80%;
+}
+
+/* Subrayado solo en hover - SOLO el enlace específico sobre el que está el cursor */
+.nav-link.link-tienda:hover::after {
+    width: 80%;
+}
+
+/* Si está activo Y tiene hover, mantener el subrayado */
+.nav-link.link-tienda.active-page:hover::after {
     width: 80%;
 }
 
