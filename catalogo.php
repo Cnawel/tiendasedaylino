@@ -55,7 +55,11 @@ if (!empty($categorias_activas)) {
 
 // Obtener categoría seleccionada desde URL, por defecto 'todos'
 // Limpiar y normalizar el nombre de la categoría
-$categoria_nombre = isset($_GET['categoria']) ? trim($_GET['categoria']) : 'todos';
+// Decodificar URL y normalizar para consistencia con la base de datos
+$categoria_nombre_raw = isset($_GET['categoria']) ? $_GET['categoria'] : 'todos';
+$categoria_nombre = ($categoria_nombre_raw !== 'todos') 
+    ? trim(urldecode($categoria_nombre_raw)) 
+    : 'todos';
 // ID de categoría para filtrado en BD (se obtiene más abajo si es necesario)
 $categoria_id = null;
 
@@ -114,33 +118,82 @@ if (isset($_GET['color'])) {
 $categoria_id = null;
 if ($categoria_nombre !== 'todos') {
     $categoria_id = obtenerCategoriaIdPorNombre($mysqli, $categoria_nombre);
-    // Si la categoría no existe, establecer como null para mostrar todos
+    // Validar que se encontró la categoría correcta
     if (!$categoria_id) {
+        // Log error para debugging
+        error_log("WARNING catalogo.php - No se encontró categoría con nombre: '" . $categoria_nombre . "'");
         $categoria_id = null;
+    } else {
+        // Verificar que el ID encontrado corresponde a la categoría esperada
+        // Obtener el nombre de la categoría desde el ID para validación
+        $sql_verificacion = "SELECT nombre_categoria FROM Categorias WHERE id_categoria = ? AND activo = 1 LIMIT 1";
+        $stmt_verificacion = $mysqli->prepare($sql_verificacion);
+        if ($stmt_verificacion) {
+            $stmt_verificacion->bind_param('i', $categoria_id);
+            if ($stmt_verificacion->execute()) {
+                $result_verificacion = $stmt_verificacion->get_result();
+                $row_verificacion = $result_verificacion->fetch_assoc();
+                if ($row_verificacion) {
+                    $nombre_categoria_encontrada = trim($row_verificacion['nombre_categoria']);
+                    // Comparación case-insensitive para validar
+                    if (strtolower($nombre_categoria_encontrada) !== strtolower($categoria_nombre)) {
+                        error_log("WARNING catalogo.php - Mismatch de categoría. Buscada: '" . $categoria_nombre . "', Encontrada: '" . $nombre_categoria_encontrada . "' (ID: " . $categoria_id . ")");
+                    }
+                }
+            }
+            $stmt_verificacion->close();
+        }
     }
 }
 
 // Obtener talles, géneros y colores disponibles usando funciones centralizadas
-$talles_disponibles = obtenerTallesDisponibles($mysqli, $categoria_id);
-$generos_disponibles = obtenerGenerosDisponiblesStock($mysqli, $categoria_id);
-$colores_disponibles = obtenerColoresDisponiblesStock($mysqli, $categoria_id);
+// IMPORTANTE: Si se busca una categoría específica y no existe, los filtros deben mostrar (0)
+if ($categoria_nombre === 'todos' || $categoria_id !== null) {
+    // Solo obtener filtros si es 'todos' o si se encontró la categoría
+    $talles_disponibles = obtenerTallesDisponibles($mysqli, $categoria_id);
+    $generos_disponibles = obtenerGenerosDisponiblesStock($mysqli, $categoria_id);
+    $colores_disponibles = obtenerColoresDisponiblesStock($mysqli, $categoria_id);
+} else {
+    // Si la categoría no existe, mostrar filtros con valores en 0
+    // Obtener talles estándar y géneros válidos para mostrar con (0)
+    $talles_estandar = obtenerTallesEstandar();
+    $talles_disponibles = [];
+    foreach ($talles_estandar as $talle) {
+        $talles_disponibles[$talle] = 0; // Mostrar todos los talles con stock 0
+    }
+    
+    $generos_validos = ['hombre', 'mujer', 'unisex'];
+    $generos_disponibles = [];
+    foreach ($generos_validos as $genero) {
+        $generos_disponibles[$genero] = 0; // Mostrar todos los géneros con stock 0
+    }
+    
+    // Colores: no hay lista predefinida, así que dejamos vacío
+    $colores_disponibles = [];
+}
 
 // Obtener productos filtrados usando función centralizada
-$filtros = [];
-if ($categoria_id !== null) {
-    $filtros['categoria_id'] = $categoria_id;
+// IMPORTANTE: Si se busca una categoría específica y no existe, mostrar vacío (no todos los productos)
+$productos = [];
+if ($categoria_nombre === 'todos' || $categoria_id !== null) {
+    // Solo buscar productos si es 'todos' o si se encontró la categoría
+    $filtros = [];
+    if ($categoria_id !== null) {
+        $filtros['categoria_id'] = $categoria_id;
+    }
+    if (!empty($talles_seleccionados)) {
+        $filtros['talles'] = $talles_seleccionados;
+    }
+    if (!empty($generos_seleccionados)) {
+        $filtros['generos'] = $generos_seleccionados;
+    }
+    if (!empty($colores_seleccionados)) {
+        $filtros['colores'] = $colores_seleccionados;
+    }
+    
+    $productos = obtenerProductosFiltradosCatalogo($mysqli, $filtros);
 }
-if (!empty($talles_seleccionados)) {
-    $filtros['talles'] = $talles_seleccionados;
-}
-if (!empty($generos_seleccionados)) {
-    $filtros['generos'] = $generos_seleccionados;
-}
-if (!empty($colores_seleccionados)) {
-    $filtros['colores'] = $colores_seleccionados;
-}
-
-$productos = obtenerProductosFiltradosCatalogo($mysqli, $filtros);
+// Si $categoria_nombre !== 'todos' y $categoria_id === null, $productos ya está vacío []
 ?>
 
 <main class="productos">
@@ -153,8 +206,14 @@ $productos = obtenerProductosFiltradosCatalogo($mysqli, $filtros);
                 
                 <!-- Mostrar solo categorías activas (activo = 1) -->
                 <?php foreach ($categorias_activas as $categoria): ?>
+                    <?php 
+                    // Comparación case-insensitive para consistencia con la búsqueda en BD
+                    $nombre_cat_normalizado = strtolower(trim($categoria['nombre_categoria']));
+                    $categoria_nombre_normalizado = ($categoria_nombre !== 'todos') ? strtolower(trim($categoria_nombre)) : 'todos';
+                    $es_activa = ($categoria_nombre_normalizado === $nombre_cat_normalizado);
+                    ?>
                     <a href="catalogo.php?categoria=<?= urlencode($categoria['nombre_categoria']) ?>" 
-                       class="categoria-opcion-bar <?= $categoria_nombre === $categoria['nombre_categoria'] ? 'active' : '' ?>">
+                       class="categoria-opcion-bar <?= $es_activa ? 'active' : '' ?>">
                         <?= htmlspecialchars($categoria['nombre_categoria']) ?>
                     </a>
                 <?php endforeach; ?>

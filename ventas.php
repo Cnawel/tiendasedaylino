@@ -973,7 +973,10 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                   name="descripcion_metodo" rows="3" 
                                                   maxlength="255"
                                                   placeholder="Descripción que verán los clientes"></textarea>
-                                        <small class="text-muted">Descripción opcional que aparece en el sitio (máximo 255 caracteres)</small>
+                                        <small class="text-muted">Descripción opcional que aparece en el sitio (máximo 255 caracteres). Solo letras (incluyendo tildes y diéresis: á, é, í, ó, ú, ñ, ü), números, espacios, puntos (.), comas (,), dos puntos (:), guiones (-) y comillas simples (')</small>
+                                        <div class="invalid-feedback" id="error_descripcion_nuevo" style="display: none;">
+                                            La descripción solo puede contener letras (incluyendo tildes y diéresis), números, espacios, puntos, comas, dos puntos, guiones y comillas simples
+                                        </div>
                                     </div>
                                     <button type="submit" name="agregar_metodo_pago" class="btn btn-primary w-100">
                                         <i class="fas fa-save me-1"></i>Agregar Método
@@ -1062,9 +1065,13 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                                             <label class="form-label"><strong>Descripción</strong></label>
                                                                             <textarea class="form-control" 
                                                                                       name="descripcion_metodo" 
+                                                                                      id="descripcion_metodo_edit_<?= $metodo['id_forma_pago'] ?>"
                                                                                       rows="3" 
                                                                                       maxlength="255"><?= htmlspecialchars($metodo['descripcion'] ?? '') ?></textarea>
-                                                                            <small class="text-muted">Descripción que verán los clientes (máximo 255 caracteres)</small>
+                                                                            <small class="text-muted">Descripción que verán los clientes (máximo 255 caracteres). Solo letras (incluyendo tildes y diéresis: á, é, í, ó, ú, ñ, ü), números, espacios, puntos (.), comas (,), dos puntos (:), guiones (-) y comillas simples (')</small>
+                                                                            <div class="invalid-feedback" id="error_descripcion_edit_<?= $metodo['id_forma_pago'] ?>" style="display: none;">
+                                                                                La descripción solo puede contener letras (incluyendo tildes y diéresis), números, espacios, puntos, comas, dos puntos, guiones y comillas simples
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                     <div class="modal-footer">
@@ -1448,6 +1455,151 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
         
         window.location.href = 'ventas.php?' + urlParams.toString();
     }
+    
+    // Validación de descripción de método de pago
+    document.addEventListener('DOMContentLoaded', function() {
+        /**
+         * Valida la descripción del método de pago según el patrón del backend
+         * Hace trim() antes de validar para asegurar consistencia con el backend
+         * Patrón permitido: letras (A-Z, a-z con tildes y diéresis: á, é, í, ó, ú, ñ, ü), números (0-9), espacios, puntos (.), comas (,), dos puntos (:), guiones (-), comillas simples (')
+         * @param {string} descripcion - Texto a validar
+         * @return {boolean} - true si es válido, false si no
+         */
+        function validarDescripcionMetodoPago(descripcion) {
+            // Hacer trim() igual que el backend (línea 414 de sales_functions.php)
+            const descripcionTrimmed = descripcion ? descripcion.trim() : '';
+            
+            // Si está vacía después del trim, es válida (es opcional)
+            if (descripcionTrimmed === '') {
+                return true;
+            }
+            
+            // Validar caracteres permitidos: letras (con tildes y diéresis), números, espacios, puntos, comas, dos puntos, guiones, comillas simples
+            const patron = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü0-9\s\.,\:\-\']+$/;
+            return patron.test(descripcionTrimmed);
+        }
+        
+        /**
+         * Valida y muestra/oculta el mensaje de error para el campo descripción
+         * @param {HTMLElement} textarea - Elemento textarea a validar
+         * @param {HTMLElement} errorDiv - Elemento div donde mostrar el error
+         */
+        function validarCampoDescripcion(textarea, errorDiv) {
+            const valor = textarea.value;
+            const esValido = validarDescripcionMetodoPago(valor);
+            
+            if (!esValido && valor.trim() !== '') {
+                // Mostrar error
+                textarea.classList.add('is-invalid');
+                if (errorDiv) {
+                    errorDiv.style.display = 'block';
+                }
+            } else {
+                // Ocultar error
+                textarea.classList.remove('is-invalid');
+                if (errorDiv) {
+                    errorDiv.style.display = 'none';
+                }
+            }
+        }
+        
+        // Validación para el formulario de agregar método de pago
+        const descripcionNuevo = document.getElementById('descripcion_metodo_nuevo');
+        const errorDescripcionNuevo = document.getElementById('error_descripcion_nuevo');
+        if (descripcionNuevo) {
+            // Validar al escribir
+            descripcionNuevo.addEventListener('input', function() {
+                validarCampoDescripcion(descripcionNuevo, errorDescripcionNuevo);
+            });
+            
+            // Normalizar valor en blur (aplicar trim automáticamente)
+            descripcionNuevo.addEventListener('blur', function() {
+                const valorOriginal = descripcionNuevo.value;
+                const valorTrimmed = valorOriginal.trim();
+                if (valorOriginal !== valorTrimmed) {
+                    descripcionNuevo.value = valorTrimmed;
+                }
+                validarCampoDescripcion(descripcionNuevo, errorDescripcionNuevo);
+            });
+            
+            // Validar antes de enviar el formulario
+            const formAgregar = descripcionNuevo.closest('form');
+            if (formAgregar) {
+                formAgregar.addEventListener('submit', function(e) {
+                    // Aplicar trim antes de validar
+                    const valorTrimmed = descripcionNuevo.value.trim();
+                    if (descripcionNuevo.value !== valorTrimmed) {
+                        descripcionNuevo.value = valorTrimmed;
+                    }
+                    if (!validarDescripcionMetodoPago(descripcionNuevo.value)) {
+                        e.preventDefault();
+                        validarCampoDescripcion(descripcionNuevo, errorDescripcionNuevo);
+                        descripcionNuevo.focus();
+                        return false;
+                    }
+                });
+            }
+        }
+        
+        // Validación para los formularios de editar método de pago (múltiples modales)
+        function inicializarValidacionEditar() {
+            const textareasEdit = document.querySelectorAll('[id^="descripcion_metodo_edit_"]');
+            textareasEdit.forEach(function(textarea) {
+                // Evitar agregar listeners múltiples veces
+                if (textarea.dataset.validationInitialized === 'true') {
+                    return;
+                }
+                textarea.dataset.validationInitialized = 'true';
+                
+                const metodoId = textarea.id.replace('descripcion_metodo_edit_', '');
+                const errorDiv = document.getElementById('error_descripcion_edit_' + metodoId);
+                
+                // Validar al escribir
+                textarea.addEventListener('input', function() {
+                    validarCampoDescripcion(textarea, errorDiv);
+                });
+                
+                // Normalizar valor en blur (aplicar trim automáticamente)
+                textarea.addEventListener('blur', function() {
+                    const valorOriginal = textarea.value;
+                    const valorTrimmed = valorOriginal.trim();
+                    if (valorOriginal !== valorTrimmed) {
+                        textarea.value = valorTrimmed;
+                    }
+                    validarCampoDescripcion(textarea, errorDiv);
+                });
+                
+                // Validar antes de enviar el formulario
+                const formEdit = textarea.closest('form');
+                if (formEdit) {
+                    formEdit.addEventListener('submit', function(e) {
+                        // Aplicar trim antes de validar
+                        const valorTrimmed = textarea.value.trim();
+                        if (textarea.value !== valorTrimmed) {
+                            textarea.value = valorTrimmed;
+                        }
+                        if (!validarDescripcionMetodoPago(textarea.value)) {
+                            e.preventDefault();
+                            validarCampoDescripcion(textarea, errorDiv);
+                            textarea.focus();
+                            return false;
+                        }
+                    });
+                }
+            });
+        }
+        
+        // Inicializar validación al cargar la página
+        inicializarValidacionEditar();
+        
+        // Reinicializar cuando se abren modales de edición
+        const modalesEditarMetodo = document.querySelectorAll('[id^="editarMetodoModal"]');
+        modalesEditarMetodo.forEach(function(modal) {
+            modal.addEventListener('shown.bs.modal', function() {
+                inicializarValidacionEditar();
+            });
+        });
+    });
     </script>
     <script src="js/table-sort.js"></script>
 

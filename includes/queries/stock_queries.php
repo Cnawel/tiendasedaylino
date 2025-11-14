@@ -582,12 +582,14 @@ function revertirStockPedido($mysqli, $id_pedido, $id_usuario = null, $motivo = 
     $estado_pedido = strtolower(trim($estado_data['estado_pedido'] ?? ''));
     $estado_pago = strtolower(trim($estado_data['estado_pago'] ?? ''));
     
-    // Validar que el pedido esté cancelado o el pago esté rechazado/cancelado
+    // Validar que el pedido esté cancelado o el pago esté rechazado/cancelado/aprobado
     // Solo revertir en estos casos para evitar reversiones en estados inválidos
+    // Nota: Se permite revertir cuando el pago está 'aprobado' porque el stock fue descontado
+    // al aprobar el pago, así que debe restaurarse al cancelar el pedido
     $puede_revertir = false;
     if ($estado_pedido === 'cancelado') {
         $puede_revertir = true;
-    } elseif (in_array($estado_pago, ['rechazado', 'cancelado'])) {
+    } elseif (in_array($estado_pago, ['rechazado', 'cancelado', 'aprobado'])) {
         $puede_revertir = true;
     }
     

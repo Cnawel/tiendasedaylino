@@ -311,7 +311,7 @@ function validarNombreMetodoPago($nombre) {
  * 
  * Requisitos según database_estructura.sql y diccionario_datos_tiendasedaylino.md:
  * - Longitud: 0-255 caracteres (opcional)
- * - Caracteres permitidos: A-Z, a-z, 0-9, espacios, puntos (.), guiones (-), comas (,)
+ * - Caracteres permitidos: A-Z, a-z (con tildes y diéresis: á, é, í, ó, ú, ñ, ü), 0-9, espacios, puntos (.), guiones (-), comas (,), dos puntos (:), comillas simples (')
  * 
  * @param string $descripcion Descripción a validar
  * @return array|false Array con ['mensaje' => string, 'mensaje_tipo' => string] si hay error, o false si es válido
@@ -327,9 +327,9 @@ function validarDescripcionMetodoPago($descripcion) {
         return ['mensaje' => 'La descripción no puede exceder 255 caracteres', 'mensaje_tipo' => 'danger'];
     }
     
-    // Validar caracteres permitidos: letras (A-Z, a-z), números (0-9), espacios, puntos (.), guiones (-), comas (,)
-    if (!preg_match('/^[A-Za-z0-9\s\.,\-]+$/', $descripcion)) {
-        return ['mensaje' => 'La descripción solo puede contener letras, números, espacios, puntos, comas y guiones', 'mensaje_tipo' => 'danger'];
+    // Validar caracteres permitidos: letras (A-Z, a-z con tildes y diéresis), números (0-9), espacios, puntos (.), guiones (-), comas (,), dos puntos (:), comillas simples (')
+    if (!preg_match('/^[A-Za-zÁÉÍÓÚáéíóúÑñÜü0-9\s\.,\:\-\']+$/u', $descripcion)) {
+        return ['mensaje' => 'La descripción solo puede contener letras (incluyendo tildes y diéresis), números, espacios, puntos, comas, dos puntos, guiones y comillas simples', 'mensaje_tipo' => 'danger'];
     }
     
     return false; // Válido

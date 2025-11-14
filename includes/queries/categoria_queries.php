@@ -20,18 +20,21 @@
  * @return int|null ID de la categoría o null si no existe
  */
 function obtenerCategoriaIdPorNombre($mysqli, $nombre_categoria) {
+    // Normalizar nombre de categoría antes de buscar (trim para consistencia)
+    $nombre_categoria_normalizado = trim($nombre_categoria);
+    
     // Usar LOWER() para comparación case-insensitive
-    $sql = "SELECT id_categoria FROM Categorias WHERE LOWER(TRIM(nombre_categoria)) = LOWER(TRIM(?)) AND activo = 1 LIMIT 1";
+    $sql = "SELECT id_categoria, nombre_categoria FROM Categorias WHERE LOWER(TRIM(nombre_categoria)) = LOWER(TRIM(?)) AND activo = 1 LIMIT 1";
     
     $stmt = $mysqli->prepare($sql);
     if (!$stmt) {
-        error_log("ERROR obtenerCategoriaIdPorNombre - prepare falló: " . $mysqli->error . " para categoría: " . $nombre_categoria);
+        error_log("ERROR obtenerCategoriaIdPorNombre - prepare falló: " . $mysqli->error . " para categoría: '" . $nombre_categoria_normalizado . "'");
         return null;
     }
     
-    $stmt->bind_param('s', $nombre_categoria);
+    $stmt->bind_param('s', $nombre_categoria_normalizado);
     if (!$stmt->execute()) {
-        error_log("ERROR obtenerCategoriaIdPorNombre - execute falló: " . $stmt->error . " para categoría: " . $nombre_categoria);
+        error_log("ERROR obtenerCategoriaIdPorNombre - execute falló: " . $stmt->error . " para categoría: '" . $nombre_categoria_normalizado . "'");
         $stmt->close();
         return null;
     }
@@ -41,8 +44,16 @@ function obtenerCategoriaIdPorNombre($mysqli, $nombre_categoria) {
     $stmt->close();
     
     if ($row) {
-        return (int)$row['id_categoria'];
+        $id_encontrado = (int)$row['id_categoria'];
+        $nombre_encontrado = trim($row['nombre_categoria']);
+        // Log para debugging: verificar que el nombre encontrado coincide con el buscado
+        if (strtolower($nombre_encontrado) !== strtolower($nombre_categoria_normalizado)) {
+            error_log("INFO obtenerCategoriaIdPorNombre - Nombre encontrado difiere del buscado. Buscado: '" . $nombre_categoria_normalizado . "', Encontrado: '" . $nombre_encontrado . "' (ID: " . $id_encontrado . ")");
+        }
+        return $id_encontrado;
     } else {
+        // Log cuando no se encuentra la categoría para debugging
+        error_log("WARNING obtenerCategoriaIdPorNombre - No se encontró categoría con nombre: '" . $nombre_categoria_normalizado . "'");
         return null;
     }
 }
