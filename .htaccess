@@ -1,0 +1,23 @@
+# ========================================================================
+# .htaccess - Tienda Seda y Lino (Versión Mínima)
+# ========================================================================
+
+RewriteEngine On
+RewriteBase /
+
+# Agregar .php si el archivo existe
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}.php -f
+RewriteRule ^(.*)$ $1.php [L]
+
+# Protección de archivos sensibles
+<FilesMatch "^(config|includes|sql|test)">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "\.(sql|md|log|htaccess|htpasswd)$">
+    Require all denied
+</FilesMatch>
+
+Options -Indexes

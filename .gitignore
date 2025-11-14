@@ -1,0 +1,237 @@
+# ==============================
+# .gitignore para Tienda Seda y Lino
+# PROYECTO DE TESINA - Replicable
+# ==============================
+
+# ⚠️ IMPORTANTE: Este proyecto es una TESINA
+# Solo se ignoran archivos con credenciales locales,
+# archivos del sistema y dependencias descargables.
+# Toda la documentación y código fuente se incluye en el repo.
+
+# ==============================
+# Archivos con Credenciales Locales (NO SUBIR)
+# ==============================
+
+rules.md
+
+# Configuración local de base de datos con credenciales
+config/database.php
+# Nota: Usar config/database.example.php como template
+
+# Configuración de FTP
+config/ftp.php
+# Nota: Usar config/ftp.example.php como template
+
+# Configuración de email con credenciales SMTP
+config/email.php
+# Nota: Usar config/email.example.php como template
+
+# Configuración de Mailgun con credenciales API
+config/mailgun.php
+# Nota: Usar config/mailgun.example.php como template
+
+# Archivos de entorno con credenciales
+*.env
+.env.local
+.env.production
+
+# Archivos de configuración personal con datos sensibles
+config_personal.php
+settings_local.json
+
+# ==============================
+# Carpeta de Archivos Privados/Temporales
+# ==============================
+
+# Carpeta marcada como privada
+NOSUBIR/
+rules.md
+README_me.md
+
+# Testing
+test/
+
+# ==============================
+# Archivos del Sistema Operativo
+# ==============================
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ==============================
+# Entornos de Desarrollo (IDEs)
+# ==============================
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Atom
+.atom/
+
+# JetBrains IDEs
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Eclipse
+.metadata
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.settings/
+.loadpath
+.recommenders
+
+# ==============================
+# Archivos de Log y Cache
+# ==============================
+
+# Logs generados
+*.log
+logs/
+error_log
+access_log
+
+# Cache generado
+cache/
+*.cache
+.cache/
+
+# ==============================
+# Archivos Temporales
+# ==============================
+
+# Archivos temporales generales
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+*.save
+
+# Archivos de swap
+*.swp
+*.swo
+
+# ==============================
+# Dependencias y Módulos (Descargables)
+# ==============================
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+# Composer (PHP)
+vendor/
+composer.lock
+
+# ==============================
+# Archivos de Build y Distribución
+# ==============================
+
+# Archivos compilados
+*.com
+*.exe
+*.o
+*.so
+*.dll
+
+# Archivos de distribución
+dist/
+build/
+out/
+
+# ==============================
+# Backups de Base de Datos (Generados)
+# ==============================
+
+# Backups automáticos
+*.sql.backup
+*.sql.bak
+*.db.backup
+backup_*.sql
+dump_*.sql
+
+# ==============================
+# Archivos Temporales de Testing
+# ==============================
+
+# Resultados temporales de tests
+tests/temp/
+test_results/
+coverage/
+.phpunit.result.cache
+
+# ==============================
+# Archivos de Medios Pesados
+# ==============================
+
+# Videos grandes
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.flv
+
+# Archivos de diseño muy pesados (descomentar si es necesario)
+# *.psd
+# *.ai
+
+# ==============================
+# Otros Archivos de Configuración Temporal
+# ==============================
+
+# Backups de configuración
+.htaccess.backup
+.htpasswd
+sitemap.xml.backup
+robots.txt.backup
+
+# Notas personales del desarrollador
+notas_personales.txt
+todo_personal.txt
