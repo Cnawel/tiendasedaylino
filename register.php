@@ -23,6 +23,15 @@
  * Tabla utilizada: Usuarios (campos: nombre, apellido, email, contrasena, rol)
  * ========================================================================
  */
+
+// ========================================================================
+// MANEJO DE ERRORES TEMPORAL PARA DIAGNÓSTICO
+// ========================================================================
+// Activar reporte de errores para ver el error real (temporal para debugging)
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('log_errors', 1);
+
 session_start();
 
 // Cargar funciones de contraseñas
@@ -77,18 +86,51 @@ $valores_form = [
 // ========================================================================
 require_once __DIR__ . '/config/database.php';
 $preguntas_recupero = obtenerPreguntasRecupero($mysqli);
-// Si no hay preguntas en BD, usar valores por defecto (fallback)
-if (empty($preguntas_recupero)) {
-    $preguntas_recupero = [
-        ['id_pregunta' => 1, 'texto_pregunta' => '¿Cuál es el nombre de tu primera mascota?'],
-        ['id_pregunta' => 2, 'texto_pregunta' => '¿En qué ciudad naciste?'],
-        ['id_pregunta' => 3, 'texto_pregunta' => '¿Cuál es el nombre de tu mejor amigo/a de la infancia?'],
-        ['id_pregunta' => 4, 'texto_pregunta' => '¿Cuál es el nombre de tu colegio primario?']
+
+// Si no hay preguntas en BD, insertar preguntas por defecto
+if (empty($preguntas_recupero) && isset($mysqli) && $mysqli instanceof mysqli) {
+    // Definir preguntas por defecto
+    $preguntas_por_defecto = [
+        ['texto' => '¿Cuál es el nombre de tu primera mascota?', 'orden' => 1],
+        ['texto' => '¿En qué ciudad naciste?', 'orden' => 2],
+        ['texto' => '¿Cuál es el nombre de tu mejor amigo/a de la infancia?', 'orden' => 3],
+        ['texto' => '¿Cuál es el nombre de tu colegio primario?', 'orden' => 4]
     ];
+    
+    // Insertar preguntas por defecto en la BD
+    $sql_insert = "INSERT INTO Preguntas_Recupero (texto_pregunta, activa, orden) VALUES (?, 1, ?)";
+    $stmt_insert = $mysqli->prepare($sql_insert);
+    
+    if ($stmt_insert) {
+        foreach ($preguntas_por_defecto as $pregunta) {
+            $stmt_insert->bind_param('si', $pregunta['texto'], $pregunta['orden']);
+            $stmt_insert->execute();
+        }
+        $stmt_insert->close();
+        
+        // Obtener las preguntas recién insertadas
+        $preguntas_recupero = obtenerPreguntasRecupero($mysqli);
+    }
+    
+    // Si aún no hay preguntas (fallback final), usar array local
+    if (empty($preguntas_recupero)) {
+        $preguntas_recupero = [
+            ['id_pregunta' => 1, 'texto_pregunta' => '¿Cuál es el nombre de tu primera mascota?'],
+            ['id_pregunta' => 2, 'texto_pregunta' => '¿En qué ciudad naciste?'],
+            ['id_pregunta' => 3, 'texto_pregunta' => '¿Cuál es el nombre de tu mejor amigo/a de la infancia?'],
+            ['id_pregunta' => 4, 'texto_pregunta' => '¿Cuál es el nombre de tu colegio primario?']
+        ];
+    }
 }
 
 // Procesar formulario de registro
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    
+    // Verificar que la conexión a la base de datos esté disponible
+    if (!isset($mysqli) || !($mysqli instanceof mysqli)) {
+        error_log("ERROR: Conexión a base de datos no disponible en procesamiento POST");
+        $errores['general'] = 'Error de conexión a la base de datos. Por favor, intenta nuevamente.';
+    } else {
     
     // Inicializar variables para evitar errores de "undefined variable"
     $nombre = null;
@@ -259,9 +301,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($pregunta_id <= 0) {
             $errores['pregunta_recupero'] = 'La pregunta de recupero seleccionada no es válida.';
         } else {
-            // Verificar que la pregunta existe y está activa en la base de datos
-            // La función verificarPreguntaRecupero() ya valida: conexión, formato numérico y rango > 0
-            if (!verificarPreguntaRecupero($mysqli, $pregunta_id)) {
+            // Verificar que la pregunta existe en las preguntas disponibles (BD o por defecto)
+            $pregunta_valida = false;
+            
+            // Primero verificar si existe en el array de preguntas disponibles (ya sea de BD o por defecto)
+            foreach ($preguntas_recupero as $pregunta) {
+                if (isset($pregunta['id_pregunta']) && intval($pregunta['id_pregunta']) === $pregunta_id) {
+                    $pregunta_valida = true;
+                    break;
+                }
+            }
+            
+            // Si no se encontró en el array local, verificar en la base de datos
+            if (!$pregunta_valida && isset($mysqli) && $mysqli instanceof mysqli) {
+                $pregunta_valida = verificarPreguntaRecupero($mysqli, $pregunta_id);
+            }
+            
+            // Si aún no es válida, mostrar error
+            if (!$pregunta_valida) {
                 $errores['pregunta_recupero'] = 'La pregunta de recupero seleccionada no es válida o no está disponible.';
             }
         }
@@ -401,50 +458,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Verificar que todas las variables requeridas estén definidas
                 $errores['general'] = 'Error: Faltan datos requeridos para crear la cuenta. Por favor, completa todos los campos.';
             } else {
-                // La fecha ya está validada y en formato YYYY-MM-DD
-                // Crear usuario cliente usando función centralizada con el ID ya validado
-                $id_usuario_nuevo = crearUsuarioCliente($mysqli, $nombre, $apellido, $email, $hash_password, $fecha_nacimiento, $pregunta_id, $respuesta_recupero);
+                // Verificar que la pregunta existe en la base de datos antes de insertar
+                // Esto previene errores de clave foránea
+                if (!verificarPreguntaRecupero($mysqli, $pregunta_id)) {
+                    $errores['pregunta_recupero'] = 'La pregunta de recupero seleccionada no existe en la base de datos. Por favor, selecciona otra pregunta.';
+                } else {
+                    // La fecha ya está validada y en formato YYYY-MM-DD
+                    // Crear usuario cliente usando función centralizada con el ID ya validado
+                    $id_usuario_nuevo = crearUsuarioCliente($mysqli, $nombre, $apellido, $email, $hash_password, $fecha_nacimiento, $pregunta_id, $respuesta_recupero);
                 
-                if ($id_usuario_nuevo > 0) {
-                // Verificar que el hash se guardó correctamente
-                if (verificarHashContrasena($mysqli, $id_usuario_nuevo, $password)) {
-                    // ========================================================================
-                    // REGISTRO EXITOSO - LIMPIEZA Y REDIRECCIÓN
-                    // ========================================================================
-                    
-                    /**
-                     * LIMPIEZA DE DATOS SENSIBLES
-                     * 
-                     * 1. Limpiar variables de contraseña de memoria
-                     * 2. Redireccionar con parámetro de éxito
-                     */
-                    
-                    // Limpiar variables sensibles de memoria
-                    $password = null;
-                    $password_confirm = null;
-                    $hash_password = null;
-                    
-                    // Guardar mensaje de éxito en sesión
-                    $_SESSION['mensaje_registro'] = 'Tu cuenta ha sido creada exitosamente. Por favor, inicia sesión.';
-                    $_SESSION['mensaje_registro_tipo'] = 'success';
-                    
-                    // Redireccionar a login
-                    header('Location: login.php');
-                    exit;
-                } else {
-                    // Hash no verifica correctamente
-                    $errores['general'] = 'Error: El hash se guardó pero no verifica correctamente. Por favor, intenta registrarte nuevamente.';
-                    // Soft delete: marcar usuario como inactivo (rollback de registro fallido)
-                    desactivarUsuario($mysqli, $id_usuario_nuevo);
-                }
-                } else {
-                    // Error en la creación del usuario
-                    // El error ya fue registrado en crearUsuarioCliente()
-                    $errores['general'] = 'Error al crear la cuenta. Por favor, verifica que todos los datos sean correctos e inténtalo de nuevo. Si el problema persiste, contacta al administrador.';
-                }
+                    if ($id_usuario_nuevo > 0) {
+                        // Verificar que el hash se guardó correctamente
+                        if (verificarHashContrasena($mysqli, $id_usuario_nuevo, $password)) {
+                            // ========================================================================
+                            // REGISTRO EXITOSO - LIMPIEZA Y REDIRECCIÓN
+                            // ========================================================================
+                            
+                            /**
+                             * LIMPIEZA DE DATOS SENSIBLES
+                             * 
+                             * 1. Limpiar variables de contraseña de memoria
+                             * 2. Redireccionar con parámetro de éxito
+                             */
+                            
+                            // Limpiar variables sensibles de memoria
+                            $password = null;
+                            $password_confirm = null;
+                            $hash_password = null;
+                            
+                            // Guardar mensaje de éxito en sesión
+                            $_SESSION['mensaje_registro'] = 'Tu cuenta ha sido creada exitosamente. Por favor, inicia sesión.';
+                            $_SESSION['mensaje_registro_tipo'] = 'success';
+                            
+                            // Redireccionar a login
+                            header('Location: login.php');
+                            exit;
+                        } else {
+                            // Hash no verifica correctamente
+                            $errores['general'] = 'Error: El hash se guardó pero no verifica correctamente. Por favor, intenta registrarte nuevamente.';
+                            // Soft delete: marcar usuario como inactivo (rollback de registro fallido)
+                            desactivarUsuario($mysqli, $id_usuario_nuevo);
+                        }
+                    } else {
+                        // Error en la creación del usuario
+                        // El error ya fue registrado en crearUsuarioCliente()
+                        $errores['general'] = 'Error al crear la cuenta. Por favor, verifica que todos los datos sean correctos e inténtalo de nuevo. Si el problema persiste, contacta al administrador.';
+                    }
+                } // Cierre del else que verifica pregunta en BD
             }
         }
     }
+    } // Cierre del else que verifica la conexión $mysqli
 }
 ?>
 
