@@ -231,10 +231,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Nota: Se eliminó la validación de complejidad (mayúscula, minúscula, número, carácter especial)
     // para permitir contraseñas más débiles según lo solicitado
     
-    // Validar CONFIRMACIÓN DE CONTRASEÑA (OPCIONAL - solo validar si se proporciona)
+    // Validar CONFIRMACIÓN DE CONTRASEÑA (OBLIGATORIO)
     // IMPORTANTE: NO usar trim() en password_confirm - debe coincidir exactamente
     $password_confirm = $_POST['password_confirm'] ?? '';
-    if (!empty($password_confirm) && $password !== $password_confirm) {
+    if (empty($password_confirm)) {
+        $errores['password_confirm'] = 'La confirmación de contraseña es obligatoria.';
+    } elseif ($password !== $password_confirm) {
         $errores['password_confirm'] = 'Las contraseñas no coinciden.';
     }
     
@@ -547,9 +549,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                    required
                                    minlength="2"
                                    maxlength="50"
-                                   pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+"
+                                   pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+"
                                    autocomplete="given-name"
-                                   title="Solo letras y espacios, entre 2 y 50 caracteres">
+                                   title="Letras, espacios, apóstrofe (') y acento agudo (´), entre 2 y 50 caracteres">
                             <?php if (isset($errores['nombre'])): ?>
                                 <div class="invalid-feedback"><?= htmlspecialchars($errores['nombre']) ?></div>
                             <?php else: ?>
@@ -570,9 +572,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                    required
                                    minlength="2"
                                    maxlength="100"
-                                   pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+"
+                                   pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+"
                                    autocomplete="family-name"
-                                   title="Solo letras y espacios, entre 2 y 100 caracteres">
+                                   title="Letras, espacios, apóstrofe (') y acento agudo (´), entre 2 y 100 caracteres">
                             <?php if (isset($errores['apellido'])): ?>
                                 <div class="invalid-feedback"><?= htmlspecialchars($errores['apellido']) ?></div>
                             <?php else: ?>
@@ -708,16 +710,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     <div class="mb-3">
                         <label for="password_confirm" class="form-label">
-                            <i class="fas fa-lock me-1"></i>Confirmar Contraseña
+                            <i class="fas fa-lock me-1"></i>Confirmar Contraseña <span class="text-danger">*</span>
                         </label>
                         <div class="password-input-wrapper">
                             <input type="password" 
                                    class="form-control <?= isset($errores['password_confirm']) ? 'is-invalid' : '' ?>" 
                                    name="password_confirm" 
                                    id="password_confirm" 
-                                   placeholder="Repite tu contraseña (opcional)" 
+                                   placeholder="Repite tu contraseña" 
                                    minlength="6"
                                    maxlength="32"
+                                   required
                                    autocomplete="new-password"
                                    title="Debe coincidir con la contraseña anterior">
                             <button type="button" class="btn-toggle-password" id="togglePasswordConfirm" aria-label="Mostrar contraseña">
@@ -767,6 +770,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </main>
 
-    <script src="/includes/register.js"></script>
+    <script src="includes/register.js"></script>
 
 <?php include 'includes/footer.php'; render_footer(); ?>

@@ -345,6 +345,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             }
                         }
                         
+                        // NOTA: Se puede usar actualizarEstadoPedidoConValidaciones($mysqli, $id_pedido, 'cancelado', $id_usuario)
+                        // de pedido_queries.php para una implementación más centralizada de las reglas de negocio según el plan.
                         // Actualizar estado del pedido a cancelado
                         if (!actualizarEstadoPedido($mysqli, $id_pedido, 'cancelado')) {
                             throw new Exception('Error al cancelar el pedido');
@@ -564,7 +566,7 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                     
                                     <div class="mb-3">
                                         <label for="apellido" class="form-label">Apellido</label>
-                                        <input type="text" class="form-control" id="apellido" name="apellido" value="<?= htmlspecialchars($usuario['apellido']) ?>" required minlength="2" maxlength="100" pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+" title="Solo letras y espacios, entre 2 y 100 caracteres">
+                                        <input type="text" class="form-control" id="apellido" name="apellido" value="<?= htmlspecialchars($usuario['apellido']) ?>" required minlength="2" maxlength="100" pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+" title="Letras, espacios, apóstrofe (') y acento agudo (´), entre 2 y 100 caracteres">
                                     </div>
                                     
                                     <div class="mb-3">

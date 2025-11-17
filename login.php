@@ -304,5 +304,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <?php include __DIR__ . '/includes/footer.php'; render_footer(); ?>
 
-<script src="/includes/login.js"></script>
+<script src="includes/login.js"></script>
 
