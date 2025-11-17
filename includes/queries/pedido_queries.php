@@ -909,3 +909,178 @@ function cancelarPedidosPendientesAntiguos($mysqli, $dias_limite = 60) {
     return $resultado;
 }
 
+/**
+ * Actualiza el estado de un pedido aplicando validaciones y reglas de negocio
+ * 
+ * Esta función centraliza la lógica de negocio para transiciones de estado de pedido
+ * según las reglas definidas en el plan de lógica de negocio.
+ * 
+ * REGLAS IMPLEMENTADAS:
+ * - Cambiar a 'en_viaje': Requiere pago aprobado y estado 'preparacion'
+ * - Cambiar a 'completado': Requiere pago aprobado y estado 'preparacion' o 'en_viaje'
+ * - Cambiar a 'devolucion': Requiere pago aprobado y estado 'completado' o 'en_viaje', restaura stock
+ * - Cancelar pedido: Si tiene pago aprobado, restaura stock y cancela pago
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param int $id_pedido ID del pedido
+ * @param string $nuevo_estado_pedido Nuevo estado del pedido
+ * @param int|null $id_usuario ID del usuario que realiza la acción (opcional)
+ * @return bool True si se actualizó correctamente
+ * @throws Exception Si hay error en la validación o actualización
+ */
+function actualizarEstadoPedidoConValidaciones($mysqli, $id_pedido, $nuevo_estado_pedido, $id_usuario = null) {
+    // Validar estados válidos
+    $estados_validos = ['pendiente', 'preparacion', 'en_viaje', 'completado', 'devolucion', 'cancelado'];
+    if (!in_array($nuevo_estado_pedido, $estados_validos)) {
+        throw new Exception('Estado de pedido inválido: ' . $nuevo_estado_pedido);
+    }
+    
+    // Obtener datos actuales del pedido
+    $pedido_actual = obtenerPedidoPorId($mysqli, $id_pedido);
+    if (!$pedido_actual) {
+        throw new Exception('Pedido no encontrado con ID: ' . $id_pedido);
+    }
+    
+    $estado_pedido_anterior = $pedido_actual['estado_pedido'];
+    
+    // Si no cambió el estado, no hacer nada
+    if ($estado_pedido_anterior === $nuevo_estado_pedido) {
+        return true;
+    }
+    
+    // Cargar funciones necesarias
+    $pago_queries_path = __DIR__ . '/pago_queries.php';
+    if (!file_exists($pago_queries_path)) {
+        throw new Exception('Archivo de consultas de pago no encontrado');
+    }
+    require_once $pago_queries_path;
+    
+    $stock_queries_path = __DIR__ . '/stock_queries.php';
+    if (!file_exists($stock_queries_path)) {
+        throw new Exception('Archivo de consultas de stock no encontrado');
+    }
+    require_once $stock_queries_path;
+    
+    // Obtener información del pago
+    $pago_actual = obtenerPagoPorPedido($mysqli, $id_pedido);
+    $estado_pago = $pago_actual ? $pago_actual['estado_pago'] : null;
+    
+    // Iniciar transacción
+    $mysqli->begin_transaction();
+    
+    try {
+        // REGLA 1: Cambiar pedido a 'en_viaje'
+        // SI pedido.estado_pedido = 'preparacion'
+        // Y pago.estado_pago = 'aprobado'
+        // ENTONCES pedido.estado_pedido = 'en_viaje' (Permitir cambio manual)
+        if ($nuevo_estado_pedido === 'en_viaje') {
+            if ($estado_pedido_anterior !== 'preparacion') {
+                throw new Exception('Solo se puede enviar un pedido que está en preparación');
+            }
+            
+            if ($estado_pago !== 'aprobado') {
+                throw new Exception('No se puede enviar pedido sin pago aprobado');
+            }
+            
+            if (!actualizarEstadoPedido($mysqli, $id_pedido, 'en_viaje')) {
+                throw new Exception('Error al actualizar estado del pedido a en_viaje');
+            }
+        }
+        // REGLA 2: Cambiar pedido a 'completado'
+        // SI pedido.estado_pedido IN ('preparacion', 'en_viaje')
+        // Y pago.estado_pago = 'aprobado'
+        // ENTONCES pedido.estado_pedido = 'completado' (Permitir cambio manual)
+        elseif ($nuevo_estado_pedido === 'completado') {
+            if (!in_array($estado_pedido_anterior, ['preparacion', 'en_viaje'])) {
+                throw new Exception('Solo se puede completar un pedido que está en preparación o en viaje');
+            }
+            
+            if ($estado_pago !== 'aprobado') {
+                throw new Exception('No se puede completar pedido sin pago aprobado');
+            }
+            
+            if (!actualizarEstadoPedido($mysqli, $id_pedido, 'completado')) {
+                throw new Exception('Error al actualizar estado del pedido a completado');
+            }
+        }
+        // REGLA 3: Cambiar pedido a 'devolucion'
+        // SI pedido.estado_pedido IN ('completado', 'en_viaje')
+        // Y pago.estado_pago = 'aprobado'
+        // ENTONCES pedido.estado_pedido = 'devolucion' y Restaurar stock mediante movimiento tipo 'devolucion'
+        elseif ($nuevo_estado_pedido === 'devolucion') {
+            if (!in_array($estado_pedido_anterior, ['completado', 'en_viaje'])) {
+                throw new Exception('Solo se puede devolver un pedido que está completado o en viaje');
+            }
+            
+            if ($estado_pago !== 'aprobado') {
+                throw new Exception('No se puede devolver pedido sin pago aprobado');
+            }
+            
+            // Obtener detalles del pedido para restaurar stock
+            $detalles = obtenerDetallesPedido($mysqli, $id_pedido);
+            
+            if (empty($detalles)) {
+                throw new Exception('El pedido no tiene detalles para devolver');
+            }
+            
+            // Restaurar stock mediante movimientos tipo 'devolucion'
+            foreach ($detalles as $detalle) {
+                $id_variante = intval($detalle['id_variante']);
+                $cantidad = intval($detalle['cantidad']);
+                
+                $observaciones = "Devolución de pedido #{$id_pedido}";
+                if (!registrarMovimientoStock($mysqli, $id_variante, 'devolucion', $cantidad, $id_usuario, $id_pedido, $observaciones, true)) {
+                    throw new Exception("Error al registrar devolución de stock para variante #{$id_variante}");
+                }
+            }
+            
+            if (!actualizarEstadoPedido($mysqli, $id_pedido, 'devolucion')) {
+                throw new Exception('Error al actualizar estado del pedido a devolucion');
+            }
+        }
+        // REGLA 4: Cancelar pedido manualmente
+        // SI pedido.estado_pedido IN ('pendiente', 'preparacion')
+        // ENTONCES pedido.estado_pedido = 'cancelado'
+        // SI pago.estado_pago = 'aprobado' ENTONCES Restaurar stock y pago.estado_pago = 'cancelado'
+        elseif ($nuevo_estado_pedido === 'cancelado') {
+            if (!in_array($estado_pedido_anterior, ['pendiente', 'preparacion'])) {
+                throw new Exception('Solo se puede cancelar un pedido que está pendiente o en preparación');
+            }
+            
+            // Si el pago estaba aprobado, restaurar stock
+            if ($pago_actual && $estado_pago === 'aprobado') {
+                if (!revertirStockPedido($mysqli, $id_pedido, $id_usuario, "Pedido cancelado manualmente")) {
+                    throw new Exception('Error al restaurar stock del pedido');
+                }
+            }
+            
+            // Actualizar estado del pedido
+            if (!actualizarEstadoPedido($mysqli, $id_pedido, 'cancelado')) {
+                throw new Exception('Error al actualizar estado del pedido a cancelado');
+            }
+            
+            // Cancelar el pago si existe y no está cancelado
+            if ($pago_actual && $estado_pago !== 'cancelado' && in_array($estado_pago, ['pendiente', 'pendiente_aprobacion', 'aprobado'])) {
+                if (!actualizarEstadoPago($mysqli, $pago_actual['id_pago'], 'cancelado')) {
+                    throw new Exception('Error al cancelar el pago');
+                }
+            }
+        }
+        // REGLA 5: Otros cambios de estado (pendiente, preparacion)
+        // Validación básica y actualización
+        else {
+            if (!actualizarEstadoPedido($mysqli, $id_pedido, $nuevo_estado_pedido)) {
+                throw new Exception('Error al actualizar estado del pedido');
+            }
+        }
+        
+        $mysqli->commit();
+        return true;
+        
+    } catch (Exception $e) {
+        $mysqli->rollback();
+        error_log("Error en actualizarEstadoPedidoConValidaciones: " . $e->getMessage());
+        throw $e;
+    }
+}
+
