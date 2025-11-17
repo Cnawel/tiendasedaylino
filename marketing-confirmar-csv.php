@@ -228,91 +228,8 @@ function desagruparProductosCSV($productos_agrupados) {
 // CONFIRMAR CARGA MASIVA
 // ============================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirmar_carga'])) {
+    // Agrupar productos del CSV (sin ediciones, se usan los datos originales)
     $productos_agrupados = agruparProductosCSV($productos_csv);
-    
-    // Actualizar productos con valores editados del formulario
-    if (isset($_POST['productos_editados']) && is_array($_POST['productos_editados'])) {
-        foreach ($_POST['productos_editados'] as $producto_key => $datos_editados) {
-            $nombre_original = base64_decode($producto_key);
-            if (isset($productos_agrupados[$nombre_original])) {
-                $producto_editado = $productos_agrupados[$nombre_original];
-                
-                // Actualizar campos del producto
-                if (isset($datos_editados['nombre_producto'])) {
-                    $producto_editado['nombre_producto'] = trim($datos_editados['nombre_producto']);
-                }
-                if (isset($datos_editados['descripcion_producto'])) {
-                    $producto_editado['descripcion_producto'] = trim($datos_editados['descripcion_producto']);
-                }
-                if (isset($datos_editados['precio_actual'])) {
-                    $producto_editado['precio_actual'] = floatval($datos_editados['precio_actual']);
-                }
-                if (isset($datos_editados['id_categoria'])) {
-                    $producto_editado['id_categoria'] = intval($datos_editados['id_categoria']);
-                }
-                if (isset($datos_editados['genero'])) {
-                    $producto_editado['genero'] = trim($datos_editados['genero']);
-                }
-                
-                // Actualizar fotos base (normalizar rutas: agregar imagenes/ si no lo tiene)
-                if (isset($datos_editados['foto_prod_miniatura'])) {
-                    $foto_min = trim($datos_editados['foto_prod_miniatura']);
-                    if (!empty($foto_min) && strpos($foto_min, 'imagenes/') !== 0) {
-                        $foto_min = 'imagenes/' . $foto_min;
-                    }
-                    $producto_editado['foto_prod_miniatura'] = $foto_min;
-                }
-                if (isset($datos_editados['foto3_prod'])) {
-                    $foto3 = trim($datos_editados['foto3_prod']);
-                    if (!empty($foto3) && strpos($foto3, 'imagenes/') !== 0) {
-                        $foto3 = 'imagenes/' . $foto3;
-                    }
-                    $producto_editado['foto3_prod'] = $foto3;
-                }
-                
-                // Actualizar variantes
-                if (isset($datos_editados['variantes']) && is_array($datos_editados['variantes'])) {
-                    foreach ($datos_editados['variantes'] as $idx => $variante_editada) {
-                        if (isset($producto_editado['variantes'][$idx])) {
-                            if (isset($variante_editada['talle'])) {
-                                $producto_editado['variantes'][$idx]['talle'] = trim($variante_editada['talle']);
-                            }
-                            if (isset($variante_editada['color'])) {
-                                $producto_editado['variantes'][$idx]['color'] = trim($variante_editada['color']);
-                            }
-                            if (isset($variante_editada['stock'])) {
-                                $producto_editado['variantes'][$idx]['stock'] = intval($variante_editada['stock']);
-                            }
-                            // Normalizar rutas de fotos de variantes
-                            if (isset($variante_editada['foto1_prod'])) {
-                                $foto1 = trim($variante_editada['foto1_prod']);
-                                if (!empty($foto1) && strpos($foto1, 'imagenes/') !== 0) {
-                                    $foto1 = 'imagenes/' . $foto1;
-                                }
-                                $producto_editado['variantes'][$idx]['foto1_prod'] = $foto1;
-                            }
-                            if (isset($variante_editada['foto2_prod'])) {
-                                $foto2 = trim($variante_editada['foto2_prod']);
-                                if (!empty($foto2) && strpos($foto2, 'imagenes/') !== 0) {
-                                    $foto2 = 'imagenes/' . $foto2;
-                                }
-                                $producto_editado['variantes'][$idx]['foto2_prod'] = $foto2;
-                            }
-                        }
-                    }
-                }
-                
-                // Si el nombre cambió, usar el nuevo nombre como clave
-                $nuevo_nombre = $producto_editado['nombre_producto'];
-                if ($nuevo_nombre !== $nombre_original) {
-                    // Eliminar el producto con el nombre antiguo
-                    unset($productos_agrupados[$nombre_original]);
-                }
-                // Agregar/actualizar con el nuevo nombre
-                $productos_agrupados[$nuevo_nombre] = $producto_editado;
-            }
-        }
-    }
     
     // Validación final de todos los datos antes de procesar
     $errores_validacion = [];
@@ -685,163 +602,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirmar_carga'])) {
 }
 
 // ============================================================================
-// ACTUALIZAR CARGA MASIVA (Recargar página con datos editados)
-// ============================================================================
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_carga'])) {
-    $productos_agrupados = agruparProductosCSV($productos_csv);
-    $hubo_cambios = false;
-    
-    // Actualizar productos con valores editados del formulario
-    if (isset($_POST['productos_editados']) && is_array($_POST['productos_editados'])) {
-        foreach ($_POST['productos_editados'] as $producto_key => $datos_editados) {
-            $nombre_original = base64_decode($producto_key);
-            if (isset($productos_agrupados[$nombre_original])) {
-                $producto_editado = $productos_agrupados[$nombre_original];
-                $producto_cambio = false;
-                
-                // Actualizar campos del producto
-                if (isset($datos_editados['nombre_producto'])) {
-                    $nuevo_nombre = trim($datos_editados['nombre_producto']);
-                    if ($nuevo_nombre !== $producto_editado['nombre_producto']) {
-                        $producto_editado['nombre_producto'] = $nuevo_nombre;
-                        $producto_cambio = true;
-                    }
-                }
-                if (isset($datos_editados['descripcion_producto'])) {
-                    $nueva_desc = trim($datos_editados['descripcion_producto']);
-                    if ($nueva_desc !== ($producto_editado['descripcion_producto'] ?? '')) {
-                        $producto_editado['descripcion_producto'] = $nueva_desc;
-                        $producto_cambio = true;
-                    }
-                }
-                if (isset($datos_editados['precio_actual'])) {
-                    $nuevo_precio = floatval($datos_editados['precio_actual']);
-                    if ($nuevo_precio != $producto_editado['precio_actual']) {
-                        $producto_editado['precio_actual'] = $nuevo_precio;
-                        $producto_cambio = true;
-                    }
-                }
-                if (isset($datos_editados['id_categoria'])) {
-                    $nueva_cat = intval($datos_editados['id_categoria']);
-                    if ($nueva_cat != $producto_editado['id_categoria']) {
-                        $producto_editado['id_categoria'] = $nueva_cat;
-                        $producto_cambio = true;
-                    }
-                }
-                if (isset($datos_editados['genero'])) {
-                    $nuevo_genero = trim($datos_editados['genero']);
-                    if ($nuevo_genero !== $producto_editado['genero']) {
-                        $producto_editado['genero'] = $nuevo_genero;
-                        $producto_cambio = true;
-                    }
-                }
-                
-                // Actualizar fotos base (normalizar rutas: agregar imagenes/ si no lo tiene)
-                if (isset($datos_editados['foto_prod_miniatura'])) {
-                    $nueva_foto_min = trim($datos_editados['foto_prod_miniatura']);
-                    if (!empty($nueva_foto_min) && strpos($nueva_foto_min, 'imagenes/') !== 0) {
-                        $nueva_foto_min = 'imagenes/' . $nueva_foto_min;
-                    }
-                    if ($nueva_foto_min !== ($producto_editado['foto_prod_miniatura'] ?? '')) {
-                        $producto_editado['foto_prod_miniatura'] = $nueva_foto_min;
-                        $producto_cambio = true;
-                    }
-                }
-                if (isset($datos_editados['foto3_prod'])) {
-                    $nueva_foto3 = trim($datos_editados['foto3_prod']);
-                    if (!empty($nueva_foto3) && strpos($nueva_foto3, 'imagenes/') !== 0) {
-                        $nueva_foto3 = 'imagenes/' . $nueva_foto3;
-                    }
-                    if ($nueva_foto3 !== ($producto_editado['foto3_prod'] ?? '')) {
-                        $producto_editado['foto3_prod'] = $nueva_foto3;
-                        $producto_cambio = true;
-                    }
-                }
-                
-                // Actualizar variantes
-                if (isset($datos_editados['variantes']) && is_array($datos_editados['variantes'])) {
-                    foreach ($datos_editados['variantes'] as $idx => $variante_editada) {
-                        if (isset($producto_editado['variantes'][$idx])) {
-                            if (isset($variante_editada['talle'])) {
-                                $nuevo_talle = trim($variante_editada['talle']);
-                                if ($nuevo_talle !== $producto_editado['variantes'][$idx]['talle']) {
-                                    $producto_editado['variantes'][$idx]['talle'] = $nuevo_talle;
-                                    $producto_cambio = true;
-                                }
-                            }
-                            if (isset($variante_editada['color'])) {
-                                $nuevo_color = trim($variante_editada['color']);
-                                if ($nuevo_color !== $producto_editado['variantes'][$idx]['color']) {
-                                    $producto_editado['variantes'][$idx]['color'] = $nuevo_color;
-                                    $producto_cambio = true;
-                                }
-                            }
-                            if (isset($variante_editada['stock'])) {
-                                $nuevo_stock = intval($variante_editada['stock']);
-                                if ($nuevo_stock != $producto_editado['variantes'][$idx]['stock']) {
-                                    $producto_editado['variantes'][$idx]['stock'] = $nuevo_stock;
-                                    $producto_cambio = true;
-                                }
-                            }
-                            // Normalizar rutas de fotos de variantes
-                            if (isset($variante_editada['foto1_prod'])) {
-                                $nueva_foto1 = trim($variante_editada['foto1_prod']);
-                                if (!empty($nueva_foto1) && strpos($nueva_foto1, 'imagenes/') !== 0) {
-                                    $nueva_foto1 = 'imagenes/' . $nueva_foto1;
-                                }
-                                if ($nueva_foto1 !== ($producto_editado['variantes'][$idx]['foto1_prod'] ?? '')) {
-                                    $producto_editado['variantes'][$idx]['foto1_prod'] = $nueva_foto1;
-                                    $producto_cambio = true;
-                                }
-                            }
-                            if (isset($variante_editada['foto2_prod'])) {
-                                $nueva_foto2 = trim($variante_editada['foto2_prod']);
-                                if (!empty($nueva_foto2) && strpos($nueva_foto2, 'imagenes/') !== 0) {
-                                    $nueva_foto2 = 'imagenes/' . $nueva_foto2;
-                                }
-                                if ($nueva_foto2 !== ($producto_editado['variantes'][$idx]['foto2_prod'] ?? '')) {
-                                    $producto_editado['variantes'][$idx]['foto2_prod'] = $nueva_foto2;
-                                    $producto_cambio = true;
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                if ($producto_cambio) {
-                    $hubo_cambios = true;
-                }
-                
-                // Si el nombre cambió, usar el nuevo nombre como clave
-                $nuevo_nombre = $producto_editado['nombre_producto'];
-                if ($nuevo_nombre !== $nombre_original) {
-                    // Eliminar el producto con el nombre antiguo
-                    unset($productos_agrupados[$nombre_original]);
-                }
-                // Agregar/actualizar con el nuevo nombre
-                $productos_agrupados[$nuevo_nombre] = $producto_editado;
-            }
-        }
-    }
-    
-    // Convertir productos agrupados de vuelta al formato plano CSV
-    $productos_csv_actualizados = desagruparProductosCSV($productos_agrupados);
-    
-    // Actualizar sesión con los datos editados
-    $_SESSION['productos_csv_pendientes'] = $productos_csv_actualizados;
-    
-    // Si hubo cambios, guardar mensaje de éxito
-    if ($hubo_cambios) {
-        $_SESSION['mensaje'] = 'PRODUCTOS MODIFICADOS CORRECTAMENTE';
-        $_SESSION['mensaje_tipo'] = 'success';
-    }
-    
-    // Redirigir a la misma página para recargar con datos actualizados
-    header('Location: marketing-confirmar-csv.php');
-    exit;
-}
-
-// ============================================================================
 // CANCELAR CARGA MASIVA
 // ============================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancelar_carga'])) {
@@ -1036,7 +796,7 @@ foreach ($productos_agrupados as $nombre => $producto) {
                 <div class="card">
                     <div class="card-header">
                         <h5 class="mb-0"><i class="fas fa-list me-2"></i>Vista Previa de Productos</h5>
-                        <small class="text-muted">Puedes editar los campos antes de confirmar. Selecciona los productos existentes que deseas actualizar.</small>
+                        <small class="text-muted">Revisa los datos del CSV antes de confirmar. Selecciona los productos existentes que deseas actualizar.</small>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
@@ -1084,20 +844,10 @@ foreach ($productos_agrupados as $nombre => $producto) {
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <input type="text" 
-                                                   class="form-control form-control-sm" 
-                                                   name="productos_editados[<?= htmlspecialchars($producto_key) ?>][nombre_producto]" 
-                                                   value="<?= htmlspecialchars($producto['nombre_producto']) ?>"
-                                                   required
-                                                   pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\-]{3,100}"
-                                                   title="Solo letras, números, espacios y guiones. Mínimo 3 caracteres, máximo 100."
-                                                   style="min-width: 200px;">
-                                            <textarea class="form-control form-control-sm mt-1" 
-                                                      name="productos_editados[<?= htmlspecialchars($producto_key) ?>][descripcion_producto]" 
-                                                      rows="2"
-                                                      maxlength="255"
-                                                      title="Máximo 255 caracteres. No se permiten: < > { } [ ] | \ / &"
-                                                      style="min-width: 200px; font-size: 0.85em;"><?= htmlspecialchars($producto['descripcion_producto'] ?? '') ?></textarea>
+                                            <div class="fw-bold mb-1"><?= htmlspecialchars($producto['nombre_producto']) ?></div>
+                                            <div class="text-muted small" style="max-width: 200px;">
+                                                <?= !empty($producto['descripcion_producto']) ? htmlspecialchars($producto['descripcion_producto']) : '<em class="text-muted">Sin descripción</em>' ?>
+                                            </div>
                                             <?php if (!$es_nuevo && $producto_existente_data): ?>
                                             <br><small class="text-info">
                                                 <i class="fas fa-info-circle"></i> 
@@ -1107,106 +857,78 @@ foreach ($productos_agrupados as $nombre => $producto) {
                                         </td>
                                         <td>
                                             <div class="fotos-base">
-                                                <label class="form-label small mb-1 fw-semibold">Foto Miniatura:</label>
-                                                <input type="text" 
-                                                       class="form-control form-control-sm" 
-                                                       name="productos_editados[<?= htmlspecialchars($producto_key) ?>][foto_prod_miniatura]" 
-                                                       value="<?= htmlspecialchars(obtenerNombreArchivo($producto['foto_prod_miniatura'] ?? '')) ?>"
-                                                       placeholder="archivo.webp"
-                                                       style="font-size: 0.9em; font-family: monospace;">
-                                                <label class="form-label small mb-1 mt-2 fw-semibold">Foto 3 (Grupal):</label>
-                                                <input type="text" 
-                                                       class="form-control form-control-sm" 
-                                                       name="productos_editados[<?= htmlspecialchars($producto_key) ?>][foto3_prod]" 
-                                                       value="<?= htmlspecialchars(obtenerNombreArchivo($producto['foto3_prod'] ?? '')) ?>"
-                                                       placeholder="archivo.webp"
-                                                       style="font-size: 0.9em; font-family: monospace;">
+                                                <div class="small mb-1">
+                                                    <span class="fw-semibold">Foto Miniatura:</span><br>
+                                                    <code class="text-dark"><?= htmlspecialchars(obtenerNombreArchivo($producto['foto_prod_miniatura'] ?? '')) ?: '<em class="text-muted">Sin foto</em>' ?></code>
+                                                </div>
+                                                <div class="small mt-2">
+                                                    <span class="fw-semibold">Foto 3 (Grupal):</span><br>
+                                                    <code class="text-dark"><?= htmlspecialchars(obtenerNombreArchivo($producto['foto3_prod'] ?? '')) ?: '<em class="text-muted">Sin foto</em>' ?></code>
+                                                </div>
                                             </div>
                                         </td>
                                         <td>
-                                            <select class="form-select form-select-sm" 
-                                                    name="productos_editados[<?= htmlspecialchars($producto_key) ?>][id_categoria]"
-                                                    required>
-                                                <?php foreach ($categorias_array as $cat): ?>
-                                                <option value="<?= $cat['id_categoria'] ?>" 
-                                                        <?= $producto['id_categoria'] == $cat['id_categoria'] ? 'selected' : '' ?>>
-                                                    <?= htmlspecialchars($cat['nombre_categoria']) ?>
-                                                </option>
-                                                <?php endforeach; ?>
-                                            </select>
+                                            <span class="badge bg-info">
+                                                <?= htmlspecialchars($categorias[$producto['id_categoria']] ?? 'Categoría no encontrada') ?>
+                                            </span>
                                         </td>
                                         <td>
-                                            <select class="form-select form-select-sm" 
-                                                    name="productos_editados[<?= htmlspecialchars($producto_key) ?>][genero]"
-                                                    required>
-                                                <option value="hombre" <?= $producto['genero'] === 'hombre' ? 'selected' : '' ?>>Hombre</option>
-                                                <option value="mujer" <?= $producto['genero'] === 'mujer' ? 'selected' : '' ?>>Mujer</option>
-                                                <option value="unisex" <?= $producto['genero'] === 'unisex' ? 'selected' : '' ?>>Unisex</option>
-                                            </select>
+                                            <span class="badge bg-secondary text-capitalize">
+                                                <?= htmlspecialchars($producto['genero']) ?>
+                                            </span>
                                         </td>
                                         <td class="text-end">
-                                            <input type="number" 
-                                                   class="form-control form-control-sm text-end" 
-                                                   name="productos_editados[<?= htmlspecialchars($producto_key) ?>][precio_actual]" 
-                                                   value="<?= number_format($producto['precio_actual'], 2, '.', '') ?>"
-                                                   step="0.01"
-                                                   min="0.01"
-                                                   required
-                                                   title="Precio debe ser mayor a 0"
-                                                   style="min-width: 120px;">
+                                            <div class="fw-bold">
+                                                $<?= number_format($producto['precio_actual'], 0, ',', '.') ?>
+                                            </div>
                                             <?php if (!$es_nuevo && $producto_existente_data && $producto_existente_data['precio_actual'] != $producto['precio_actual']): ?>
-                                            <br><small class="text-warning">
+                                            <small class="text-warning">
                                                 <i class="fas fa-arrow-right"></i> 
                                                 $<?= number_format($producto_existente_data['precio_actual'], 0, ',', '.') ?>
                                             </small>
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <div class="variantes-editables" style="max-height: 150px; overflow-y: auto;">
-                                                <?php foreach ($producto['variantes'] as $idx => $variante): ?>
-                                                <div class="mb-2 p-2 border rounded">
-                                                    <div class="d-flex gap-1 mb-1 align-items-center">
-                                                        <input type="text" 
-                                                               class="form-control form-control-sm" 
-                                                               name="productos_editados[<?= htmlspecialchars($producto_key) ?>][variantes][<?= $idx ?>][talle]" 
-                                                               value="<?= htmlspecialchars($variante['talle']) ?>"
-                                                               required
-                                                               pattern="[a-zA-Z0-9\-]{1,50}"
-                                                               title="Solo letras, números y guiones. Máximo 50 caracteres."
-                                                               placeholder="Talle"
-                                                               style="width: 60px;">
-                                                        <input type="text" 
-                                                               class="form-control form-control-sm" 
-                                                               name="productos_editados[<?= htmlspecialchars($producto_key) ?>][variantes][<?= $idx ?>][color]" 
-                                                               value="<?= htmlspecialchars($variante['color']) ?>"
-                                                               required
-                                                               pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ]{3,50}"
-                                                               title="Solo letras. Mínimo 3 caracteres, máximo 50."
-                                                               placeholder="Color"
-                                                               style="width: 80px;">
-                                                        <input type="number" 
-                                                               class="form-control form-control-sm text-end" 
-                                                               name="productos_editados[<?= htmlspecialchars($producto_key) ?>][variantes][<?= $idx ?>][stock]" 
-                                                               value="<?= intval($variante['stock']) ?>"
-                                                               min="0"
-                                                               required
-                                                               title="Stock debe ser 0 o mayor"
-                                                               style="width: 70px;">
+                                            <div class="variantes-lectura" style="max-height: 150px; overflow-y: auto;">
+                                                <?php 
+                                                // Agrupar variantes por color para evitar duplicar información de fotos
+                                                $variantes_por_color = [];
+                                                foreach ($producto['variantes'] as $idx => $variante) {
+                                                    $color_key = strtolower(trim($variante['color']));
+                                                    if (!isset($variantes_por_color[$color_key])) {
+                                                        $variantes_por_color[$color_key] = [
+                                                            'color' => $variante['color'],
+                                                            'foto1' => $variante['foto1_prod'] ?? '',
+                                                            'foto2' => $variante['foto2_prod'] ?? '',
+                                                            'talles' => []
+                                                        ];
+                                                    }
+                                                    $variantes_por_color[$color_key]['talles'][] = [
+                                                        'talle' => $variante['talle'],
+                                                        'stock' => $variante['stock']
+                                                    ];
+                                                }
+                                                
+                                                foreach ($variantes_por_color as $color_data): 
+                                                ?>
+                                                <div class="mb-2 p-2 border rounded bg-light">
+                                                    <div class="d-flex gap-2 mb-1 align-items-center flex-wrap">
+                                                        <span class="badge bg-secondary text-capitalize"><?= htmlspecialchars($color_data['color']) ?></span>
+                                                        <?php foreach ($color_data['talles'] as $talle_data): ?>
+                                                            <span class="badge bg-primary"><?= htmlspecialchars($talle_data['talle']) ?>: <?= number_format(intval($talle_data['stock']), 0, ',', '.') ?></span>
+                                                        <?php endforeach; ?>
                                                     </div>
-                                                    <div class="d-flex gap-1">
-                                                        <input type="text" 
-                                                               class="form-control form-control-sm" 
-                                                               name="productos_editados[<?= htmlspecialchars($producto_key) ?>][variantes][<?= $idx ?>][foto1_prod]" 
-                                                               value="<?= htmlspecialchars(obtenerNombreArchivo($variante['foto1_prod'] ?? '')) ?>"
-                                                               placeholder="archivo.webp"
-                                                               style="width: 120px; font-size: 0.9em; font-family: monospace;">
-                                                        <input type="text" 
-                                                               class="form-control form-control-sm" 
-                                                               name="productos_editados[<?= htmlspecialchars($producto_key) ?>][variantes][<?= $idx ?>][foto2_prod]" 
-                                                               value="<?= htmlspecialchars(obtenerNombreArchivo($variante['foto2_prod'] ?? '')) ?>"
-                                                               placeholder="archivo.webp"
-                                                               style="width: 120px; font-size: 0.9em; font-family: monospace;">
+                                                    <?php if (!empty($color_data['foto1']) || !empty($color_data['foto2'])): ?>
+                                                    <div class="small text-muted mt-1">
+                                                        <?php if (!empty($color_data['foto1'])): ?>
+                                                            <code class="text-dark">Foto1: <?= htmlspecialchars(obtenerNombreArchivo($color_data['foto1'])) ?></code>
+                                                        <?php endif; ?>
+                                                        <?php if (!empty($color_data['foto2'])): ?>
+                                                            <?php if (!empty($color_data['foto1'])): ?><br><?php endif; ?>
+                                                            <code class="text-dark">Foto2: <?= htmlspecialchars(obtenerNombreArchivo($color_data['foto2'])) ?></code>
+                                                        <?php endif; ?>
                                                     </div>
+                                                    <?php endif; ?>
                                                 </div>
                                                 <?php endforeach; ?>
                                             </div>
@@ -1315,10 +1037,6 @@ foreach ($productos_agrupados as $nombre => $producto) {
             <div class="text-center mt-4">
                 <button type="submit" name="confirmar_carga" form="formConfirmarCarga" class="btn btn-success btn-lg me-3">
                     <i class="fas fa-check me-2"></i>Confirmar Carga
-                </button>
-                
-                <button type="submit" name="actualizar_carga" form="formConfirmarCarga" class="btn btn-primary btn-lg me-3">
-                    <i class="fas fa-sync me-2"></i>Actualizar
                 </button>
                 
                 <form method="POST" class="d-inline me-3">

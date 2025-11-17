@@ -798,15 +798,15 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                         </div>
                         <?php endif; ?>
                         
-                        <div class="alert alert-warning mt-3">
-                            <h6><i class="fas fa-exclamation-triangle me-2"></i>Tips para evitar errores (Poka-yoke):</h6>
-                            <ul class="mb-0 small">
-                                <li><strong>Usa nombres de categorías, NO IDs:</strong> Escribe "Blusas" en lugar de "1"</li>
-                                <li><strong>Género debe ser exacto:</strong> Solo acepta: <code>hombre</code>, <code>mujer</code> o <code>unisex</code> (minúsculas)</li>
-                                <li><strong>Precio debe ser numérico:</strong> Usa formato decimal como <code>15000.00</code></li>
-                                <li><strong>Stock debe ser entero:</strong> Usa números enteros como <code>10</code>, no decimales</li>
-                                <li><strong>Cada fila = una variante:</strong> Los productos con el mismo nombre se agrupan automáticamente</li>
-                                <li><strong>No dejes campos obligatorios vacíos:</strong> Nombre, Precio, Categoría, Género, Talle, Color son obligatorios</li>
+                        <div class="alert alert-info border-info mt-3" style="background-color: #e7f3ff; border-left: 4px solid #0d6efd;">
+                            <h6 class="text-dark mb-3"><i class="fas fa-info-circle me-2"></i>Recomendaciones para una carga exitosa:</h6>
+                            <ul class="mb-0 small text-dark">
+                                <li class="mb-2"><strong>Usa nombres de categorías, NO IDs:</strong> Escribe "Blusas" en lugar de "1"</li>
+                                <li class="mb-2"><strong>Género debe ser exacto:</strong> Solo acepta: <code class="bg-white px-1 rounded">hombre</code>, <code class="bg-white px-1 rounded">mujer</code> o <code class="bg-white px-1 rounded">unisex</code> (minúsculas)</li>
+                                <li class="mb-2"><strong>Precio debe ser numérico:</strong> Usa formato decimal como <code class="bg-white px-1 rounded">15000.00</code></li>
+                                <li class="mb-2"><strong>Stock debe ser entero:</strong> Usa números enteros como <code class="bg-white px-1 rounded">10</code>, no decimales</li>
+                                <li class="mb-2"><strong>Cada fila = una variante:</strong> Los productos con el mismo nombre se agrupan automáticamente</li>
+                                <li class="mb-0"><strong>No dejes campos obligatorios vacíos:</strong> Nombre, Precio, Categoría, Género, Talle, Color son obligatorios</li>
                             </ul>
                         </div>
                         
