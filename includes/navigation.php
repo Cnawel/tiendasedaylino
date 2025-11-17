@@ -267,7 +267,7 @@ function obtenerPanelesDisponibles($rol_usuario = null) {
                     <?php if (canAccess('perfil')): ?>
                     <li class="nav-item">
                         <a class="nav-link" href="<?= sanitizeUrl('perfil') ?>" title="Mi Perfil">
-                            <img src="/iconos/avatar-usuario.png" alt="icono de avatar de usuario">
+                            <img src="iconos/avatar-usuario.png" alt="icono de avatar de usuario">
                         </a>
                     </li>
                     <?php endif; ?>
@@ -282,7 +282,7 @@ function obtenerPanelesDisponibles($rol_usuario = null) {
                     <!-- Usuario no logueado: mostrar solo login -->
                     <li class="nav-item">
                         <a class="nav-link" href="<?= sanitizeUrl('login') ?>" title="Iniciar Sesión">
-                            <img src="/iconos/avatar-usuario.png" alt="icono de avatar de usuario">
+                            <img src="iconos/avatar-usuario.png" alt="icono de avatar de usuario">
                         </a>
                     </li>
                     <?php endif; ?>

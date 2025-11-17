@@ -46,17 +46,17 @@ include 'includes/header.php';
                 <div class="carousel-inner">
                     <div class="carousel-item active">
                       <a href="catalogo.php" class="d-block">
-                        <img src="/imagenes/productos/camisas/camisa_grupal.png" class="d-block w-100" alt="Colección de camisas elegantes de seda y lino" loading="lazy">
+                        <img src="imagenes/productos/camisas/camisa_grupal.png" class="d-block w-100" alt="Colección de camisas elegantes de seda y lino" loading="lazy">
                       </a>
                     </div>
                     <div class="carousel-item">
                       <a href="catalogo.php" class="d-block">
-                        <img src="/imagenes/productos/pantalones/pantalon_grupal.png" class="d-block w-100" alt="Colección de pantalones de lino premium" loading="lazy">
+                        <img src="imagenes/productos/pantalones/pantalon_grupal.png" class="d-block w-100" alt="Colección de pantalones de lino premium" loading="lazy">
                       </a>
                     </div>
                     <div class="carousel-item">
                       <a href="catalogo.php" class="d-block">
-                        <img src="/imagenes/productos/blusas/blusa_mujer_modelogrupal_oficina.png" class="d-block w-100" alt="Blusas elegantes de seda y lino" loading="lazy">
+                        <img src="imagenes/productos/blusas/blusa_mujer_modelogrupal_oficina.png" class="d-block w-100" alt="Blusas elegantes de seda y lino" loading="lazy">
                       </a>
                     </div>
                 </div>
@@ -87,7 +87,7 @@ include 'includes/header.php';
                                     <h5 class="card-title titulo-tarjeta mb-0">Camisas</h5>
                                 </div>
                                 <div class="card-img-wrapper card-img-wrapper-compact">
-                                    <img src="/imagenes/productos/camisas/camisa_grupal.png" class="card-img-top" alt="Camisas elegantes de seda y lino" loading="lazy">
+                                    <img src="imagenes/productos/camisas/camisa_grupal.png" class="card-img-top" alt="Camisas elegantes de seda y lino" loading="lazy">
                                     <div class="card-overlay">
                                         <span class="overlay-text">Explorar</span>
                                     </div>
@@ -105,7 +105,7 @@ include 'includes/header.php';
                                     <h5 class="card-title titulo-tarjeta mb-0">Blusas</h5>
                                 </div>
                                 <div class="card-img-wrapper card-img-wrapper-compact">
-                                    <img src="/imagenes/productos/blusas/blusa_mujer_modelogrupal_oficina.png" class="card-img-top" alt="Blusas femeninas de calidad" loading="lazy">
+                                    <img src="imagenes/productos/blusas/blusa_mujer_modelogrupal_oficina.png" class="card-img-top" alt="Blusas femeninas de calidad" loading="lazy">
                                     <div class="card-overlay">
                                         <span class="overlay-text">Explorar</span>
                                     </div>
@@ -123,7 +123,7 @@ include 'includes/header.php';
                                     <h5 class="card-title titulo-tarjeta mb-0">Shorts</h5>
                                 </div>
                                 <div class="card-img-wrapper card-img-wrapper-compact">
-                                    <img src="/imagenes/productos/shorts/pantalon_mujer_grupal.png" class="card-img-top" alt="Shorts cómodos y elegantes" loading="lazy">
+                                    <img src="imagenes/productos/shorts/pantalon_mujer_grupal.png" class="card-img-top" alt="Shorts cómodos y elegantes" loading="lazy">
                                     <div class="card-overlay">
                                         <span class="overlay-text">Explorar</span>
                                     </div>
@@ -141,7 +141,7 @@ include 'includes/header.php';
                                     <h5 class="card-title titulo-tarjeta mb-0">Pantalones</h5>
                                 </div>
                                 <div class="card-img-wrapper card-img-wrapper-compact">
-                                    <img src="/imagenes/productos/pantalones/pantalon_grupal.png" class="card-img-top" alt="Pantalón de lino" loading="lazy">
+                                    <img src="imagenes/productos/pantalones/pantalon_grupal.png" class="card-img-top" alt="Pantalón de lino" loading="lazy">
                                     <div class="card-overlay">
                                         <span class="overlay-text">Explorar</span>
                                     </div>

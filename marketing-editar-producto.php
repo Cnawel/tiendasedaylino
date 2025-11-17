@@ -1097,7 +1097,7 @@ $fotos_temporales = obtenerFotosTemporales();
 window.tallesDisponibles = <?= json_encode($talles_disponibles) ?>;
 window.coloresDisponibles = <?= json_encode($colores_disponibles) ?>;
 </script>
-<script src="/includes/marketing_editar_producto.js"></script>
+<script src="includes/marketing_editar_producto.js"></script>
 
 <?php include 'includes/footer.php'; render_footer(); ?>
 

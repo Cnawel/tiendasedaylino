@@ -136,7 +136,7 @@ if (!function_exists('render_footer')) {
         <!-- Proporciona: togglePassword, validateEmail, validateEmailInput, validarCodigoPostal, etc. -->
         <?php include __DIR__ . '/common_js_functions.php'; ?>
         <!-- UX Mejoras Simples (usa funciones de common_js_functions.php si es necesario) -->
-        <script src="/includes/ux-mejoras.js"></script>
+        <script src="includes/ux-mejoras.js"></script>
         <!-- 
         NOTA: Otros scripts específicos de página deben incluirse después de este punto:
         - login.js, register.js, perfil.js: Dependen de common_js_functions.php
@@ -150,7 +150,7 @@ if (!function_exists('render_footer')) {
         // Cargar scripts específicos de página según el archivo actual
         $current_page = basename($_SERVER['PHP_SELF']);
         if ($current_page === 'perfil.php') {
-            echo '<script src="/includes/perfil.js"></script>' . "\n";
+            echo '<script src="includes/perfil.js"></script>' . "\n";
         }
         ?>
         <?php

@@ -700,6 +700,9 @@ function cambiarCantidad(d) {
  * @param {boolean} redirigirCheckout - Si es true, redirige a checkout después de agregar
  */
 function agregarAlCarrito(redirigirCheckout = false) {
+    // Log para depuración
+    console.log('agregarAlCarrito: Función ejecutada', { redirigirCheckout });
+    
     // Verificar que window.productoData esté disponible
     if (!window.productoData) {
         console.error('agregarAlCarrito: window.productoData no está disponible');
@@ -1001,4 +1004,8 @@ function comprarAhora() {
     // Para "Comprar ahora", redirigir al checkout después de agregar exitosamente
     agregarAlCarrito(true);
 }
+
+// Asegurar que las funciones estén disponibles globalmente
+window.agregarAlCarrito = agregarAlCarrito;
+window.comprarAhora = comprarAhora;
 

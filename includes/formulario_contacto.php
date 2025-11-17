@@ -92,5 +92,5 @@ if (!$ignorar_params_get && isset($_GET['pedido']) && !empty($_GET['pedido'])) {
 </section>
 
 <!-- Validación del formulario de contacto -->
-<script src="/includes/formulario-contacto.js"></script>
+<script src="includes/formulario-contacto.js"></script>
 

@@ -85,5 +85,5 @@ if (isset($_GET['pedido']) && !empty($_GET['pedido'])) {
 </section>
 
 <!-- Validación del formulario email -->
-<script src="/includes/formulario-email.js"></script>
+<script src="includes/formulario-email.js"></script>
 

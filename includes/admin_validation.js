@@ -38,7 +38,7 @@
  * @returns {boolean} - true si es válido
  */
 function validarNombreApellido(valor) {
-    const re = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
+    const re = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+$/;
     return valor.trim().length >= 2 && re.test(valor.trim());
 }
 

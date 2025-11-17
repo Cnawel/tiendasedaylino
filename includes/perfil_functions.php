@@ -182,8 +182,8 @@ function procesarActualizacionDatos($mysqli, $id_usuario, $post) {
         } elseif (strlen($apellido) > 100) {
             $mensaje = 'El apellido no puede exceder 100 caracteres.';
             $mensaje_tipo = 'danger';
-        } elseif (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/', $apellido)) {
-            $mensaje = 'El apellido solo puede contener letras y espacios.';
+        } elseif (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\'´]+$/', $apellido)) {
+            $mensaje = 'El apellido solo puede contener letras, espacios, apóstrofe (\') y acento agudo (´).';
             $mensaje_tipo = 'danger';
         }
     }

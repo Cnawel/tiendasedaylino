@@ -147,12 +147,12 @@ function validarNombreApellido($valor, $campo = 'campo') {
         return ['valido' => false, 'valor' => '', 'error' => "El $campo no puede exceder 100 caracteres."];
     }
     
-    // VALIDACIÓN 4: Solo letras, espacios y caracteres acentuados
-    // REGLA DE NEGOCIO: Los nombres deben contener solo letras (incluyendo acentos) y espacios
-    // LÓGICA: Previene inyección de caracteres especiales, números, símbolos que no pertenecen a nombres
-    // Permite: letras mayúsculas/minúsculas, acentos (á, é, í, ó, ú), ñ, ü, espacios
-    if (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/', $valor)) {
-        return ['valido' => false, 'valor' => '', 'error' => "El $campo solo puede contener letras y espacios."];
+    // VALIDACIÓN 4: Solo letras, espacios y caracteres especiales comunes en nombres
+    // REGLA DE NEGOCIO: Los nombres deben contener solo letras (incluyendo acentos), espacios y caracteres especiales comunes
+    // LÓGICA: Previene inyección de caracteres peligrosos, números, símbolos que no pertenecen a nombres
+    // Permite: letras mayúsculas/minúsculas, acentos (á, é, í, ó, ú), ñ, ü, espacios, apóstrofe ('), acento agudo (´)
+    if (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\'´]+$/', $valor)) {
+        return ['valido' => false, 'valor' => '', 'error' => "El $campo solo puede contener letras, espacios, apóstrofe (') y acento agudo (´)."];
     }
     
     // SANITIZACIÓN: Prevenir ataques XSS

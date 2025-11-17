@@ -23,7 +23,7 @@
  *   <?php include 'includes/detalle_producto_data.php'; ?>
  *   <?php include 'includes/detalle_producto_js.php'; ?>
  *   <!-- Opcional: para navegación por clic en imagen -->
- *   <script src="/includes/detalle_producto_image_navigation.js"></script>
+ *   <script src="includes/detalle_producto_image_navigation.js"></script>
  * 
  * @package TiendaSedaYLino
  * @version 2.0

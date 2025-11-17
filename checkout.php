@@ -690,7 +690,7 @@ $monto_faltante = obtenerMontoFaltanteEnvioGratis($total_carrito);
     }
 </style>
 
-<script src="/includes/checkout.js"></script>
+<script src="includes/checkout.js"></script>
 
 <?php include 'includes/footer.php'; render_footer(); ?>
 

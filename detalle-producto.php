@@ -735,7 +735,7 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
     </div>
 
 <?php include 'includes/detalle_producto_data.php'; ?>
-<script src="/js/detalle-producto.js"></script>
-<script src="/includes/detalle_producto_image_navigation.js"></script>
+<script src="js/detalle-producto.js"></script>
+<script src="includes/detalle_producto_image_navigation.js"></script>
 
 <?php include 'includes/footer.php'; render_footer(); ?>

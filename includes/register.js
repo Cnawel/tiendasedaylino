@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         switch (campoId) {
             case 'nombre':
-                const nombrePattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
+                const nombrePattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+$/;
                 if (!valorTrimmed) {
                     return { valido: false, mensaje: 'El nombre es obligatorio.' };
                 } else if (valorTrimmed.length < 2) {
@@ -47,12 +47,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else if (valorTrimmed.length > 50) {
                     return { valido: false, mensaje: 'El nombre no puede exceder 50 caracteres.' };
                 } else if (!nombrePattern.test(valorTrimmed)) {
-                    return { valido: false, mensaje: 'El nombre solo puede contener letras y espacios.' };
+                    return { valido: false, mensaje: 'El nombre solo puede contener letras, espacios, apóstrofe (\') y acento agudo (´).' };
                 }
                 return { valido: true, mensaje: '' };
                 
             case 'apellido':
-                const apellidoPattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
+                const apellidoPattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+$/;
                 if (!valorTrimmed) {
                     // Apellido es opcional, no mostrar error si está vacío
                     return { valido: true, mensaje: '' };
@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else if (valorTrimmed.length > 100) {
                     return { valido: false, mensaje: 'El apellido no puede exceder 100 caracteres.' };
                 } else if (!apellidoPattern.test(valorTrimmed)) {
-                    return { valido: false, mensaje: 'El apellido solo puede contener letras y espacios.' };
+                    return { valido: false, mensaje: 'El apellido solo puede contener letras, espacios, apóstrofe (\') y acento agudo (´).' };
                 }
                 return { valido: true, mensaje: '' };
                 
@@ -126,7 +126,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 return { valido: true, mensaje: '' };
                 
             case 'password_confirm':
-                if (valor && passwordInput.value !== valor) {
+                if (!valor || valor.length === 0) {
+                    return { valido: false, mensaje: 'La confirmación de contraseña es obligatoria.' };
+                } else if (passwordInput.value !== valor) {
                     return { valido: false, mensaje: 'Las contraseñas no coinciden.' };
                 }
                 return { valido: true, mensaje: '' };

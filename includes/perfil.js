@@ -189,7 +189,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (nombreInputDatos) {
         nombreInputDatos.addEventListener('input', function() {
             const valor = this.value.trim();
-            const pattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]*$/;
+            const pattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]*$/;
             
             // Limpiar validación mientras se escribe
             if (this.classList.contains('is-invalid')) {
@@ -198,13 +198,13 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Filtrar caracteres no permitidos
             if (!pattern.test(valor)) {
-                this.value = valor.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '');
+                this.value = valor.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]/g, '');
             }
         });
         
         nombreInputDatos.addEventListener('blur', function() {
             const valor = this.value.trim();
-            const pattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
+            const pattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+$/;
             
             if (!valor) {
                 this.classList.remove('is-valid', 'is-invalid');
@@ -225,7 +225,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (apellidoInputDatos) {
         apellidoInputDatos.addEventListener('input', function() {
             const valor = this.value.trim();
-            const pattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]*$/;
+            const pattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]*$/;
             
             // Limpiar validación mientras se escribe
             if (this.classList.contains('is-invalid')) {
@@ -234,7 +234,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Filtrar caracteres no permitidos
             if (!pattern.test(valor)) {
-                this.value = valor.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '');
+                this.value = valor.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]/g, '');
             }
             
             // Limitar longitud máxima
@@ -245,7 +245,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         apellidoInputDatos.addEventListener('blur', function() {
             const valor = this.value.trim();
-            const pattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
+            const pattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+$/;
             
             if (!valor) {
                 this.classList.remove('is-valid', 'is-invalid');

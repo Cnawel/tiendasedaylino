@@ -108,208 +108,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar_producto_per
 }
 
 // ============================================================================
-// PROCESAR ACCIONES MASIVAS DE PRODUCTOS
-// ============================================================================
-// Activar productos masivamente
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['activar_productos_masivo']) && $_POST['activar_productos_masivo'] == '1') {
-    $productos_seleccionados = $_POST['productos_seleccionados'] ?? [];
-    $mostrar_inactivos_param = isset($_POST['mostrar_inactivos']) ? '&mostrar_inactivos=1' : '';
-    
-    $activados_exitosos = 0;
-    $activados_fallidos = 0;
-    $errores = [];
-    
-    if (!empty($productos_seleccionados) && is_array($productos_seleccionados)) {
-        foreach ($productos_seleccionados as $id_producto_str) {
-            $id_producto = intval($id_producto_str);
-            if ($id_producto > 0) {
-                if (reactivarProducto($mysqli, $id_producto)) {
-                    $activados_exitosos++;
-                } else {
-                    $activados_fallidos++;
-                    $errores[] = 'ID #' . $id_producto;
-                }
-            }
-        }
-        
-        // Preparar mensaje según resultados
-        if ($activados_exitosos > 0 && $activados_fallidos === 0) {
-            $_SESSION['mensaje'] = $activados_exitosos . ' producto(s) activado(s) correctamente';
-            $_SESSION['mensaje_tipo'] = 'success';
-        } elseif ($activados_exitosos > 0 && $activados_fallidos > 0) {
-            $_SESSION['mensaje'] = $activados_exitosos . ' producto(s) activado(s) correctamente. ' . $activados_fallidos . ' producto(s) no se pudieron activar.';
-            $_SESSION['mensaje_tipo'] = 'warning';
-        } elseif ($activados_exitosos === 0 && $activados_fallidos > 0) {
-            $_SESSION['mensaje'] = 'Error al activar los productos seleccionados';
-            $_SESSION['mensaje_tipo'] = 'danger';
-        } else {
-            $_SESSION['mensaje'] = 'No se seleccionaron productos para activar';
-            $_SESSION['mensaje_tipo'] = 'warning';
-        }
-    } else {
-        $_SESSION['mensaje'] = 'No se seleccionaron productos para activar';
-        $_SESSION['mensaje_tipo'] = 'warning';
-    }
-    
-    header('Location: marketing.php?tab=productos' . $mostrar_inactivos_param);
-    exit;
-}
-
-// Desactivar productos masivamente
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['desactivar_productos_masivo']) && $_POST['desactivar_productos_masivo'] == '1') {
-    $productos_seleccionados = $_POST['productos_seleccionados'] ?? [];
-    $mostrar_inactivos_param = isset($_POST['mostrar_inactivos']) ? '&mostrar_inactivos=1' : '';
-    
-    $desactivados_exitosos = 0;
-    $desactivados_fallidos = 0;
-    $errores = [];
-    $ids_procesados = [];
-    
-    if (!empty($productos_seleccionados) && is_array($productos_seleccionados)) {
-        foreach ($productos_seleccionados as $id_producto_str) {
-            $id_producto = intval($id_producto_str);
-            if ($id_producto > 0) {
-                $ids_procesados[] = $id_producto;
-                $resultado = desactivarProducto($mysqli, $id_producto);
-                
-                // Verificar que realmente se actualizó (verificar filas afectadas)
-                if ($resultado) {
-                    // Verificar que el producto realmente se desactivó consultando la BD
-                    $sql_verificar = "SELECT activo FROM Productos WHERE id_producto = ?";
-                    $stmt_verificar = $mysqli->prepare($sql_verificar);
-                    if ($stmt_verificar) {
-                        $stmt_verificar->bind_param('i', $id_producto);
-                        $stmt_verificar->execute();
-                        $result_verificar = $stmt_verificar->get_result();
-                        if ($row = $result_verificar->fetch_assoc()) {
-                            if (intval($row['activo']) === 0) {
-                                $desactivados_exitosos++;
-                            } else {
-                                $desactivados_fallidos++;
-                                $errores[] = 'ID #' . $id_producto . ' (no se actualizó)';
-                            }
-                        } else {
-                            $desactivados_fallidos++;
-                            $errores[] = 'ID #' . $id_producto . ' (no encontrado)';
-                        }
-                        $stmt_verificar->close();
-                    } else {
-                        // Si no se puede verificar, confiar en el resultado de la función
-                        $desactivados_exitosos++;
-                    }
-                } else {
-                    $desactivados_fallidos++;
-                    $errores[] = 'ID #' . $id_producto . ' (error en ejecución)';
-                }
-            }
-        }
-        
-        // Preparar mensaje según resultados
-        if ($desactivados_exitosos > 0 && $desactivados_fallidos === 0) {
-            $_SESSION['mensaje'] = $desactivados_exitosos . ' producto(s) desactivado(s) correctamente';
-            $_SESSION['mensaje_tipo'] = 'success';
-        } elseif ($desactivados_exitosos > 0 && $desactivados_fallidos > 0) {
-            $_SESSION['mensaje'] = $desactivados_exitosos . ' producto(s) desactivado(s) correctamente. ' . $desactivados_fallidos . ' producto(s) no se pudieron desactivar.';
-            if (!empty($errores)) {
-                $_SESSION['mensaje'] .= ' Errores: ' . implode(', ', array_slice($errores, 0, 3));
-            }
-            $_SESSION['mensaje_tipo'] = 'warning';
-        } elseif ($desactivados_exitosos === 0 && $desactivados_fallidos > 0) {
-            $_SESSION['mensaje'] = 'Error al desactivar los productos seleccionados.';
-            if (!empty($errores)) {
-                $_SESSION['mensaje'] .= ' Errores: ' . implode(', ', array_slice($errores, 0, 5));
-            }
-            $_SESSION['mensaje_tipo'] = 'danger';
-        } else {
-            $_SESSION['mensaje'] = 'No se seleccionaron productos para desactivar';
-            $_SESSION['mensaje_tipo'] = 'warning';
-        }
-    } else {
-        $_SESSION['mensaje'] = 'No se seleccionaron productos para desactivar';
-        $_SESSION['mensaje_tipo'] = 'warning';
-    }
-    
-    header('Location: marketing.php?tab=productos' . $mostrar_inactivos_param);
-    exit;
-}
-
-// Eliminar productos permanentemente masivamente
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar_productos_masivo'])) {
-    $productos_seleccionados = $_POST['productos_seleccionados'] ?? [];
-    $mostrar_inactivos_param = isset($_POST['mostrar_inactivos']) ? '&mostrar_inactivos=1' : '';
-    
-    $eliminados_exitosos = 0;
-    $eliminados_fallidos = 0;
-    $errores = [];
-    $productos_no_eliminables = [];
-    
-    if (!empty($productos_seleccionados) && is_array($productos_seleccionados)) {
-        foreach ($productos_seleccionados as $id_producto_str) {
-            $id_producto = intval($id_producto_str);
-            if ($id_producto > 0) {
-                // Verificar que el producto puede eliminarse
-                $verificacion = verificarProductoPuedeEliminarse($mysqli, $id_producto);
-                
-                if (!$verificacion['puede_eliminarse']) {
-                    $eliminados_fallidos++;
-                    $productos_no_eliminables[] = [
-                        'id' => $id_producto,
-                        'razon' => $verificacion['razon']
-                    ];
-                    continue;
-                }
-                
-                // Intentar eliminar permanentemente
-                $resultado = eliminarProductoPermanentemente($mysqli, $id_producto, __DIR__);
-                
-                if ($resultado['success']) {
-                    $eliminados_exitosos++;
-                } else {
-                    $eliminados_fallidos++;
-                    $productos_no_eliminables[] = [
-                        'id' => $id_producto,
-                        'razon' => $resultado['mensaje']
-                    ];
-                }
-            }
-        }
-        
-        // Preparar mensaje según resultados
-        $mensaje_detalle = '';
-        if (!empty($productos_no_eliminables)) {
-            $razones = [];
-            foreach ($productos_no_eliminables as $item) {
-                $razones[] = 'ID #' . $item['id'] . ': ' . $item['razon'];
-            }
-            $mensaje_detalle = ' Productos no eliminados: ' . implode('; ', array_slice($razones, 0, 5));
-            if (count($razones) > 5) {
-                $mensaje_detalle .= ' y ' . (count($razones) - 5) . ' más.';
-            }
-        }
-        
-        if ($eliminados_exitosos > 0 && $eliminados_fallidos === 0) {
-            $_SESSION['mensaje'] = $eliminados_exitosos . ' producto(s) eliminado(s) permanentemente';
-            $_SESSION['mensaje_tipo'] = 'success';
-        } elseif ($eliminados_exitosos > 0 && $eliminados_fallidos > 0) {
-            $_SESSION['mensaje'] = $eliminados_exitosos . ' producto(s) eliminado(s) correctamente. ' . $eliminados_fallidos . ' producto(s) no se pudieron eliminar.' . $mensaje_detalle;
-            $_SESSION['mensaje_tipo'] = 'warning';
-        } elseif ($eliminados_exitosos === 0 && $eliminados_fallidos > 0) {
-            $_SESSION['mensaje'] = 'No se pudo eliminar ningún producto.' . $mensaje_detalle;
-            $_SESSION['mensaje_tipo'] = 'danger';
-        } else {
-            $_SESSION['mensaje'] = 'No se seleccionaron productos para eliminar';
-            $_SESSION['mensaje_tipo'] = 'warning';
-        }
-    } else {
-        $_SESSION['mensaje'] = 'No se seleccionaron productos para eliminar';
-        $_SESSION['mensaje_tipo'] = 'warning';
-    }
-    
-    header('Location: marketing.php?tab=productos' . $mostrar_inactivos_param);
-    exit;
-}
-
-// ============================================================================
 // PROCESAR SUBIDA DE FOTOS TEMPORALES
 // ============================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['subir_foto_temporal'])) {
@@ -384,59 +182,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar_foto_tempora
 }
 
 // ============================================================================
-// PROCESAR ELIMINACIÓN MASIVA DE FOTOS TEMPORALES
-// ============================================================================
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar_fotos_temporales_masivo'])) {
-    $fotos_seleccionadas = $_POST['fotos_seleccionadas'] ?? [];
-    $eliminadas_exitosas = 0;
-    $eliminadas_fallidas = 0;
-    $errores = [];
-    
-    if (!empty($fotos_seleccionadas) && is_array($fotos_seleccionadas)) {
-        foreach ($fotos_seleccionadas as $nombre_archivo) {
-            // Validar que el nombre del archivo no esté vacío
-            $nombre_archivo = trim($nombre_archivo);
-            if (!empty($nombre_archivo)) {
-                if (eliminarFotoTemporal($nombre_archivo)) {
-                    $eliminadas_exitosas++;
-                } else {
-                    $eliminadas_fallidas++;
-                    $errores[] = $nombre_archivo;
-                }
-            }
-        }
-        
-        // Preparar mensaje según resultados
-        if ($eliminadas_exitosas > 0 && $eliminadas_fallidas === 0) {
-            $_SESSION['mensaje'] = $eliminadas_exitosas . ' foto(s) eliminada(s) correctamente';
-            $_SESSION['mensaje_tipo'] = 'success';
-        } elseif ($eliminadas_exitosas > 0 && $eliminadas_fallidas > 0) {
-            $_SESSION['mensaje'] = $eliminadas_exitosas . ' foto(s) eliminada(s) correctamente. ' . $eliminadas_fallidas . ' foto(s) no se pudieron eliminar.';
-            $_SESSION['mensaje_tipo'] = 'warning';
-        } elseif ($eliminadas_exitosas === 0 && $eliminadas_fallidas > 0) {
-            $_SESSION['mensaje'] = 'Error al eliminar las fotos seleccionadas';
-            $_SESSION['mensaje_tipo'] = 'danger';
-        } else {
-            $_SESSION['mensaje'] = 'No se seleccionaron fotos para eliminar';
-            $_SESSION['mensaje_tipo'] = 'warning';
-        }
-    } else {
-        $_SESSION['mensaje'] = 'No se seleccionaron fotos para eliminar';
-        $_SESSION['mensaje_tipo'] = 'warning';
-    }
-    
-    header('Location: marketing.php?tab=fotos');
-    exit;
-}
-
-// ============================================================================
 // PROCESAR CARGA MASIVA CSV
 // ============================================================================
-// Solo procesar CSV si no hay acciones masivas de productos
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && 
-    !isset($_POST['activar_productos_masivo']) && 
-    !isset($_POST['desactivar_productos_masivo']) && 
-    !isset($_POST['eliminar_productos_masivo'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $resultado = procesarCargaCSV($mysqli, $_FILES);
     if ($resultado !== false) {
         if (!empty($resultado['mensaje'])) {
@@ -451,11 +199,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' &&
 // ============================================================================
 // CREAR NUEVO PRODUCTO
 // ============================================================================
-// Solo procesar creación si no hay acciones masivas de productos
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && 
-    !isset($_POST['activar_productos_masivo']) && 
-    !isset($_POST['desactivar_productos_masivo']) && 
-    !isset($_POST['eliminar_productos_masivo'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $resultado = procesarCreacionProducto($mysqli, $_POST, $_FILES);
     if ($resultado !== false) {
         $_SESSION['mensaje'] = $resultado['mensaje'];
@@ -716,23 +460,6 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
             unset($_SESSION['warnings_fotos']);
             endif; ?>
             
-            <!-- Advertencias de fotos CSV si las hay -->
-            <?php if (!empty($_SESSION['advertencias_fotos_csv']) && is_array($_SESSION['advertencias_fotos_csv']) && $tab_activo === 'productos'): ?>
-            <div class="alert alert-info alert-dismissible fade show" role="alert">
-                <h5><i class="fas fa-info-circle me-2"></i>Advertencias - Fotos no guardadas (ya existen):</h5>
-                <ul class="mb-0">
-                    <?php foreach ($_SESSION['advertencias_fotos_csv'] as $advertencia): ?>
-                        <li><?= htmlspecialchars($advertencia) ?></li>
-                    <?php endforeach; ?>
-                </ul>
-                <small class="d-block mt-2">Las fotos existentes no fueron reemplazadas. Puedes actualizarlas manualmente desde la edición del producto.</small>
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-            <?php 
-            // Limpiar advertencias después de mostrarlas
-            unset($_SESSION['advertencias_fotos_csv']);
-            endif; ?>
-            
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="card-title mb-0">
@@ -762,74 +489,26 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                         <p>No hay productos registrados</p>
                     </div>
                     <?php else: ?>
-                    <!-- Formulario para acciones masivas -->
-                    <form method="POST" id="formAccionesMasivasProductos">
-                        <!-- Barra de acciones masivas -->
-                        <div class="mb-3 d-flex align-items-center gap-2 flex-wrap">
-                            <div class="form-check me-3">
-                                <input class="form-check-input" type="checkbox" id="selectAllProductos" onchange="toggleSelectAllProductos(this)">
-                                <label class="form-check-label" for="selectAllProductos">
-                                    <strong>Seleccionar todos</strong>
-                                </label>
-                            </div>
-                            <button type="button" 
-                                    class="btn btn-success btn-sm" 
-                                    id="btnActivarMasivo" 
-                                    disabled
-                                    onclick="submitAccionMasiva('activar')">
-                                <i class="fas fa-check me-1"></i>Activar Seleccionados
-                            </button>
-                            <button type="button" 
-                                    class="btn btn-secondary btn-sm" 
-                                    id="btnDesactivarMasivo" 
-                                    disabled
-                                    onclick="submitAccionMasiva('desactivar')">
-                                <i class="fas fa-ban me-1"></i>Desactivar Seleccionados
-                            </button>
-                            <button type="button" 
-                                    class="btn btn-danger btn-sm" 
-                                    id="btnEliminarMasivoProductos" 
-                                    disabled
-                                    data-bs-toggle="modal" 
-                                    data-bs-target="#eliminarProductosMasivoModal">
-                                <i class="fas fa-trash-alt me-1"></i>Eliminar Permanentemente
-                            </button>
-                            <span class="ms-2 text-muted" id="contadorProductosSeleccionados">0 seleccionado(s)</span>
-                            <?php if ($mostrar_inactivos): ?>
-                                <input type="hidden" name="mostrar_inactivos" value="1">
-                            <?php endif; ?>
-                        </div>
-                        
-                        <div class="table-responsive">
-                            <table class="table table-hover sortable-table">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th style="width: 50px;">
-                                            <input type="checkbox" id="selectAllProductosHeader" onchange="toggleSelectAllProductos(this)">
-                                        </th>
-                                        <th class="sortable">ID</th>
-                                        <th class="sortable text-center" style="width: 60px;">A/I</th>
-                                        <th class="sortable">Producto</th>
-                                        <th class="sortable">Categoría</th>
-                                        <th class="sortable">Género</th>
-                                        <th class="sortable">Precio</th>
-                                        <th class="sortable">Talles</th>
-                                        <th class="sortable">Colores</th>
-                                        <th class="sortable">Stock Total</th>
-                                        <th>Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($productos_array as $producto): ?>
-                                    <tr>
-                                        <td>
-                                            <input type="checkbox" 
-                                                   class="checkbox-producto" 
-                                                   name="productos_seleccionados[]" 
-                                                   value="<?= $producto['id_producto'] ?>"
-                                                   onchange="updateBulkActionsButtons()">
-                                        </td>
-                                        <td>#<?= $producto['id_producto'] ?></td>
+                    <div class="table-responsive">
+                        <table class="table table-hover sortable-table">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th class="sortable">ID</th>
+                                    <th class="sortable text-center" style="width: 60px;">A/I</th>
+                                    <th class="sortable">Producto</th>
+                                    <th class="sortable">Categoría</th>
+                                    <th class="sortable">Género</th>
+                                    <th class="sortable">Precio</th>
+                                    <th class="sortable">Talles</th>
+                                    <th class="sortable">Colores</th>
+                                    <th class="sortable">Stock Total</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($productos_array as $producto): ?>
+                                <tr>
+                                    <td>#<?= $producto['id_producto'] ?></td>
                                     <td class="text-center">
                                         <?php 
                                         $activo = intval($producto['activo'] ?? 1);
@@ -981,13 +660,12 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
-                        </div>
-                        <div class="mt-2">
-                            <small class="text-muted">
-                                Mostrando <?= count($productos_array) ?> producto(s)
-                            </small>
-                        </div>
-                    </form>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            Mostrando <?= count($productos_array) ?> producto(s)
+                        </small>
+                    </div>
                     <?php endif; ?>
                 </div>
             </div>
@@ -1101,42 +779,8 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                         <td>10</td>
                                         <td><small class="text-muted">Número entero ≥ 0</small></td>
                                     </tr>
-                                    <tr>
-                                        <td><strong>Foto Miniatura</strong></td>
-                                        <td>Nombre del archivo de foto miniatura (opcional)</td>
-                                        <td>blusa_miniatura.webp</td>
-                                        <td><small class="text-muted">Opcional. Solo nombre del archivo (ej: imagen.webp). Las fotos deben estar en carpeta imagenes/</small></td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Foto 1</strong></td>
-                                        <td>Nombre del archivo de foto 1 por color (opcional)</td>
-                                        <td>blusa_azul_1.webp</td>
-                                        <td><small class="text-muted">Opcional. Solo nombre del archivo. Se asocia al color de la variante</small></td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Foto 2</strong></td>
-                                        <td>Nombre del archivo de foto 2 por color (opcional)</td>
-                                        <td>blusa_azul_2.webp</td>
-                                        <td><small class="text-muted">Opcional. Solo nombre del archivo. Se asocia al color de la variante</small></td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Foto 3 (Grupal)</strong></td>
-                                        <td>Nombre del archivo de foto grupal (opcional)</td>
-                                        <td>blusa_grupal.webp</td>
-                                        <td><small class="text-muted">Opcional. Solo nombre del archivo. Foto general del producto</small></td>
-                                    </tr>
                                 </tbody>
                             </table>
-                        </div>
-                        
-                        <div class="alert alert-warning mt-3">
-                            <h6><i class="fas fa-camera me-2"></i>Información sobre campos de fotos:</h6>
-                            <ul class="mb-0 small">
-                                <li><strong>Foto Miniatura y Foto 3 (Grupal):</strong> Se guardan una vez por producto (fotos base). Si el producto ya tiene estas fotos, no se reemplazarán.</li>
-                                <li><strong>Foto 1 y Foto 2:</strong> Se guardan por cada variante de color. Cada color puede tener sus propias fotos. Si la variante ya tiene fotos, no se reemplazarán.</li>
-                                <li><strong>Formato:</strong> Solo el nombre del archivo (ej: <code>imagen.webp</code>). El sistema agregará automáticamente el prefijo <code>imagenes/</code>.</li>
-                                <li><strong>Importante:</strong> Las fotos deben estar previamente subidas en la carpeta <code>imagenes/</code> del servidor. El CSV solo guarda las referencias en la base de datos.</li>
-                            </ul>
                         </div>
                         
                         <?php if (!empty($categorias_array)): ?>
@@ -1299,7 +943,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                     ?>
                     <div class="mt-4">
                         <h6 class="mb-3">
-                            <i class="fas fa-list me-2"></i>Imagenes Disponibles 
+                            <i class="fas fa-list me-2"></i>Fotos Temporales Disponibles 
                             <span class="badge bg-secondary"><?= count($fotos_temporales) ?></span>
                         </h6>
                         
@@ -1309,81 +953,63 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                             No hay fotos temporales disponibles. Sube fotos para usarlas en tu CSV.
                         </div>
                         <?php else: ?>
-                        <!-- Formulario de eliminación masiva -->
-                        <form method="POST" id="formEliminarMasivo" onsubmit="return confirmarEliminacionMasiva()">
-                            <input type="hidden" name="eliminar_fotos_temporales_masivo" value="1">
-                            <div class="mb-3">
-                                <button type="submit" class="btn btn-danger" id="btnEliminarMasivoFotos" disabled>
-                                    <i class="fas fa-trash-alt me-2"></i>Eliminar Seleccionadas
-                                </button>
-                                <span class="ms-2 text-muted" id="contadorSeleccionadas">0 seleccionada(s)</span>
-                            </div>
-                            
-                            <div class="table-responsive">
-                                <table class="table table-hover sortable-table">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th style="width: 50px;">
-                                                <input type="checkbox" id="selectAllFotos" onchange="toggleSelectAll(this)">
-                                            </th>
-                                            <th class="sortable">Nombre del Archivo</th>
-                                            <th>Vista Previa</th>
-                                            <th class="sortable">Tamaño</th>
-                                            <th>Acciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php foreach ($fotos_temporales as $foto): 
-                                            $ruta_completa = 'imagenes/' . $foto;
-                                            $tamaño = file_exists($ruta_completa) ? filesize($ruta_completa) : 0;
-                                        ?>
-                                        <tr>
-                                            <td>
-                                                <input type="checkbox" 
-                                                       class="checkbox-foto" 
-                                                       name="fotos_seleccionadas[]" 
-                                                       value="<?= htmlspecialchars($foto, ENT_QUOTES) ?>"
-                                                       onchange="updateBulkDeleteButton()">
-                                            </td>
-                                            <td>
-                                                <div class="d-flex align-items-center gap-2">
-                                                    <code id="nombre-<?= md5($foto) ?>"><?= htmlspecialchars($foto) ?></code>
-                                                    <button type="button" 
-                                                            class="btn btn-sm btn-outline-secondary" 
-                                                            onclick="copiarNombre('<?= htmlspecialchars($foto, ENT_QUOTES) ?>', this)"
-                                                            title="Copiar nombre">
-                                                        <i class="fas fa-copy"></i>
-                                                    </button>
-                                                </div>
-                                                <br>
-                                                <small class="text-muted">Usa este nombre en tu CSV</small>
-                                            </td>
-                                            <td>
-                                                <?php if (file_exists($ruta_completa)): ?>
-                                                <img src="<?= htmlspecialchars($ruta_completa) ?>" 
-                                                     alt="Preview" 
-                                                     class="img-thumbnail" 
-                                                     style="max-width: 100px; max-height: 100px; object-fit: cover;">
-                                                <?php else: ?>
-                                                <span class="text-muted">No disponible</span>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td>
-                                                <?= number_format($tamaño / 1024, 2) ?> KB
-                                            </td>
-                                            <td>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Nombre del Archivo</th>
+                                        <th>Vista Previa</th>
+                                        <th>Tamaño</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($fotos_temporales as $foto): 
+                                        $ruta_completa = 'uploads/temp_csv/' . $foto;
+                                        $tamaño = file_exists($ruta_completa) ? filesize($ruta_completa) : 0;
+                                    ?>
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <code id="nombre-<?= md5($foto) ?>"><?= htmlspecialchars($foto) ?></code>
                                                 <button type="button" 
-                                                        class="btn btn-sm btn-danger" 
-                                                        onclick="eliminarFotoIndividual('<?= htmlspecialchars($foto, ENT_QUOTES) ?>')">
+                                                        class="btn btn-sm btn-outline-secondary" 
+                                                        onclick="copiarNombre('<?= htmlspecialchars($foto, ENT_QUOTES) ?>', this)"
+                                                        title="Copiar nombre">
+                                                    <i class="fas fa-copy"></i>
+                                                </button>
+                                            </div>
+                                            <br>
+                                            <small class="text-muted">Usa este nombre en tu CSV</small>
+                                        </td>
+                                        <td>
+                                            <?php if (file_exists($ruta_completa)): ?>
+                                            <img src="<?= htmlspecialchars($ruta_completa) ?>" 
+                                                 alt="Preview" 
+                                                 class="img-thumbnail" 
+                                                 style="max-width: 100px; max-height: 100px; object-fit: cover;">
+                                            <?php else: ?>
+                                            <span class="text-muted">No disponible</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <?= number_format($tamaño / 1024, 2) ?> KB
+                                        </td>
+                                        <td>
+                                            <form method="POST" style="display: inline;" 
+                                                  onsubmit="return confirm('¿Está seguro de eliminar esta foto?');">
+                                                <input type="hidden" name="eliminar_foto_temporal" value="1">
+                                                <input type="hidden" name="nombre_archivo" value="<?= htmlspecialchars($foto) ?>">
+                                                <button type="submit" class="btn btn-sm btn-danger">
                                                     <i class="fas fa-trash-alt me-1"></i>Eliminar
                                                 </button>
-                                            </td>
-                                        </tr>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </form>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -1611,151 +1237,36 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
     </div>
 </div>
 
-<!-- Modal de confirmación para eliminación masiva de productos -->
-<div class="modal fade" id="eliminarProductosMasivoModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title">
-                    <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Eliminación Permanente Masiva
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>
-                    <strong>¿Está seguro de que desea eliminar permanentemente los productos seleccionados?</strong><br>
-                    <small class="text-muted">Esta acción eliminará todas las variantes, fotos, movimientos de stock e imágenes físicas de los productos seleccionados. Esta acción es IRREVERSIBLE.</small>
-                </p>
-                <p class="mb-0">
-                    <small class="text-danger"><strong>Nota:</strong> Solo se eliminarán los productos que estén inactivos y no tengan pedidos relacionados. Los productos que no cumplan estas condiciones serán omitidos.</small>
-                </p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <form method="POST" id="formEliminarMasivoProductos" style="display: inline;">
-                    <input type="hidden" name="eliminar_productos_masivo" value="1">
-                    <?php if ($mostrar_inactivos): ?>
-                        <input type="hidden" name="mostrar_inactivos" value="1">
-                    <?php endif; ?>
-                    <button type="submit" class="btn btn-danger">
-                        <i class="fas fa-trash-alt me-1"></i>Eliminar Permanentemente
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
+<script src="includes/marketing_forms.js"></script>
+<script src="js/table-sort.js"></script>
 
 <script>
-// Función para enviar acciones masivas (activar/desactivar)
-function submitAccionMasiva(accion) {
-    try {
-        // Obtener todos los checkboxes seleccionados
-        const checkboxes = document.querySelectorAll('.checkbox-producto:checked');
-        
-        if (checkboxes.length === 0) {
-            alert('Por favor, seleccione al menos un producto.');
-            return;
-        }
-        
-        // Confirmar acción
-        const mensaje = accion === 'activar' 
-            ? '¿Está seguro de activar los productos seleccionados?'
-            : '¿Está seguro de desactivar los productos seleccionados?';
-        
-        if (!confirm(mensaje)) {
-            return;
-        }
-        
-        // Obtener el formulario principal
-        const form = document.getElementById('formAccionesMasivasProductos');
-        if (!form) {
-            console.error('Formulario no encontrado');
-            return;
-        }
-        
-        // Preservar el input mostrar_inactivos si existe
-        const mostrarInactivosInput = form.querySelector('input[name="mostrar_inactivos"]');
-        const mostrarInactivosValue = mostrarInactivosInput ? mostrarInactivosInput.value : null;
-        
-        // Limpiar inputs previos de productos_seleccionados (si existen como hidden)
-        const inputsExistentes = form.querySelectorAll('input[name="productos_seleccionados[]"][type="hidden"]');
-        inputsExistentes.forEach(input => input.remove());
-        
-        // Limpiar inputs de acción previos (activar/desactivar masivo)
-        const accionInputsPrevios = form.querySelectorAll('input[name="activar_productos_masivo"], input[name="desactivar_productos_masivo"]');
-        accionInputsPrevios.forEach(input => input.remove());
-        
-        // Agregar inputs hidden con los IDs seleccionados
-        // Esto asegura que los valores se envíen correctamente
-        checkboxes.forEach(function(checkbox) {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'productos_seleccionados[]';
-            input.value = checkbox.value;
-            form.appendChild(input);
-        });
-        
-        // Agregar el campo de acción correspondiente
-        const accionInput = document.createElement('input');
-        accionInput.type = 'hidden';
-        accionInput.name = accion === 'activar' ? 'activar_productos_masivo' : 'desactivar_productos_masivo';
-        accionInput.value = '1';
-        form.appendChild(accionInput);
-        
-        // Restaurar mostrar_inactivos si existía (asegurar que se preserve)
-        if (mostrarInactivosValue !== null && !form.querySelector('input[name="mostrar_inactivos"]')) {
-            const mostrarInactivosInputNuevo = document.createElement('input');
-            mostrarInactivosInputNuevo.type = 'hidden';
-            mostrarInactivosInputNuevo.name = 'mostrar_inactivos';
-            mostrarInactivosInputNuevo.value = mostrarInactivosValue;
-            form.appendChild(mostrarInactivosInputNuevo);
-        }
-        
-        // Enviar el formulario
-        form.submit();
-    } catch (e) {
-        console.error('Error al enviar acción masiva:', e);
-        alert('Error al procesar la acción. Por favor, intente nuevamente.');
-    }
-}
-
-// Script para copiar los checkboxes seleccionados al formulario del modal
+// Activar pestaña según parámetro URL
 document.addEventListener('DOMContentLoaded', function() {
-    try {
-        const btnEliminarMasivo = document.getElementById('btnEliminarMasivoProductos');
-        const formEliminarMasivo = document.getElementById('formEliminarMasivoProductos');
-        
-        if (btnEliminarMasivo && formEliminarMasivo) {
-            btnEliminarMasivo.addEventListener('click', function() {
-                try {
-                    // Obtener todos los checkboxes seleccionados
-                    const checkboxes = document.querySelectorAll('.checkbox-producto:checked');
-                    
-                    // Limpiar inputs previos del formulario (excepto los hidden fijos)
-                    const inputsExistentes = formEliminarMasivo.querySelectorAll('input[name="productos_seleccionados[]"]');
-                    inputsExistentes.forEach(input => input.remove());
-                    
-                    // Agregar inputs hidden con los IDs seleccionados
-                    checkboxes.forEach(function(checkbox) {
-                        const input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = 'productos_seleccionados[]';
-                        input.value = checkbox.value;
-                        formEliminarMasivo.appendChild(input);
-                    });
-                } catch (e) {
-                    console.error('Error al preparar formulario de eliminación masiva:', e);
-                }
-            });
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    
+    if (tabParam) {
+        const tabsValidos = ['productos', 'csv', 'agregar', 'fotos', 'metricas'];
+        if (tabsValidos.includes(tabParam)) {
+            // Activar pestaña usando Bootstrap
+            const tabButton = document.getElementById(tabParam + '-tab');
+            if (tabButton) {
+                const tab = new bootstrap.Tab(tabButton);
+                tab.show();
+            }
         }
-    } catch (e) {
-        console.error('Error al inicializar script de modal de eliminación masiva:', e);
     }
 });
-</script>
 
-<script>
+// Función para cambiar límite de productos
+function cambiarLimiteProductos(limite) {
+    const urlParams = new URLSearchParams(window.location.search);
+    urlParams.set('limite', limite);
+    urlParams.set('tab', 'productos');
+    window.location.href = 'marketing.php?' + urlParams.toString();
+}
+
 // Función para toggle de productos inactivos
 function toggleProductosInactivos(mostrar) {
     const urlParams = new URLSearchParams(window.location.search);
@@ -1772,286 +1283,23 @@ function toggleProductosInactivos(mostrar) {
 
 // Función para copiar nombre de imagen
 function copiarNombre(nombre, boton) {
-    if (!nombre || !boton) {
-        console.error('Parámetros inválidos para copiarNombre');
-        return;
-    }
-    
-    if (!navigator.clipboard) {
-        alert('Su navegador no soporta la función de copiar al portapapeles');
-        return;
-    }
-    
     navigator.clipboard.writeText(nombre).then(function() {
-        try {
-            // Cambiar ícono temporalmente para indicar éxito
-            const icono = boton.querySelector('i');
-            if (icono) {
-                const claseOriginal = icono.className;
-                icono.className = 'fas fa-check';
-                boton.classList.remove('btn-outline-secondary');
-                boton.classList.add('btn-success');
-                
-                setTimeout(function() {
-                    icono.className = claseOriginal;
-                    boton.classList.remove('btn-success');
-                    boton.classList.add('btn-outline-secondary');
-                }, 2000);
-            }
-        } catch (e) {
-            console.error('Error al actualizar ícono:', e);
-        }
+        // Cambiar ícono temporalmente para indicar éxito
+        const icono = boton.querySelector('i');
+        const claseOriginal = icono.className;
+        icono.className = 'fas fa-check';
+        boton.classList.remove('btn-outline-secondary');
+        boton.classList.add('btn-success');
+        
+        setTimeout(function() {
+            icono.className = claseOriginal;
+            boton.classList.remove('btn-success');
+            boton.classList.add('btn-outline-secondary');
+        }, 2000);
     }).catch(function(err) {
-        console.error('Error al copiar:', err);
         alert('Error al copiar: ' + err);
     });
 }
-
-// Función para seleccionar/deseleccionar todos los checkboxes
-function toggleSelectAll(checkbox) {
-    if (!checkbox) {
-        console.error('Checkbox no proporcionado a toggleSelectAll');
-        return;
-    }
-    
-    try {
-        const checkboxes = document.querySelectorAll('.checkbox-foto');
-        checkboxes.forEach(function(cb) {
-            cb.checked = checkbox.checked;
-        });
-        updateBulkDeleteButton();
-    } catch (e) {
-        console.error('Error en toggleSelectAll:', e);
-    }
-}
-
-// Función para actualizar el estado del botón de eliminación masiva
-function updateBulkDeleteButton() {
-    const checkboxes = document.querySelectorAll('.checkbox-foto:checked');
-    const btnEliminarMasivo = document.getElementById('btnEliminarMasivoFotos');
-    const contadorSeleccionadas = document.getElementById('contadorSeleccionadas');
-    const selectAllCheckbox = document.getElementById('selectAllFotos');
-    
-    const cantidadSeleccionadas = checkboxes.length;
-    
-    // Actualizar botón
-    if (btnEliminarMasivo) {
-        btnEliminarMasivo.disabled = cantidadSeleccionadas === 0;
-    }
-    
-    // Actualizar contador
-    if (contadorSeleccionadas) {
-        contadorSeleccionadas.textContent = cantidadSeleccionadas + ' seleccionada(s)';
-    }
-    
-    // Actualizar checkbox "Seleccionar todo"
-    if (selectAllCheckbox) {
-        const totalCheckboxes = document.querySelectorAll('.checkbox-foto').length;
-        selectAllCheckbox.checked = cantidadSeleccionadas === totalCheckboxes && totalCheckboxes > 0;
-        selectAllCheckbox.indeterminate = cantidadSeleccionadas > 0 && cantidadSeleccionadas < totalCheckboxes;
-    }
-}
-
-// Función para confirmar eliminación masiva
-function confirmarEliminacionMasiva() {
-    const checkboxes = document.querySelectorAll('.checkbox-foto:checked');
-    const cantidad = checkboxes.length;
-    
-    if (cantidad === 0) {
-        alert('Por favor, seleccione al menos una foto para eliminar.');
-        return false;
-    }
-    
-    return confirm('¿Está seguro de eliminar ' + cantidad + ' foto(s) seleccionada(s)? Esta acción no se puede deshacer.');
-}
-
-// Función para eliminar foto individual (sin formulario anidado)
-function eliminarFotoIndividual(nombreArchivo) {
-    if (!nombreArchivo) {
-        console.error('Nombre de archivo no proporcionado');
-        return;
-    }
-    
-    if (!confirm('¿Está seguro de eliminar esta foto?')) {
-        return;
-    }
-    
-    try {
-        // Crear formulario dinámico para enviar
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = 'marketing.php?tab=fotos';
-        
-        const input1 = document.createElement('input');
-        input1.type = 'hidden';
-        input1.name = 'eliminar_foto_temporal';
-        input1.value = '1';
-        form.appendChild(input1);
-        
-        const input2 = document.createElement('input');
-        input2.type = 'hidden';
-        input2.name = 'nombre_archivo';
-        input2.value = nombreArchivo;
-        form.appendChild(input2);
-        
-        document.body.appendChild(form);
-        form.submit();
-    } catch (e) {
-        console.error('Error al crear formulario de eliminación:', e);
-        alert('Error al eliminar la foto. Por favor, intente nuevamente.');
-    }
-}
-
-// ============================================================================
-// FUNCIONES PARA ACCIONES MASIVAS DE PRODUCTOS
-// ============================================================================
-// Función para seleccionar/deseleccionar todos los checkboxes de productos
-function toggleSelectAllProductos(checkbox) {
-    if (!checkbox) {
-        console.error('Checkbox no proporcionado a toggleSelectAllProductos');
-        return;
-    }
-    
-    try {
-        const checkboxes = document.querySelectorAll('.checkbox-producto');
-        const selectAllHeader = document.getElementById('selectAllProductosHeader');
-        
-        checkboxes.forEach(function(cb) {
-            cb.checked = checkbox.checked;
-        });
-        
-        // Sincronizar ambos checkboxes "Seleccionar todos"
-        if (selectAllHeader && checkbox.id !== 'selectAllProductosHeader') {
-            selectAllHeader.checked = checkbox.checked;
-        }
-        if (checkbox.id === 'selectAllProductosHeader') {
-            const selectAllBody = document.getElementById('selectAllProductos');
-            if (selectAllBody) {
-                selectAllBody.checked = checkbox.checked;
-            }
-        }
-        
-        updateBulkActionsButtons();
-    } catch (e) {
-        console.error('Error en toggleSelectAllProductos:', e);
-    }
-}
-
-// Función para actualizar el estado de los botones de acciones masivas
-function updateBulkActionsButtons() {
-    const checkboxes = document.querySelectorAll('.checkbox-producto:checked');
-    const btnActivarMasivo = document.getElementById('btnActivarMasivo');
-    const btnDesactivarMasivo = document.getElementById('btnDesactivarMasivo');
-    const btnEliminarMasivo = document.getElementById('btnEliminarMasivoProductos');
-    const contadorProductosSeleccionados = document.getElementById('contadorProductosSeleccionados');
-    const selectAllProductos = document.getElementById('selectAllProductos');
-    const selectAllProductosHeader = document.getElementById('selectAllProductosHeader');
-    
-    const cantidadSeleccionados = checkboxes.length;
-    
-    // Actualizar botones
-    if (btnActivarMasivo) {
-        btnActivarMasivo.disabled = cantidadSeleccionados === 0;
-    }
-    if (btnDesactivarMasivo) {
-        btnDesactivarMasivo.disabled = cantidadSeleccionados === 0;
-    }
-    if (btnEliminarMasivo) {
-        btnEliminarMasivo.disabled = cantidadSeleccionados === 0;
-    }
-    
-    // Actualizar contador
-    if (contadorProductosSeleccionados) {
-        contadorProductosSeleccionados.textContent = cantidadSeleccionados + ' seleccionado(s)';
-    }
-    
-    // Actualizar checkboxes "Seleccionar todo"
-    const totalCheckboxes = document.querySelectorAll('.checkbox-producto').length;
-    const checked = cantidadSeleccionados === totalCheckboxes && totalCheckboxes > 0;
-    const indeterminate = cantidadSeleccionados > 0 && cantidadSeleccionados < totalCheckboxes;
-    
-    if (selectAllProductos) {
-        selectAllProductos.checked = checked;
-        selectAllProductos.indeterminate = indeterminate;
-    }
-    if (selectAllProductosHeader) {
-        selectAllProductosHeader.checked = checked;
-        selectAllProductosHeader.indeterminate = indeterminate;
-    }
-}
-
-// Función para confirmar eliminación masiva de productos
-function confirmarEliminacionMasivaProductos() {
-    const checkboxes = document.querySelectorAll('.checkbox-producto:checked');
-    const cantidad = checkboxes.length;
-    
-    if (cantidad === 0) {
-        alert('Por favor, seleccione al menos un producto para eliminar.');
-        return false;
-    }
-    
-    // Obtener IDs de productos seleccionados para mostrar en el modal
-    const productosIds = Array.from(checkboxes).map(cb => cb.value);
-    
-    // Actualizar el contenido del modal con los IDs
-    const modalBody = document.querySelector('#eliminarProductosMasivoModal .modal-body p:last-child');
-    if (modalBody) {
-        modalBody.innerHTML = '<strong>¿Está seguro de que desea eliminar permanentemente ' + cantidad + ' producto(s) seleccionado(s)?</strong><br>' +
-                            '<small class="text-muted">Esta acción eliminará todas las variantes, fotos, movimientos de stock e imágenes físicas de los productos seleccionados. Esta acción es IRREVERSIBLE.</small><br>' +
-                            '<small class="text-danger mt-2 d-block"><strong>Nota:</strong> Solo se eliminarán los productos que estén inactivos y no tengan pedidos relacionados.</small>';
-    }
-    
-    return true;
-}
-
-// Inicializar estado de botones de acciones masivas al cargar la página
-document.addEventListener('DOMContentLoaded', function() {
-    try {
-        if (typeof updateBulkActionsButtons === 'function') {
-            updateBulkActionsButtons();
-        }
-    } catch (e) {
-        console.error('Error al inicializar botones de acciones masivas:', e);
-    }
-});
 </script>
 
 <?php include 'includes/footer.php'; render_footer(); ?>
-
-<!-- Scripts de marketing (deben cargarse después de Bootstrap) -->
-<script src="includes/marketing_forms.js"></script>
-<script src="js/table-sort.js"></script>
-
-<script>
-// Verificar que Bootstrap esté cargado antes de usar sus componentes
-if (typeof bootstrap === 'undefined') {
-    console.error('Bootstrap no está cargado. Los componentes de Bootstrap no funcionarán.');
-}
-
-// Activar pestaña según parámetro URL
-document.addEventListener('DOMContentLoaded', function() {
-    // Verificar que Bootstrap esté disponible
-    if (typeof bootstrap === 'undefined') {
-        console.warn('Bootstrap no disponible. Las pestañas pueden no funcionar correctamente.');
-        return;
-    }
-    
-    const urlParams = new URLSearchParams(window.location.search);
-    const tabParam = urlParams.get('tab');
-    
-    if (tabParam) {
-        const tabsValidos = ['productos', 'csv', 'agregar', 'fotos', 'metricas'];
-        if (tabsValidos.includes(tabParam)) {
-            // Activar pestaña usando Bootstrap
-            const tabButton = document.getElementById(tabParam + '-tab');
-            if (tabButton) {
-                try {
-                    const tab = new bootstrap.Tab(tabButton);
-                    tab.show();
-                } catch (e) {
-                    console.error('Error al activar pestaña:', e);
-                }
-            }
-        }
-    }
-});

@@ -91,6 +91,8 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
     $mysqli->begin_transaction();
     
     try {
+        // NOTA: Se puede usar actualizarEstadoPedidoConValidaciones() de pedido_queries.php
+        // para una implementación más centralizada de las reglas de negocio según el plan.
         // Actualizar pedido completo usando función centralizada
         // Los campos direccion_entrega, telefono_contacto, observaciones y total ya no se editan desde este modal
         // Se pasan como null para mantener los valores existentes en la BD
@@ -122,6 +124,8 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
                 }
             }
             
+            // NOTA: Se puede usar actualizarEstadoPagoConPedido() de pago_queries.php
+            // para una implementación más centralizada de las reglas de negocio según el plan.
             // Actualizar pago completo usando función centralizada
             $motivo_rechazo_final = null;
             
@@ -212,6 +216,8 @@ function procesarAprobacionPago($mysqli, $post, $id_usuario) {
     }
     
     try {
+        // NOTA: Se puede usar actualizarEstadoPagoConPedido($mysqli, $pago_id, 'aprobado', null, $id_usuario)
+        // de pago_queries.php para una implementación más centralizada de las reglas de negocio según el plan.
         if (aprobarPago($mysqli, $pago_id, $id_usuario)) {
             return ['mensaje' => 'Pago aprobado correctamente. Stock descontado automáticamente.', 'mensaje_tipo' => 'success'];
         } else {
@@ -258,6 +264,8 @@ function procesarRechazoPago($mysqli, $post, $id_usuario) {
         return ['mensaje' => 'ID de pago inválido', 'mensaje_tipo' => 'danger'];
     }
     
+    // NOTA: Se puede usar actualizarEstadoPagoConPedido($mysqli, $pago_id, 'rechazado', $motivo_rechazo, $id_usuario)
+    // de pago_queries.php para una implementación más centralizada de las reglas de negocio según el plan.
     if (rechazarPago($mysqli, $pago_id, $id_usuario, $motivo_rechazo)) {
         return ['mensaje' => 'Pago rechazado correctamente. Stock restaurado automáticamente si había sido descontado.', 'mensaje_tipo' => 'success'];
     } else {

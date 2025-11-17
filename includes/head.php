@@ -66,7 +66,7 @@ if (!function_exists('render_head')) {
         <!-- Font Awesome -->
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
         <!-- Custom CSS (includes color variables) -->
-        <link rel="stylesheet" href="/css/style.css?v=<?php echo htmlspecialchars($cssVersion, ENT_QUOTES, 'UTF-8'); ?>">
+        <link rel="stylesheet" href="css/style.css?v=<?php echo htmlspecialchars($cssVersion, ENT_QUOTES, 'UTF-8'); ?>">
         <?php
     }
 }

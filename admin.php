@@ -453,8 +453,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                                                        required
                                                                        minlength="2"
                                                                        maxlength="100"
-                                                                       pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+">
-                                                                <div class="invalid-feedback">El nombre debe tener al menos 2 caracteres y solo letras.</div>
+                                                                       pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+">
+                                                                <div class="invalid-feedback">El nombre debe tener al menos 2 caracteres. Solo se permiten letras, espacios, apóstrofe (') y acento agudo (´).</div>
                                                                 <div class="valid-feedback">¡Nombre válido!</div>
                                                             </div>
                                                             <div class="col-md-6">
@@ -467,8 +467,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                                                        required
                                                                        minlength="2"
                                                                        maxlength="100"
-                                                                       pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+">
-                                                                <div class="invalid-feedback">El apellido debe tener al menos 2 caracteres y solo letras.</div>
+                                                                       pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+">
+                                                                <div class="invalid-feedback">El apellido debe tener al menos 2 caracteres. Solo se permiten letras, espacios, apóstrofe (') y acento agudo (´).</div>
                                                                 <div class="valid-feedback">¡Apellido válido!</div>
                                                             </div>
                                                         </div>
@@ -685,8 +685,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                        required
                                        minlength="2"
                                        maxlength="100"
-                                       pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+">
-                                <div class="invalid-feedback">El nombre debe tener al menos 2 caracteres y solo letras.</div>
+                                       pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+">
+                                <div class="invalid-feedback">El nombre debe tener al menos 2 caracteres. Solo se permiten letras, espacios, apóstrofe (') y acento agudo (´).</div>
                                 <div class="valid-feedback">¡Nombre válido!</div>
                             </div>
                             <div class="col-md-3">
@@ -698,8 +698,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                        required
                                        minlength="2"
                                        maxlength="100"
-                                       pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+">
-                                <div class="invalid-feedback">El apellido debe tener al menos 2 caracteres y solo letras.</div>
+                                       pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+">
+                                <div class="invalid-feedback">El apellido debe tener al menos 2 caracteres. Solo se permiten letras, espacios, apóstrofe (') y acento agudo (´).</div>
                                 <div class="valid-feedback">¡Apellido válido!</div>
                             </div>
                             <div class="col-md-3">
@@ -882,7 +882,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         </div>
     </main>
 
-    <script src="/includes/admin_validation.js"></script>
+    <script src="includes/admin_validation.js"></script>
     <script src="js/table-sort.js"></script>
 
 <?php include 'includes/footer.php'; render_footer(); ?>
