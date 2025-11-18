@@ -77,9 +77,15 @@ function generarArrayStock($variantes) {
         // LÓGICA: Formato estandarizado permite búsqueda rápida en JavaScript
         $clave = $variante['talle'] . '-' . $color_normalizado;
         
-        // Asignar stock a la combinación
-        // REGLA: Cada combinación tiene su stock único (no se suman variantes)
-        $stockArray[$clave] = $variante['stock'];
+        // Inicializar stock si no existe la clave
+        if (!isset($stockArray[$clave])) {
+            $stockArray[$clave] = 0;
+        }
+        
+        // Sumar stock de la variante al total de la combinación
+        // REGLA: Si existen múltiples variantes con mismo talle-color, se acumula el stock
+        // LÓGICA: Permite manejar casos donde hay múltiples registros de stock para misma combinación
+        $stockArray[$clave] += (int)$variante['stock'];
     }
     
     return $stockArray;

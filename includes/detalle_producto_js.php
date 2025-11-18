@@ -61,10 +61,17 @@
         document.querySelectorAll('.btn[onclick*="cambiarCantidad"]').forEach(function(btn) {
             btn.addEventListener('click', function(e) {
                 e.preventDefault();
+                const action = this.getAttribute('data-action');
                 const input = document.getElementById('cantidad');
-                const delta = this.querySelector('i').classList.contains('fa-plus') ? 1 : -1;
-                let val = parseInt(input.value) + delta;
-                if (val < 1) val = 1;
+                if (!input) return;
+                
+                let val = parseInt(input.value) || 1;
+                if (action === 'increment') {
+                    val += 1;
+                } else if (action === 'decrement') {
+                    val -= 1;
+                    if (val < 1) val = 1;
+                }
                 input.value = val;
             });
         });
@@ -263,9 +270,12 @@
                     thumbnailDiv.className = 'thumbnail-compacto' + (index === 0 ? ' active' : '');
                     
                     // Usar closure para mantener el índice correcto y addEventListener en lugar de onclick
+                    thumbnailDiv.setAttribute('data-image-index', index);
                     (function(idx) {
                         thumbnailDiv.addEventListener('click', function() { 
-                            cambiarImagenPrincipal(idx); 
+                            if (typeof window.cambiarImagenPrincipal === 'function') {
+                                window.cambiarImagenPrincipal(idx); 
+                            }
                         });
                     })(index);
                     
@@ -595,6 +605,23 @@
                 if (cantidadHidden) cantidadHidden.value = document.getElementById('cantidad').value;
             });
         }
+        
+        // Event listeners para botones comprar y agregar al carrito (reemplaza onclick inline)
+        const btnComprarAhora = document.getElementById('btn-comprar-ahora');
+        if (btnComprarAhora && typeof window.comprarAhora === 'function') {
+            btnComprarAhora.addEventListener('click', function(e) {
+                e.preventDefault();
+                window.comprarAhora();
+            });
+        }
+        
+        const btnAgregarCarrito = document.getElementById('btn-agregar-carrito');
+        if (btnAgregarCarrito && typeof window.agregarAlCarrito === 'function') {
+            btnAgregarCarrito.addEventListener('click', function(e) {
+                e.preventDefault();
+                window.agregarAlCarrito();
+            });
+        }
     });
     
     // Funciones globales para UX mejorada
@@ -890,5 +917,9 @@
         // Para "Comprar ahora", redirigir al checkout después de agregar exitosamente
         agregarAlCarrito(true);
     }
+    
+    // Asegurar que las funciones estén disponibles globalmente
+    window.agregarAlCarrito = agregarAlCarrito;
+    window.comprarAhora = comprarAhora;
 </script>
 

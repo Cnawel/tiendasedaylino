@@ -527,8 +527,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_variantes'
             
             $nuevo_talle = trim($datos['talle'] ?? '');
             $nuevo_stock = intval($datos['stock'] ?? 0);
-            $nuevo_color = trim($datos['color'] ?? '');
+            $nuevo_color = ucfirst(strtolower(trim($datos['color'] ?? '')));
             
+            // Validar que talle y color no estén vacíos después de normalizar
             if ($id_variante_int > 0 && $nuevo_talle !== '' && $nuevo_color !== '' && $nuevo_stock >= 0) {
                 // Obtener datos actuales de la variante usando función centralizada
                 $variante_actual = obtenerVariantePorId($mysqli, $id_variante_int);
@@ -536,34 +537,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_variantes'
                 if ($variante_actual) {
                     $id_producto_variante = $variante_actual['id_producto'];
                     
-                    // Verificar si cambió el talle o color
-                    if ($variante_actual['talle'] !== $nuevo_talle || $variante_actual['color'] !== $nuevo_color) {
-                        // Obtener producto para verificar existencia de variante
-                        $producto_variante = obtenerProductoPorId($mysqli, $id_producto_variante);
-                        if ($producto_variante) {
-                            // Verificar si ya existe la nueva combinación usando función centralizada
-                            $existe_variante = verificarVarianteExistente($mysqli, $producto_variante['nombre_producto'], $producto_variante['id_categoria'], $producto_variante['genero'], $nuevo_talle, $nuevo_color, $id_variante_int);
+                    // Normalizar color actual para comparación
+                    $color_actual_normalizado = ucfirst(strtolower(trim($variante_actual['color'] ?? '')));
+                    $talle_actual = trim($variante_actual['talle'] ?? '');
+                    
+                    // Variable para rastrear si la variante fue desactivada
+                    $variante_desactivada = false;
+                    
+                    // Verificar si cambió el talle o color (comparar valores normalizados)
+                    if ($talle_actual !== $nuevo_talle || $color_actual_normalizado !== $nuevo_color) {
+                        // Verificar si ya existe otra variante activa con la misma combinación id_producto + talle + color
+                        // La clave única uk_variante_producto es (id_producto, talle, color)
+                        $sql_verificar = "SELECT id_variante FROM Stock_Variantes 
+                                         WHERE id_producto = ? 
+                                         AND talle = ? 
+                                         AND color = ? 
+                                         AND activo = 1 
+                                         AND id_variante != ? 
+                                         LIMIT 1";
+                        $stmt_verificar = $mysqli->prepare($sql_verificar);
+                        if ($stmt_verificar) {
+                            $stmt_verificar->bind_param('issi', $id_producto_variante, $nuevo_talle, $nuevo_color, $id_variante_int);
+                            $stmt_verificar->execute();
+                            $result_verificar = $stmt_verificar->get_result();
+                            $existe_variante = $result_verificar->num_rows > 0;
+                            $stmt_verificar->close();
                             
                             if ($existe_variante) {
-                                // Ya existe, marcar la actual como inactiva (soft delete) usando función centralizada
+                                // Ya existe otra variante activa con esta combinación, marcar la actual como inactiva (soft delete)
                                 desactivarVarianteStock($mysqli, $id_variante_int);
+                                $variante_desactivada = true;
                             } else {
-                                // Actualizar talle y color usando función centralizada
-                                actualizarVarianteStock($mysqli, $id_variante_int, $nuevo_talle, $nuevo_color);
+                                // No existe, actualizar talle y color usando función centralizada
+                                if (!actualizarVarianteStock($mysqli, $id_variante_int, $nuevo_talle, $nuevo_color)) {
+                                    throw new Exception('Error al actualizar talle/color de variante ID: ' . $id_variante_int);
+                                }
                             }
+                        } else {
+                            throw new Exception('Error al preparar verificación de variante existente');
                         }
                     }
                     
-                    // Actualizar stock si cambió
+                    // Actualizar stock si cambió y la variante no fue desactivada
                     // IMPORTANTE: Los ajustes se manejan con cantidad con signo (positivo suma, negativo resta)
                     // El trigger actualizará automáticamente el stock cuando se registre el movimiento
-                    $diferencia_stock = $nuevo_stock - $variante_actual['stock'];
-                    if ($diferencia_stock != 0) {
-                        require_once __DIR__ . '/includes/queries/stock_queries.php';
-                        $observacion = $diferencia_stock > 0 ? 'Ajuste positivo desde edición' : 'Ajuste negativo desde edición';
-                        // Usar la diferencia con signo para que el trigger maneje correctamente
-                        // Si diferencia es positiva, suma; si es negativa, resta
-                        registrarMovimientoStock($mysqli, $id_variante_int, 'ajuste', $diferencia_stock, $id_usuario, null, $observacion, true);
+                    if (!$variante_desactivada) {
+                        // Obtener stock actual después de posibles cambios de talle/color
+                        // Esto asegura que usamos el stock correcto para calcular la diferencia
+                        $variante_actualizada = obtenerVariantePorId($mysqli, $id_variante_int);
+                        $stock_actual = $variante_actualizada ? (int)$variante_actualizada['stock'] : (int)$variante_actual['stock'];
+                        
+                        $diferencia_stock = $nuevo_stock - $stock_actual;
+                        if ($diferencia_stock != 0) {
+                            require_once __DIR__ . '/includes/queries/stock_queries.php';
+                            $observacion = $diferencia_stock > 0 ? 'Ajuste positivo desde edición' : 'Ajuste negativo desde edición';
+                            // Usar la diferencia con signo para que el trigger maneje correctamente
+                            // Si diferencia es positiva, suma; si es negativa, resta
+                            if (!registrarMovimientoStock($mysqli, $id_variante_int, 'ajuste', $diferencia_stock, $id_usuario, null, $observacion, true)) {
+                                throw new Exception('Error al actualizar stock de variante ID: ' . $id_variante_int);
+                            }
+                        }
                     }
                 }
             }
@@ -588,7 +621,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_variantes'
         // Agregar nuevas variantes
         foreach ($nuevas_variantes as $variante) {
             $talle_trim = trim($variante['talle'] ?? '');
-            $color_trim = trim($variante['color'] ?? '');
+            $color_trim = ucfirst(strtolower(trim($variante['color'] ?? '')));
             $stock = intval($variante['stock'] ?? 0);
             
             if ($talle_trim !== '' && $color_trim !== '' && $stock >= 0) {
@@ -774,7 +807,8 @@ $fotos_temporales = obtenerFotosTemporales();
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Descripción</label>
-                        <textarea class="form-control" name="descripcion_producto" rows="2"><?= htmlspecialchars($producto['descripcion_producto'] ?? '') ?></textarea>
+                        <textarea class="form-control" name="descripcion_producto" id="input_descripcion_producto_editar" rows="2"><?= htmlspecialchars($producto['descripcion_producto'] ?? '') ?></textarea>
+                        <div class="invalid-feedback" id="error_descripcion_editar"></div>
                     </div>
                 </div>
                 <div class="d-flex justify-content-between align-items-center">
@@ -848,7 +882,7 @@ $fotos_temporales = obtenerFotosTemporales();
                         <i class="fas fa-edit me-2"></i>Editar Variantes Existentes:
                     </h6>
                     <div class="table-responsive">
-                        <table class="table table-sm table-bordered table-hover">
+                        <table class="table table-sm table-bordered">
                             <thead class="table-light">
                                 <tr>
                                     <th>Talle</th>
@@ -951,9 +985,9 @@ $fotos_temporales = obtenerFotosTemporales();
                                 <br><small class="text-muted">Imagen actual</small>
                             </div>
                             <?php endif; ?>
-                            <label class="form-label small">Seleccionar de imágenes temporales:</label>
+                            <label class="form-label small">Seleccionar de imágenes locales:</label>
                             <select class="form-select mb-2" name="foto_miniatura_temp">
-                                <option value="">-- Seleccionar imagen temporal --</option>
+                                <option value="">-- Seleccionar imagen local --</option>
                                 <?php foreach ($fotos_temporales as $foto_temp): ?>
                                 <option value="<?= htmlspecialchars($foto_temp) ?>"><?= htmlspecialchars($foto_temp) ?></option>
                                 <?php endforeach; ?>
@@ -976,9 +1010,9 @@ $fotos_temporales = obtenerFotosTemporales();
                                 <br><small class="text-muted">Imagen actual</small>
                             </div>
                             <?php endif; ?>
-                            <label class="form-label small">Seleccionar de imágenes temporales:</label>
+                            <label class="form-label small">Seleccionar de imágenes locales:</label>
                             <select class="form-select mb-2" name="foto_grupal_temp">
-                                <option value="">-- Seleccionar imagen temporal --</option>
+                                <option value="">-- Seleccionar imagen local --</option>
                                 <?php foreach ($fotos_temporales as $foto_temp): ?>
                                 <option value="<?= htmlspecialchars($foto_temp) ?>"><?= htmlspecialchars($foto_temp) ?></option>
                                 <?php endforeach; ?>
@@ -1033,7 +1067,7 @@ $fotos_temporales = obtenerFotosTemporales();
                                             <br><small class="text-muted">Actual</small>
                                         </div>
                                         <?php endif; ?>
-                                        <label class="form-label small">Temporal:</label>
+                                        <label class="form-label small">Local:</label>
                                         <select class="form-select form-select-sm mb-2" name="fotos_colores_temp[<?= htmlspecialchars($color_variante) ?>][foto1]">
                                             <option value="">-- Seleccionar --</option>
                                             <?php foreach ($fotos_temporales as $foto_temp): ?>
@@ -1056,7 +1090,7 @@ $fotos_temporales = obtenerFotosTemporales();
                                             <br><small class="text-muted">Actual</small>
                                         </div>
                                         <?php endif; ?>
-                                        <label class="form-label small">Temporal:</label>
+                                        <label class="form-label small">Local:</label>
                                         <select class="form-select form-select-sm mb-2" name="fotos_colores_temp[<?= htmlspecialchars($color_variante) ?>][foto2]">
                                             <option value="">-- Seleccionar --</option>
                                             <?php foreach ($fotos_temporales as $foto_temp): ?>
@@ -1097,7 +1131,68 @@ $fotos_temporales = obtenerFotosTemporales();
 window.tallesDisponibles = <?= json_encode($talles_disponibles) ?>;
 window.coloresDisponibles = <?= json_encode($colores_disponibles) ?>;
 </script>
+<script src="includes/marketing_forms.js"></script>
 <script src="includes/marketing_editar_producto.js"></script>
+<script>
+// Validación del formulario de editar producto
+document.addEventListener('DOMContentLoaded', function() {
+    const formActualizarProducto = document.querySelector('form[method="POST"]');
+    const inputDescripcion = document.getElementById('input_descripcion_producto_editar');
+    const errorDescripcion = document.getElementById('error_descripcion_editar');
+    
+    if (formActualizarProducto && inputDescripcion) {
+        // Validar descripción en tiempo real
+        inputDescripcion.addEventListener('blur', function() {
+            if (this.value.trim()) {
+                const validacion = validarDescripcionProducto(this.value);
+                if (!validacion.valido) {
+                    mostrarErrorCampo(this, errorDescripcion, validacion.error);
+                } else {
+                    limpiarErrorCampo(this, errorDescripcion);
+                }
+            } else {
+                // Si está vacío, es válido (campo opcional)
+                limpiarErrorCampo(this, errorDescripcion);
+            }
+        });
+        
+        inputDescripcion.addEventListener('input', function() {
+            // Limpiar error mientras el usuario escribe
+            if (this.classList.contains('is-invalid')) {
+                limpiarErrorCampo(this, errorDescripcion);
+            }
+        });
+        
+        // Validar antes de enviar el formulario
+        formActualizarProducto.addEventListener('submit', function(e) {
+            let hayErrores = false;
+            
+            // Validar descripción
+            if (inputDescripcion) {
+                const validacionDescripcion = validarDescripcionProducto(inputDescripcion.value);
+                if (!validacionDescripcion.valido) {
+                    mostrarErrorCampo(inputDescripcion, errorDescripcion, validacionDescripcion.error);
+                    hayErrores = true;
+                } else {
+                    limpiarErrorCampo(inputDescripcion, errorDescripcion);
+                }
+            }
+            
+            // Prevenir envío si hay errores
+            if (hayErrores) {
+                e.preventDefault();
+                // Scroll al primer error
+                const primerError = formActualizarProducto.querySelector('.is-invalid');
+                if (primerError) {
+                    primerError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    primerError.focus();
+                }
+                return false;
+            }
+        });
+    }
+});
+</script>
 
 <?php include 'includes/footer.php'; render_footer(); ?>
 

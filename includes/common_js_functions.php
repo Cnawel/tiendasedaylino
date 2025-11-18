@@ -164,6 +164,10 @@ function validarCoincidenciaPassword(passwordId, confirmId, errorFeedbackId, suc
 
 /**
  * Validar formato de email (función pura)
+ * 
+ * NOTA: Existe versión PHP equivalente en admin_functions.php (validarEmail)
+ * Ambas versiones deben mantener la misma lógica de validación.
+ * 
  * @param {string} email - Email a validar
  * @returns {boolean} True si el formato es válido
  */

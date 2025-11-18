@@ -372,15 +372,24 @@ function actualizarEstadoPago($mysqli, $id_pago, $nuevo_estado, $motivo_rechazo 
         }
         
         // Cuando el pago se rechaza o cancela, cambiar pedido a cancelado
+        // Manejar todos los estados del pedido: pendiente, preparacion, en_viaje, completado
         if (in_array($nuevo_estado, ['rechazado', 'cancelado']) 
             && $estado_anterior !== $nuevo_estado 
             && in_array($estado_anterior, ['pendiente', 'pendiente_aprobacion', 'preparacion'])) {
+            
+            // Si el pago estaba aprobado, SIEMPRE restaurar stock (sin importar el estado del pedido)
+            // porque el stock se descontó cuando se aprobó el pago
+            if ($estado_anterior === 'aprobado') {
+                require_once __DIR__ . '/stock_queries.php';
+                revertirStockPedido($mysqli, $id_pedido, null, "Pago " . $nuevo_estado);
+            }
+            
             $sql_pedido = "
                 UPDATE Pedidos 
                 SET estado_pedido = 'cancelado',
                     fecha_actualizacion = NOW()
                 WHERE id_pedido = ?
-                  AND estado_pedido IN ('pendiente', 'preparacion')
+                  AND estado_pedido IN ('pendiente', 'preparacion', 'en_viaje', 'completado')
             ";
             
             $stmt_pedido = $mysqli->prepare($sql_pedido);
@@ -799,15 +808,24 @@ function actualizarPagoCompleto($mysqli, $id_pago, $estado_pago, $monto, $numero
         }
         
         // Cuando el pago se rechaza o cancela, cambiar pedido a cancelado
+        // Manejar todos los estados del pedido: pendiente, preparacion, en_viaje, completado
         if (in_array($estado_pago, ['rechazado', 'cancelado']) 
             && $estado_anterior !== $estado_pago 
             && in_array($estado_anterior, ['pendiente', 'pendiente_aprobacion', 'preparacion'])) {
+            
+            // Si el pago estaba aprobado, SIEMPRE restaurar stock (sin importar el estado del pedido)
+            // porque el stock se descontó cuando se aprobó el pago
+            if ($estado_anterior === 'aprobado') {
+                require_once __DIR__ . '/stock_queries.php';
+                revertirStockPedido($mysqli, $id_pedido, null, "Pago " . $estado_pago);
+            }
+            
             $sql_pedido = "
                 UPDATE Pedidos 
                 SET estado_pedido = 'cancelado',
                     fecha_actualizacion = NOW()
                 WHERE id_pedido = ?
-                  AND estado_pedido IN ('pendiente', 'preparacion')
+                  AND estado_pedido IN ('pendiente', 'preparacion', 'en_viaje', 'completado')
             ";
             
             $stmt_pedido = $mysqli->prepare($sql_pedido);
@@ -1059,11 +1077,11 @@ function actualizarEstadoPagoConPedido($mysqli, $id_pago, $nuevo_estado_pago, $m
         // REGLA 2: Cuando el PAGO se RECHAZA o CANCELA
         // SI pago.estado_pago IN ('rechazado', 'cancelado')
         // Y pago.estado_pago_anterior != pago.estado_pago
-        // Y pedido.estado_pedido IN ('pendiente', 'preparacion')
+        // Y pedido.estado_pedido IN ('pendiente', 'preparacion', 'en_viaje', 'completado')
         // ENTONCES pedido.estado_pedido = 'cancelado' y Restaurar stock si había sido descontado
         elseif (in_array($nuevo_estado_pago, ['rechazado', 'cancelado']) 
                 && $estado_pago_anterior !== $nuevo_estado_pago
-                && in_array($estado_pedido_actual, ['pendiente', 'preparacion'])) {
+                && in_array($estado_pedido_actual, ['pendiente', 'preparacion', 'en_viaje', 'completado'])) {
             
             // Actualizar estado del pago
             $fecha_aprobacion = null; // Limpiar fecha_aprobacion si estaba aprobado
@@ -1072,6 +1090,7 @@ function actualizarEstadoPagoConPedido($mysqli, $id_pago, $nuevo_estado_pago, $m
             }
             
             // Restaurar stock si había sido descontado (si el pago estaba aprobado)
+            // Especialmente importante si el pedido estaba en en_viaje o completado
             if ($estado_pago_anterior === 'aprobado') {
                 if (!revertirStockPedido($mysqli, $id_pedido, $id_usuario, "Pago " . $nuevo_estado_pago)) {
                     throw new Exception('Error al restaurar stock del pedido');

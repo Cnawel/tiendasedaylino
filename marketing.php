@@ -490,7 +490,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                     </div>
                     <?php else: ?>
                     <div class="table-responsive">
-                        <table class="table table-hover sortable-table">
+                        <table class="table sortable-table">
                             <thead class="table-dark">
                                 <tr>
                                     <th class="sortable">ID</th>
@@ -879,7 +879,8 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Descripción</label>
-                                <textarea class="form-control" name="descripcion_producto" rows="2"></textarea>
+                                <textarea class="form-control" name="descripcion_producto" id="input_descripcion_producto" rows="2"></textarea>
+                                <div class="invalid-feedback" id="error_descripcion"></div>
                             </div>
                         </div>
                         
@@ -954,7 +955,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                         </div>
                         <?php else: ?>
                         <div class="table-responsive">
-                            <table class="table table-hover">
+                            <table class="table">
                                 <thead class="table-light">
                                     <tr>
                                         <th>Nombre del Archivo</th>
@@ -1030,7 +1031,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                         <div class="card-body">
                             <?php if (!empty($top_productos_vendidos_marketing)): ?>
                                 <div class="table-responsive">
-                                    <table class="table table-sm table-hover sortable-table">
+                                    <table class="table table-sm sortable-table">
                                         <thead class="table-dark">
                                             <tr>
                                                 <th class="sortable">#</th>
@@ -1072,12 +1073,13 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                         </div>
                         <div class="card-body">
                             <?php if (!empty($productos_sin_movimiento)): ?>
-                                <div class="alert alert-warning mb-3">
-                                    <i class="fas fa-info-circle me-2"></i>
-                                    <strong>Productos con stock pero sin ventas recientes.</strong> Considera promociones o descuentos para reactivar las ventas.
+                                <div class="alert alert-info border-info mb-3" style="background-color: #e7f3ff; border-left: 4px solid #0d6efd;">
+                                    <i class="fas fa-info-circle me-2 text-primary"></i>
+                                    <strong class="text-dark">Productos con stock pero sin ventas recientes.</strong> 
+                                    <span class="text-dark">Considera promociones o descuentos para reactivar las ventas.</span>
                                 </div>
                                 <div class="table-responsive">
-                                    <table class="table table-hover sortable-table">
+                                    <table class="table sortable-table">
                                         <thead class="table-dark">
                                             <tr>
                                                 <th class="sortable">Producto</th>
@@ -1089,12 +1091,12 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                         <tbody>
                                             <?php foreach ($productos_sin_movimiento as $producto): ?>
                                                 <tr>
-                                                    <td><?= htmlspecialchars($producto['nombre_producto']) ?></td>
-                                                    <td><?= htmlspecialchars($producto['nombre_categoria']) ?></td>
+                                                    <td class="fw-semibold text-dark"><?= htmlspecialchars($producto['nombre_producto']) ?></td>
+                                                    <td class="text-dark"><?= htmlspecialchars($producto['nombre_categoria']) ?></td>
                                                     <td class="text-end">
-                                                        <span class="badge bg-warning text-dark"><?= number_format($producto['stock_total'], 0, ',', '.') ?></span>
+                                                        <span class="badge bg-secondary text-white"><?= number_format($producto['stock_total'], 0, ',', '.') ?></span>
                                                     </td>
-                                                    <td class="text-end"><?= $producto['cantidad_variantes'] ?></td>
+                                                    <td class="text-end fw-semibold text-dark"><?= $producto['cantidad_variantes'] ?></td>
                                                 </tr>
                                             <?php endforeach; ?>
                                         </tbody>
@@ -1120,7 +1122,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                         <div class="card-body">
                             <?php if (!empty($movimientos_stock)): ?>
                                 <div class="table-responsive">
-                                    <table class="table table-hover sortable-table">
+                                    <table class="table sortable-table">
                                         <thead class="table-dark">
                                             <tr>
                                                 <th class="sortable">Fecha/Hora</th>

@@ -20,6 +20,9 @@
  * Permite: letras, números, espacios, acentos, guiones
  * Bloquea: símbolos especiales (< > { } [ ] | \ / & $ % # @ ! ?)
  * 
+ * NOTA: Existe versión JavaScript equivalente en marketing_forms.js
+ * Ambas versiones deben mantener la misma lógica de validación.
+ * 
  * @param string $valor Valor a validar
  * @return array ['valido' => bool, 'valor' => string, 'error' => string]
  */
@@ -82,6 +85,9 @@ function validarDescripcionProducto($valor) {
  * Valida precio numérico puro
  * Permite: solo números y punto decimal
  * Bloquea: símbolos de moneda ($, €), comas como separadores, espacios, letras
+ * 
+ * NOTA: Existe versión JavaScript equivalente en marketing_forms.js
+ * Ambas versiones deben mantener la misma lógica de validación.
  * 
  * @param string $valor Valor a validar
  * @return array ['valido' => bool, 'valor' => float, 'error' => string]

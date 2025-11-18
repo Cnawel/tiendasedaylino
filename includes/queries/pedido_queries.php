@@ -965,6 +965,15 @@ function actualizarEstadoPedidoConValidaciones($mysqli, $id_pedido, $nuevo_estad
     $pago_actual = obtenerPagoPorPedido($mysqli, $id_pedido);
     $estado_pago = $pago_actual ? $pago_actual['estado_pago'] : null;
     
+    // Validar que si el pago está pendiente de aprobación, no se puede avanzar el pedido
+    // REGLA DE NEGOCIO: Un pedido con pago en "Pendiente Aprobación" NO puede cambiarse a 
+    // "Preparación", "En Viaje" o "Completado" - primero se debe aprobar el pago
+    if ($pago_actual && $estado_pago === 'pendiente_aprobacion') {
+        if (in_array($nuevo_estado_pedido, ['preparacion', 'en_viaje', 'completado'])) {
+            throw new Exception('No se puede cambiar el estado del pedido. Primero debe aprobarse el pago que está pendiente de aprobación.');
+        }
+    }
+    
     // Iniciar transacción
     $mysqli->begin_transaction();
     
@@ -975,7 +984,12 @@ function actualizarEstadoPedidoConValidaciones($mysqli, $id_pedido, $nuevo_estad
         // ENTONCES pedido.estado_pedido = 'en_viaje' (Permitir cambio manual)
         if ($nuevo_estado_pedido === 'en_viaje') {
             if ($estado_pedido_anterior !== 'preparacion') {
-                throw new Exception('Solo se puede enviar un pedido que está en preparación');
+                throw new Exception('Solo se puede enviar un pedido que está en estado de preparación');
+            }
+            
+            // Validar explícitamente que el pago NO esté rechazado o cancelado
+            if (in_array($estado_pago, ['rechazado', 'cancelado'])) {
+                throw new Exception('No se puede enviar un pedido con pago rechazado o cancelado');
             }
             
             if ($estado_pago !== 'aprobado') {
@@ -995,6 +1009,11 @@ function actualizarEstadoPedidoConValidaciones($mysqli, $id_pedido, $nuevo_estad
                 throw new Exception('Solo se puede completar un pedido que está en preparación o en viaje');
             }
             
+            // Validar explícitamente que el pago NO esté rechazado o cancelado
+            if (in_array($estado_pago, ['rechazado', 'cancelado'])) {
+                throw new Exception('No se puede completar un pedido con pago rechazado o cancelado');
+            }
+            
             if ($estado_pago !== 'aprobado') {
                 throw new Exception('No se puede completar pedido sin pago aprobado');
             }
@@ -1010,6 +1029,11 @@ function actualizarEstadoPedidoConValidaciones($mysqli, $id_pedido, $nuevo_estad
         elseif ($nuevo_estado_pedido === 'devolucion') {
             if (!in_array($estado_pedido_anterior, ['completado', 'en_viaje'])) {
                 throw new Exception('Solo se puede devolver un pedido que está completado o en viaje');
+            }
+            
+            // Validar explícitamente que el pago NO esté rechazado o cancelado
+            if (in_array($estado_pago, ['rechazado', 'cancelado'])) {
+                throw new Exception('No se puede devolver un pedido con pago rechazado o cancelado');
             }
             
             if ($estado_pago !== 'aprobado') {

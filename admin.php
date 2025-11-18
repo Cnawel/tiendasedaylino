@@ -359,7 +359,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                             <h3 class="mb-4"><i class="fas fa-list me-2"></i>Gestión de Usuarios</h3>
                         
                         <div class="table-responsive">
-                            <table class="table table-hover sortable-table">
+                            <table class="table sortable-table">
                                 <thead class="table-dark">
                                     <tr>
                                         <th class="sortable">ID</th>
@@ -791,7 +791,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                             </p>
                             
                             <div class="table-responsive">
-                                <table class="table table-hover sortable-table">
+                                <table class="table sortable-table">
                                     <thead class="table-dark">
                                         <tr>
                                             <th class="sortable">Fecha</th>

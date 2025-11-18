@@ -67,18 +67,18 @@ if (!$ignorar_params_get && isset($_GET['pedido']) && !empty($_GET['pedido'])) {
                         </div>
                         <div class="mb-3">
                            <label for="asunto" class="form-label label-contacto">Asunto</label>
-                           <select class="form-control input-contacto" id="asunto" name="asunto" required title="Selecciona un asunto">
+                           <select class="form-control input-contacto" id="asunto" name="asunto" required title="Por favor, seleccioná un Asunto">
                                <option value="">Selecciona un tema</option>
-                               <option value="problema_pagina" <?= $asunto_prellenado === 'problema_pagina' ? 'selected' : '' ?>>Problema con Página</option>
-                               <option value="problema_producto" <?= $asunto_prellenado === 'problema_producto' ? 'selected' : '' ?>>Problema con Producto</option>
-                               <option value="problema_pago" <?= $asunto_prellenado === 'problema_pago' ? 'selected' : '' ?>>Problema con Pago</option>
-                               <option value="problema_cuenta" <?= $asunto_prellenado === 'problema_cuenta' ? 'selected' : '' ?>>Problema con Cuenta (Clientes)</option>
-                               <option value="problema_pedido" <?= $asunto_prellenado === 'problema_pedido' ? 'selected' : '' ?>>Problema con Pedido</option>
+                               <option value="problema_pagina" <?= $asunto_prellenado === 'problema_pagina' ? 'selected' : '' ?>>Inconveniente técnico sitio web</option>
+                               <option value="problema_producto" <?= $asunto_prellenado === 'problema_producto' ? 'selected' : '' ?>>Consulta sobre un producto</option>
+                               <option value="problema_pago" <?= $asunto_prellenado === 'problema_pago' ? 'selected' : '' ?>>Duda sobre un pago</option>
+                               <option value="problema_cuenta" <?= $asunto_prellenado === 'problema_cuenta' ? 'selected' : '' ?>>Mi Cuenta</option>
+                               <option value="problema_pedido" <?= $asunto_prellenado === 'problema_pedido' ? 'selected' : '' ?>>Consulta sobre un pedido</option>
                            </select>
                         </div>
                         <div class="mb-3">
                           <label for="message" class="form-label label-contacto">Mensaje</label>
-                          <textarea class="form-control input-contacto" id="message" name="message" rows="6" placeholder="Escribe tu mensaje aquí..." required minlength="21" title="Por favor, detalle un poco más el problema"><?= $mensaje_prellenado ?></textarea>
+                          <textarea class="form-control input-contacto" id="message" name="message" rows="6" placeholder="Escribe tu mensaje aquí..." required minlength="20" title="Por favor, contános un poco más del tema para poder ayudarte mejor. (20 caracteres mínimo)"><?= $mensaje_prellenado ?></textarea>
                         </div>
                        <button type="submit" class="btn boton-formulario w-100">
                            <span class="button-text">Enviar Mensaje</span>

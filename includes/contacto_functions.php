@@ -16,11 +16,11 @@
  */
 function obtenerNombreAsunto($asunto) {
     $nombres = [
-        'problema_pagina' => 'Problema con Página',
-        'problema_producto' => 'Problema con Producto',
-        'problema_pago' => 'Problema con Pago',
-        'problema_cuenta' => 'Problema con Cuenta (Clientes)',
-        'problema_pedido' => 'Problema con Pedido'
+        'problema_pagina' => 'Inconveniente técnico sitio web',
+        'problema_producto' => 'Consulta sobre un producto',
+        'problema_pago' => 'Duda sobre un pago',
+        'problema_cuenta' => 'Mi Cuenta',
+        'problema_pedido' => 'Consulta sobre un pedido'
     ];
     
     return isset($nombres[$asunto]) ? $nombres[$asunto] : $asunto;

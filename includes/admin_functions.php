@@ -115,6 +115,10 @@ function actualizarUsuarioBD($mysqli, $user_id, $nombre, $apellido, $email, $rol
 
 /**
  * Valida y sanitiza un nombre o apellido
+ * 
+ * NOTA: Existe versión JavaScript equivalente en admin_validation.js
+ * Ambas versiones deben mantener la misma lógica de validación.
+ * 
  * @param string $valor Valor a validar
  * @param string $campo Nombre del campo (para mensajes de error)
  * @return array ['valido' => bool, 'valor' => string, 'error' => string]
@@ -165,6 +169,10 @@ function validarNombreApellido($valor, $campo = 'campo') {
 
 /**
  * Valida y sanitiza un email
+ * 
+ * NOTA: Existe versión JavaScript equivalente en common_js_functions.php (validateEmail)
+ * Ambas versiones deben mantener la misma lógica de validación.
+ * 
  * @param string $valor Valor a validar
  * @return array ['valido' => bool, 'valor' => string, 'error' => string]
  */

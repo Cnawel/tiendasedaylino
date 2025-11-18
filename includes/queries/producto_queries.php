@@ -184,33 +184,6 @@ function obtenerIdsVariantes($mysqli, $id_producto) {
     return $ids;
 }
 
-/**
- * NOTA: Movimientos_Stock NO se eliminan (son históricos, no tienen campo activo)
- * Esta función se mantiene por compatibilidad pero no hace nada
- * 
- * @param mysqli $mysqli Conexión a la base de datos
- * @param array $variantes_ids Array de IDs de variantes
- * @return bool True siempre (no se eliminan movimientos históricos)
- */
-function eliminarMovimientosStock($mysqli, $variantes_ids) {
-    // Movimientos_Stock son históricos y NO se eliminan según la nueva estructura
-    // Esta función se mantiene por compatibilidad pero retorna true sin hacer nada
-    return true;
-}
-
-/**
- * NOTA: Detalle_Pedido NO se eliminan (son históricos, no tienen campo activo)
- * Esta función se mantiene por compatibilidad pero no hace nada
- * 
- * @param mysqli $mysqli Conexión a la base de datos
- * @param array $variantes_ids Array de IDs de variantes
- * @return bool True siempre (no se eliminan detalles históricos)
- */
-function eliminarDetallesPedido($mysqli, $variantes_ids) {
-    // Detalle_Pedido son históricos y NO se eliminan según la nueva estructura
-    // Esta función se mantiene por compatibilidad pero retorna true sin hacer nada
-    return true;
-}
 
 /**
  * Realiza soft delete de las variantes de stock de un producto (marca como inactivas)
@@ -1521,6 +1494,8 @@ function _seleccionarFotoConPrioridadPorColor($fotos_grupo, $id_producto, $color
  * Esta función obtiene todas las fotos relevantes de los productos y sus grupos (mismo nombre/categoría/género),
  * luego aplica lógica de priorización en PHP para seleccionar la mejor foto miniatura.
  * 
+ * REFACTORIZADA: Usa múltiples queries simples en lugar de una query con EXISTS subquery.
+ * 
  * Nueva prioridad de selección:
  * 1. foto1_prod del color específico del producto
  * 2. foto2_prod del color específico del producto
@@ -1554,71 +1529,117 @@ function _obtenerFotosMiniaturaProductos($mysqli, $productos_data, $color_stock)
         return [];
     }
     
-    // Consulta simple: obtener todas las fotos de los productos y sus grupos
-    // Buscamos fotos de productos con el mismo nombre, categoría y género
-    // Obtener todas las fotos: foto1_prod, foto2_prod, foto3_prod, foto_prod_miniatura
-    // Usamos EXISTS para mayor compatibilidad con versiones antiguas de MySQL
-    $sql = "SELECT 
-                fp.id_producto,
-                fp.foto_prod_miniatura,
-                fp.foto1_prod,
-                fp.foto2_prod,
-                fp.foto3_prod,
-                fp.color,
-                p.nombre_producto,
-                p.id_categoria,
-                p.genero
-            FROM Fotos_Producto fp
-            INNER JOIN Productos p ON fp.id_producto = p.id_producto
-            INNER JOIN Categorias c ON p.id_categoria = c.id_categoria
-            WHERE fp.activo = 1
-            AND p.activo = 1
-            AND c.activo = 1
-            AND (
-                fp.foto_prod_miniatura IS NOT NULL AND fp.foto_prod_miniatura != ''
-                OR fp.foto1_prod IS NOT NULL AND fp.foto1_prod != ''
-                OR fp.foto2_prod IS NOT NULL AND fp.foto2_prod != ''
-                OR fp.foto3_prod IS NOT NULL AND fp.foto3_prod != ''
-            )
-            AND (
-                fp.id_producto IN ($placeholders)
-                OR EXISTS (
-                    SELECT 1
-                    FROM Productos p2
-                    WHERE p2.id_producto IN ($placeholders)
-                    AND p2.activo = 1
-                    AND p2.nombre_producto = p.nombre_producto
-                    AND p2.id_categoria = p.id_categoria
-                    AND p2.genero = p.genero
+    // ===================================================================
+    // QUERY 1: Obtener IDs de productos del mismo grupo (mismo nombre/categoría/género)
+    // ===================================================================
+    // Esta query identifica todos los productos que pertenecen al mismo grupo
+    // que los productos originales (mismo nombre_producto, id_categoria, genero)
+    $sql_grupos = "SELECT DISTINCT p2.id_producto
+                    FROM Productos p1
+                    INNER JOIN Productos p2 ON (
+                        p1.nombre_producto = p2.nombre_producto
+                        AND p1.id_categoria = p2.id_categoria
+                        AND p1.genero = p2.genero
+                    )
+                    WHERE p1.id_producto IN ($placeholders)
+                    AND p1.activo = 1
+                    AND p2.activo = 1";
+    
+    $stmt_grupos = $mysqli->prepare($sql_grupos);
+    if (!$stmt_grupos) {
+        error_log("ERROR _obtenerFotosMiniaturaProductos - prepare query grupos falló: " . $mysqli->error);
+        return [];
+    }
+    
+    $types_grupos = str_repeat('i', count($productos_ids));
+    if (!$stmt_grupos->bind_param($types_grupos, ...$productos_ids)) {
+        error_log("ERROR _obtenerFotosMiniaturaProductos - bind_param query grupos falló: " . $stmt_grupos->error);
+        $stmt_grupos->close();
+        return [];
+    }
+    
+    if (!$stmt_grupos->execute()) {
+        error_log("ERROR _obtenerFotosMiniaturaProductos - execute query grupos falló: " . $stmt_grupos->error);
+        $stmt_grupos->close();
+        return [];
+    }
+    
+    $result_grupos = $stmt_grupos->get_result();
+    if (!$result_grupos) {
+        $stmt_grupos->close();
+        return [];
+    }
+    
+    // Recopilar todos los IDs de productos (originales + del mismo grupo)
+    $todos_productos_ids = $productos_ids; // Incluir productos originales
+    while ($row = $result_grupos->fetch_assoc()) {
+        $id_producto_grupo = intval($row['id_producto']);
+        if (!in_array($id_producto_grupo, $todos_productos_ids)) {
+            $todos_productos_ids[] = $id_producto_grupo;
+        }
+    }
+    $stmt_grupos->close();
+    
+    if (empty($todos_productos_ids)) {
+        return [];
+    }
+    
+    // ===================================================================
+    // QUERY 2: Obtener fotos de productos originales + productos del grupo
+    // ===================================================================
+    // Query simple sin EXISTS: obtener fotos de todos los productos identificados
+    $placeholders_fotos = _crearPlaceholdersSQL(count($todos_productos_ids));
+    if (empty($placeholders_fotos)) {
+        return [];
+    }
+    
+    $sql_fotos = "SELECT 
+                    fp.id_producto,
+                    fp.foto_prod_miniatura,
+                    fp.foto1_prod,
+                    fp.foto2_prod,
+                    fp.foto3_prod,
+                    fp.color,
+                    p.nombre_producto,
+                    p.id_categoria,
+                    p.genero
+                FROM Fotos_Producto fp
+                INNER JOIN Productos p ON fp.id_producto = p.id_producto
+                INNER JOIN Categorias c ON p.id_categoria = c.id_categoria
+                WHERE fp.activo = 1
+                AND p.activo = 1
+                AND c.activo = 1
+                AND (
+                    fp.foto_prod_miniatura IS NOT NULL AND fp.foto_prod_miniatura != ''
+                    OR fp.foto1_prod IS NOT NULL AND fp.foto1_prod != ''
+                    OR fp.foto2_prod IS NOT NULL AND fp.foto2_prod != ''
+                    OR fp.foto3_prod IS NOT NULL AND fp.foto3_prod != ''
                 )
-            )
-            ORDER BY fp.id_producto, fp.color IS NULL DESC, fp.color ASC";
+                AND fp.id_producto IN ($placeholders_fotos)
+                ORDER BY fp.id_producto, fp.color IS NULL DESC, fp.color ASC";
     
-    $stmt = $mysqli->prepare($sql);
-    if (!$stmt) {
-        error_log("ERROR _obtenerFotosMiniaturaProductos - prepare falló: " . $mysqli->error);
+    $stmt_fotos = $mysqli->prepare($sql_fotos);
+    if (!$stmt_fotos) {
+        error_log("ERROR _obtenerFotosMiniaturaProductos - prepare query fotos falló: " . $mysqli->error);
         return [];
     }
     
-    // Los parámetros se usan dos veces (una para cada IN clause)
-    $types = str_repeat('i', count($productos_ids)) . str_repeat('i', count($productos_ids));
-    $params = array_merge($productos_ids, $productos_ids);
-    
-    if (!$stmt->bind_param($types, ...$params)) {
-        error_log("ERROR _obtenerFotosMiniaturaProductos - bind_param falló: " . $stmt->error);
-        $stmt->close();
+    $types_fotos = str_repeat('i', count($todos_productos_ids));
+    if (!$stmt_fotos->bind_param($types_fotos, ...$todos_productos_ids)) {
+        error_log("ERROR _obtenerFotosMiniaturaProductos - bind_param query fotos falló: " . $stmt_fotos->error);
+        $stmt_fotos->close();
         return [];
     }
     
-    if (!$stmt->execute()) {
-        error_log("ERROR _obtenerFotosMiniaturaProductos - execute falló: " . $stmt->error);
-        $stmt->close();
+    if (!$stmt_fotos->execute()) {
+        error_log("ERROR _obtenerFotosMiniaturaProductos - execute query fotos falló: " . $stmt_fotos->error);
+        $stmt_fotos->close();
         return [];
     }
     
-    $result = $stmt->get_result();
+    $result = $stmt_fotos->get_result();
     if (!$result) {
-        $stmt->close();
+        $stmt_fotos->close();
         return [];
     }
     
@@ -1642,7 +1663,7 @@ function _obtenerFotosMiniaturaProductos($mysqli, $productos_data, $color_stock)
         ];
     }
     
-    $stmt->close();
+    $stmt_fotos->close();
     
     // Aplicar lógica de priorización en PHP para cada producto usando nueva función auxiliar
     $fotos_seleccionadas = [];
@@ -1715,23 +1736,6 @@ function _combinarDatosProductos($datos_basicos, $color_stock, $fotos) {
     return $productos_completos;
 }
 
-/**
- * Función auxiliar: Construye la consulta SQL final para obtener datos completos de productos
- * 
- * REFACTORIZADA: Esta función ahora retorna null y delega a consultas separadas.
- * Se mantiene por compatibilidad pero ya no construye la consulta compleja.
- * 
- * @deprecated Esta función ya no construye consultas. Usar _obtenerDatosCompletosProductos() directamente.
- * @param array $productos_ids Array de IDs de productos (enteros)
- * @param bool $hay_filtro_talles Si true, los JOINs filtran por talles estándar
- * @return null Siempre retorna null (función deprecada)
- */
-function _construirQueryDatosCompletos($productos_ids, $hay_filtro_talles) {
-    // Esta función está deprecada. Ya no construye consultas complejas.
-    // Se mantiene por compatibilidad pero siempre retorna null.
-    // La funcionalidad se ha movido a consultas separadas más simples.
-    return null;
-}
 
 /**
  * Función auxiliar: Obtiene datos completos de productos usando consultas separadas
@@ -2604,12 +2608,60 @@ function obtenerProductosBajoStock($mysqli, $umbral = 10) {
  * Obtiene productos con stock pero sin ventas en los últimos N días
  * Útil para identificar productos con stock estancado que necesitan promoción
  * 
+ * REFACTORIZADA: Usa múltiples queries simples en lugar de una query con NOT IN subquery.
+ * 
  * @param mysqli $mysqli Conexión a la base de datos
  * @param int $dias_sin_ventas Días sin ventas para considerar (default: 30)
  * @return array Array de productos con stock pero sin movimiento reciente
  */
 function obtenerProductosSinMovimiento($mysqli, $dias_sin_ventas = 30) {
-    $sql = "
+    // Validar parámetro
+    $dias_sin_ventas = intval($dias_sin_ventas);
+    if ($dias_sin_ventas <= 0) {
+        $dias_sin_ventas = 30; // Valor por defecto
+    }
+    
+    // ===================================================================
+    // QUERY 1: Obtener IDs de productos con ventas recientes
+    // ===================================================================
+    // Esta query identifica productos que han tenido ventas en el período especificado
+    $sql_ventas = "
+        SELECT DISTINCT sv.id_producto
+        FROM Movimientos_Stock ms
+        INNER JOIN Stock_Variantes sv ON ms.id_variante = sv.id_variante
+        WHERE ms.tipo_movimiento = 'venta'
+        AND ms.fecha_movimiento >= DATE_SUB(NOW(), INTERVAL ? DAY)
+    ";
+    
+    $stmt_ventas = $mysqli->prepare($sql_ventas);
+    if (!$stmt_ventas) {
+        return [];
+    }
+    
+    $stmt_ventas->bind_param('i', $dias_sin_ventas);
+    if (!$stmt_ventas->execute()) {
+        $stmt_ventas->close();
+        return [];
+    }
+    
+    $result_ventas = $stmt_ventas->get_result();
+    if (!$result_ventas) {
+        $stmt_ventas->close();
+        return [];
+    }
+    
+    // Recopilar IDs de productos con ventas recientes
+    $productos_con_ventas = [];
+    while ($row = $result_ventas->fetch_assoc()) {
+        $productos_con_ventas[] = intval($row['id_producto']);
+    }
+    $stmt_ventas->close();
+    
+    // ===================================================================
+    // QUERY 2: Obtener productos activos con stock, excluyendo productos con ventas
+    // ===================================================================
+    // Query simple sin NOT IN: obtener productos con stock y filtrar en PHP
+    $sql_productos = "
         SELECT 
             p.id_producto,
             p.nombre_producto,
@@ -2621,33 +2673,38 @@ function obtenerProductosSinMovimiento($mysqli, $dias_sin_ventas = 30) {
         INNER JOIN Categorias c ON p.id_categoria = c.id_categoria
         WHERE p.activo = 1 
         AND sv.activo = 1
-        AND p.id_producto NOT IN (
-            SELECT DISTINCT sv2.id_producto
-            FROM Movimientos_Stock ms
-            INNER JOIN Stock_Variantes sv2 ON ms.id_variante = sv2.id_variante
-            WHERE ms.tipo_movimiento = 'venta'
-            AND ms.fecha_movimiento >= DATE_SUB(NOW(), INTERVAL ? DAY)
-        )
         GROUP BY p.id_producto, p.nombre_producto, c.nombre_categoria
         HAVING stock_total > 0
         ORDER BY stock_total DESC
     ";
     
-    $stmt = $mysqli->prepare($sql);
-    if (!$stmt) {
+    $stmt_productos = $mysqli->prepare($sql_productos);
+    if (!$stmt_productos) {
         return [];
     }
     
-    $stmt->bind_param('i', $dias_sin_ventas);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    $productos = [];
-    while ($row = $result->fetch_assoc()) {
-        $productos[] = $row;
+    if (!$stmt_productos->execute()) {
+        $stmt_productos->close();
+        return [];
     }
     
-    $stmt->close();
+    $result_productos = $stmt_productos->get_result();
+    if (!$result_productos) {
+        $stmt_productos->close();
+        return [];
+    }
+    
+    // Filtrar productos excluyendo los que tienen ventas recientes
+    $productos = [];
+    while ($row = $result_productos->fetch_assoc()) {
+        $id_producto = intval($row['id_producto']);
+        // Solo incluir si NO está en la lista de productos con ventas
+        if (!in_array($id_producto, $productos_con_ventas)) {
+            $productos[] = $row;
+        }
+    }
+    
+    $stmt_productos->close();
     return $productos;
 }
 

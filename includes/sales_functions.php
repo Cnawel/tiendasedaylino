@@ -51,13 +51,6 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
     }
     require_once $pago_queries_path;
     
-    $stock_queries_path = __DIR__ . '/queries/stock_queries.php';
-    if (!file_exists($stock_queries_path)) {
-        error_log("ERROR: No se pudo encontrar stock_queries.php en " . $stock_queries_path);
-        die("Error crítico: Archivo de consultas de stock no encontrado. Por favor, contacta al administrador.");
-    }
-    require_once $stock_queries_path;
-    
     // Extraer y normalizar datos del formulario
     $pedido_id = intval($post['pedido_id'] ?? 0);
     $nuevo_estado = trim(strtolower($post['nuevo_estado'] ?? ''));
@@ -85,85 +78,73 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
     
     // Obtener información del pago
     $pago_actual = obtenerPagoPorPedido($mysqli, $pedido_id);
-    $estado_pago_anterior_real = $pago_actual ? $pago_actual['estado_pago'] : '';
+    $estado_pago_anterior_real = $pago_actual ? strtolower(trim($pago_actual['estado_pago'])) : '';
+    
+    // Determinar si se está cambiando el estado del pago
+    $cambiar_estado_pago = false;
+    $estado_pago_final = '';
+    if ($pago_actual && !empty($nuevo_estado_pago) && in_array($nuevo_estado_pago, $estados_pago_validos)) {
+        if ($nuevo_estado_pago !== $estado_pago_anterior_real) {
+            $cambiar_estado_pago = true;
+            $estado_pago_final = $nuevo_estado_pago;
+        }
+    }
+    
+    // Preparar motivo de rechazo si se está rechazando el pago
+    $motivo_rechazo_final = null;
+    if ($cambiar_estado_pago && $estado_pago_final === 'rechazado' && !empty($motivo_rechazo)) {
+        $motivo_rechazo_final = $motivo_rechazo;
+    }
     
     // Iniciar transacción para manejar ambos cambios
     $mysqli->begin_transaction();
     
     try {
-        // NOTA: Se puede usar actualizarEstadoPedidoConValidaciones() de pedido_queries.php
-        // para una implementación más centralizada de las reglas de negocio según el plan.
-        // Actualizar pedido completo usando función centralizada
-        // Los campos direccion_entrega, telefono_contacto, observaciones y total ya no se editan desde este modal
-        // Se pasan como null para mantener los valores existentes en la BD
-        if (!actualizarPedidoCompleto($mysqli, $pedido_id, $nuevo_estado, null, null, null, null)) {
-            throw new Exception('Error al actualizar el pedido');
-        }
-        
-        // Actualizar pago si existe y se proporcionó información
-        if ($pago_actual) {
-            // Mantener monto y número de transacción existentes (son solo lectura, llenados por el cliente)
-            $monto_final = $pago_actual['monto'];
-            $numero_transaccion = $pago_actual['numero_transaccion'] ?? null;
+        // ESTRATEGIA: Si se está cambiando el estado del pago, actualizar el pago primero
+        // usando actualizarEstadoPagoConPedido() que maneja automáticamente:
+        // - Actualización del estado del pago
+        // - Cambios en el estado del pedido (si aplica)
+        // - Gestión de stock (descuento al aprobar, reversión al rechazar/cancelar)
+        if ($cambiar_estado_pago && $pago_actual) {
+            if (!actualizarEstadoPagoConPedido($mysqli, $pago_actual['id_pago'], $estado_pago_final, $motivo_rechazo_final, $id_usuario)) {
+                throw new Exception('Error al actualizar el estado del pago');
+            }
             
-            // MEJORA: Flag para evitar doble reversión cuando se cancela pedido y se rechaza pago simultáneamente
-            $stock_revertido = false;
+            // Obtener el estado actual del pedido después de actualizar el pago
+            // porque actualizarEstadoPagoConPedido() puede haber cambiado el estado del pedido
+            $pedido_actualizado = obtenerPedidoPorId($mysqli, $pedido_id);
+            $estado_pedido_despues_pago = $pedido_actualizado ? strtolower(trim($pedido_actualizado['estado_pedido'])) : '';
             
-            // Si se cambió el estado del pago
-            if (!empty($nuevo_estado_pago) && in_array($nuevo_estado_pago, $estados_pago_validos)) {
-                // Solo actualizar si cambió
-                if ($nuevo_estado_pago !== $estado_pago_anterior_real) {
-                    // Nota: El descuento de stock al aprobar se maneja automáticamente en actualizarPagoCompleto()
-                    // No es necesario descontar manualmente aquí para evitar doble descuento
-                    
-                    // Si se rechaza o cancela el pago, restaurar stock si había sido descontado
-                    if (in_array($nuevo_estado_pago, ['rechazado', 'cancelado']) && $estado_pago_anterior_real === 'aprobado') {
-                        revertirStockPedido($mysqli, $pedido_id, $id_usuario, "Estado de pago cambiado a " . $nuevo_estado_pago);
-                        $stock_revertido = true; // Marcar que ya se revirtió el stock
+            // Si el estado del pedido cambió por la actualización del pago y es diferente al deseado,
+            // actualizar el estado del pedido solo si es necesario
+            // Nota: Si el pago se rechazó/canceló, el pedido ya fue cancelado por actualizarEstadoPagoConPedido()
+            if ($estado_pedido_despues_pago !== $nuevo_estado) {
+                // Solo actualizar si el nuevo estado es válido para el estado actual
+                // Por ejemplo, no se puede cambiar de cancelado a otro estado
+                if ($estado_pedido_despues_pago !== 'cancelado' || $nuevo_estado === 'cancelado') {
+                    if (!actualizarEstadoPedidoConValidaciones($mysqli, $pedido_id, $nuevo_estado, $id_usuario)) {
+                        throw new Exception('Error al actualizar el estado del pedido');
                     }
                 }
             }
-            
-            // NOTA: Se puede usar actualizarEstadoPagoConPedido() de pago_queries.php
-            // para una implementación más centralizada de las reglas de negocio según el plan.
-            // Actualizar pago completo usando función centralizada
-            $motivo_rechazo_final = null;
-            
-            // Si se rechazó el pago y hay motivo, guardarlo
-            if (!empty($nuevo_estado_pago) && $nuevo_estado_pago === 'rechazado' && !empty($motivo_rechazo)) {
-                $motivo_rechazo_final = $motivo_rechazo;
-            } elseif (!empty($pago_actual['motivo_rechazo']) && $nuevo_estado_pago !== 'rechazado') {
-                // Si cambió de rechazado a otro estado, limpiar motivo
-                $motivo_rechazo_final = null;
-            } else {
-                // Mantener el motivo existente si no cambió
-                $motivo_rechazo_final = $pago_actual['motivo_rechazo'] ?? null;
+        } else {
+            // Si no se está cambiando el estado del pago, solo actualizar el estado del pedido
+            // actualizarEstadoPedidoConValidaciones() maneja automáticamente la reversión de stock
+            // cuando se cancela el pedido
+            if (!actualizarEstadoPedidoConValidaciones($mysqli, $pedido_id, $nuevo_estado, $id_usuario)) {
+                throw new Exception('Error al actualizar el pedido');
             }
             
-            // Usar estado proporcionado o mantener el actual
-            $estado_pago_final = !empty($nuevo_estado_pago) ? $nuevo_estado_pago : $estado_pago_anterior_real;
-            
-            if (!actualizarPagoCompleto($mysqli, $pago_actual['id_pago'], $estado_pago_final, $monto_final, $numero_transaccion, $motivo_rechazo_final)) {
-                throw new Exception('Error al actualizar el pago');
-            }
-        }
-        
-        // Si se cancela el pedido, restaurar stock si no se había revertido ya
-        // MEJORA: Solo revertir si no se revirtió ya por cambio de estado del pago (evita doble reversión)
-        if ($nuevo_estado === 'cancelado' && $estado_anterior !== 'cancelado' && !$stock_revertido) {
-            // Verificar si hay stock que revertir (solo si había movimientos de venta y no se revirtió ya por cambio de pago)
-            if ($pago_actual && $estado_pago_anterior_real === 'aprobado') {
-                // Ya se revirtió arriba si cambió el estado del pago, pero si no cambió, revertirlo aquí
-                // Solo si no se revirtió ya (verificado por flag $stock_revertido)
-                if (empty($nuevo_estado_pago) || $nuevo_estado_pago === 'aprobado') {
-                    revertirStockPedido($mysqli, $pedido_id, $id_usuario, "Pedido cancelado por usuario ventas");
+            // Si se canceló el pedido y existe un pago, cancelar el pago también si no está cancelado
+            if ($nuevo_estado === 'cancelado' && $pago_actual && $estado_pago_anterior_real !== 'cancelado') {
+                // Solo cancelar si el estado anterior permite cancelación
+                if (in_array($estado_pago_anterior_real, ['pendiente', 'pendiente_aprobacion', 'aprobado'])) {
+                    // Usar actualizarEstadoPagoConPedido() para cancelar el pago
+                    // Esto maneja automáticamente la reversión de stock si el pago estaba aprobado
+                    if (!actualizarEstadoPagoConPedido($mysqli, $pago_actual['id_pago'], 'cancelado', null, $id_usuario)) {
+                        throw new Exception('Error al cancelar el pago');
+                    }
                 }
-            }
-            
-            // También cancelar el pago si existe y no se cambió en el formulario
-            // Solo cancelar si el estado anterior permite cancelación (pendiente, pendiente_aprobacion, aprobado)
-            if ($pago_actual && $estado_pago_anterior_real !== 'cancelado' && in_array($estado_pago_anterior_real, ['pendiente', 'pendiente_aprobacion', 'aprobado']) && (empty($nuevo_estado_pago) || $nuevo_estado_pago !== 'cancelado')) {
-                actualizarEstadoPago($mysqli, $pago_actual['id_pago'], 'cancelado');
             }
         }
         
@@ -173,8 +154,10 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
         $mensaje_exito = 'Pedido y pago actualizados correctamente';
         if ($nuevo_estado === 'cancelado') {
             $mensaje_exito = 'Pedido cancelado correctamente. Stock restaurado automáticamente.';
-        } elseif (!empty($nuevo_estado_pago) && $nuevo_estado_pago === 'aprobado' && $estado_pago_anterior_real !== 'aprobado') {
+        } elseif ($cambiar_estado_pago && $estado_pago_final === 'aprobado' && $estado_pago_anterior_real !== 'aprobado') {
             $mensaje_exito = 'Pedido y pago actualizados correctamente. Stock descontado automáticamente.';
+        } elseif ($cambiar_estado_pago && in_array($estado_pago_final, ['rechazado', 'cancelado']) && $estado_pago_anterior_real === 'aprobado') {
+            $mensaje_exito = 'Pago actualizado correctamente. Stock restaurado automáticamente.';
         }
         
         return ['mensaje' => $mensaje_exito, 'mensaje_tipo' => 'success'];

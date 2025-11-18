@@ -8,6 +8,7 @@
  * - cambiarLimiteProductos(): Cambia el límite de productos a mostrar
  * - validarNombreProducto(): Valida nombre de producto (caracteres permitidos)
  * - validarPrecio(): Valida precio (formato numérico)
+ * - validarDescripcionProducto(): Valida descripción de producto (caracteres permitidos)
  * 
  * @package TiendaSedaYLino
  * @version 1.0
@@ -29,6 +30,10 @@ function cambiarLimiteProductos(limite) {
 /**
  * Valida nombre de producto
  * Permite: letras, números, espacios, acentos, guiones
+ * 
+ * NOTA: Existe versión PHP equivalente en marketing_functions.php
+ * Ambas versiones deben mantener la misma lógica de validación.
+ * 
  * @param {string} valor - Valor a validar
  * @return {object} {valido: boolean, error: string}
  */
@@ -61,6 +66,10 @@ function validarNombreProducto(valor) {
 /**
  * Valida precio numérico
  * Permite: solo números y punto decimal
+ * 
+ * NOTA: Existe versión PHP equivalente en marketing_functions.php
+ * Ambas versiones deben mantener la misma lógica de validación.
+ * 
  * @param {string} valor - Valor a validar
  * @return {object} {valido: boolean, error: string}
  */
@@ -80,6 +89,39 @@ function validarPrecio(valor) {
     
     if (isNaN(precioFloat) || precioFloat <= 0) {
         return {valido: false, error: 'El precio debe ser mayor a cero.'};
+    }
+    
+    return {valido: true, error: ''};
+}
+
+/**
+ * Valida descripción de producto
+ * Permite: letras, números, espacios, acentos, guiones, puntos, comas, dos puntos, punto y coma
+ * Bloquea: símbolos peligrosos (< > { } [ ] | \ / &)
+ * 
+ * NOTA: Existe versión PHP equivalente en marketing_functions.php
+ * Ambas versiones deben mantener la misma lógica de validación.
+ * 
+ * @param {string} valor - Valor a validar
+ * @return {object} {valido: boolean, error: string}
+ */
+function validarDescripcionProducto(valor) {
+    valor = valor.trim();
+    
+    // La descripción es opcional, si está vacía es válida
+    if (!valor) {
+        return {valido: true, error: ''};
+    }
+    
+    // Validar caracteres permitidos: letras, números, espacios, acentos, guiones, puntos, comas, dos puntos, punto y coma
+    // Bloquear símbolos peligrosos: < > { } [ ] | \ / &
+    if (/[<>{}\[\]|\\\/&]/.test(valor)) {
+        return {valido: false, error: 'La descripción contiene caracteres no permitidos. No se permiten los símbolos: < > { } [ ] | \\ / &'};
+    }
+    
+    // Validar longitud máxima (255 caracteres)
+    if (valor.length > 255) {
+        return {valido: false, error: 'La descripción no puede exceder 255 caracteres.'};
     }
     
     return {valido: true, error: ''};
@@ -172,6 +214,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const inputPrecio = document.getElementById('input_precio_actual');
         const errorPrecio = document.getElementById('error_precio');
         const errorNombreProducto = document.getElementById('error_nombre_producto');
+        const inputDescripcion = document.getElementById('input_descripcion_producto');
+        const errorDescripcion = document.getElementById('error_descripcion');
         
         // Validar precio en tiempo real
         if (inputPrecio) {
@@ -213,6 +257,30 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
+        // Validar descripción en tiempo real
+        if (inputDescripcion) {
+            inputDescripcion.addEventListener('blur', function() {
+                if (this.value.trim()) {
+                    const validacion = validarDescripcionProducto(this.value);
+                    if (!validacion.valido) {
+                        mostrarErrorCampo(this, errorDescripcion, validacion.error);
+                    } else {
+                        limpiarErrorCampo(this, errorDescripcion);
+                    }
+                } else {
+                    // Si está vacío, es válido (campo opcional)
+                    limpiarErrorCampo(this, errorDescripcion);
+                }
+            });
+            
+            inputDescripcion.addEventListener('input', function() {
+                // Limpiar error mientras el usuario escribe
+                if (this.classList.contains('is-invalid')) {
+                    limpiarErrorCampo(this, errorDescripcion);
+                }
+            });
+        }
+        
         // Validar antes de enviar el formulario
         formCrearProducto.addEventListener('submit', function(e) {
             let hayErrores = false;
@@ -242,6 +310,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Campo nuevo producto visible pero vacío
                     mostrarErrorCampo(inputNombreProductoNuevo, errorNombreProducto, 'El nombre del producto es obligatorio.');
                     hayErrores = true;
+                }
+            }
+            
+            // Validar descripción
+            if (inputDescripcion) {
+                const validacionDescripcion = validarDescripcionProducto(inputDescripcion.value);
+                if (!validacionDescripcion.valido) {
+                    mostrarErrorCampo(inputDescripcion, errorDescripcion, validacionDescripcion.error);
+                    hayErrores = true;
+                } else {
+                    limpiarErrorCampo(inputDescripcion, errorDescripcion);
                 }
             }
             

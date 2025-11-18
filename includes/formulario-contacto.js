@@ -142,23 +142,17 @@
         }
         
         // Validar campo Asunto - HTML5
-        if (!asuntoSelect.checkValidity()) {
+        if (!asuntoSelect.checkValidity() || !asuntoSelect.value) {
             // Validación HTML5 falló (required)
-            const mensaje = asuntoSelect.validationMessage || 'Selecciona un asunto';
-            mostrarError(asuntoSelect, mensaje);
+            mostrarError(asuntoSelect, 'Por favor, seleccioná un Asunto');
             esValido = false;
         }
         
         // Validar campo Mensaje - HTML5 + JavaScript
         const mensajeValor = messageTextarea.value.trim();
-        if (!messageTextarea.checkValidity()) {
-            // Validación HTML5 falló
-            const mensaje = messageTextarea.validationMessage || 'El mensaje es requerido';
-            mostrarError(messageTextarea, mensaje);
-            esValido = false;
-        } else if (mensajeValor.length <= 20) {
-            // Validación JavaScript personalizada (más de 20 caracteres)
-            mostrarError(messageTextarea, 'Por favor, detalle un poco más el problema');
+        if (!messageTextarea.checkValidity() || mensajeValor.length < 20) {
+            // Validación HTML5 falló o no cumple mínimo de caracteres
+            mostrarError(messageTextarea, 'Por favor, contános un poco más del tema para poder ayudarte mejor. (20 caracteres mínimo)');
             esValido = false;
         }
         

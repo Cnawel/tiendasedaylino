@@ -34,6 +34,10 @@
 
 /**
  * Valida nombre o apellido (solo letras y espacios, mínimo 2 caracteres)
+ * 
+ * NOTA: Existe versión PHP equivalente en admin_functions.php
+ * Ambas versiones deben mantener la misma lógica de validación.
+ * 
  * @param {string} valor - Valor a validar
  * @returns {boolean} - true si es válido
  */
