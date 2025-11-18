@@ -164,11 +164,11 @@ $mensaje_sanitizado = htmlspecialchars($mensaje, ENT_QUOTES, 'UTF-8');
 
 // Mapear asunto a texto legible
 $asuntos_map = [
-    'problema_pagina' => 'Problema con Página',
-    'problema_producto' => 'Problema con Producto',
-    'problema_pago' => 'Problema con Pago',
-    'problema_cuenta' => 'Problema con Cuenta (Clientes)',
-    'problema_pedido' => 'Problema con Pedido'
+    'problema_pagina' => 'Inconveniente técnico sitio web',
+    'problema_producto' => 'Consulta sobre un producto',
+    'problema_pago' => 'Duda sobre un pago',
+    'problema_cuenta' => 'Mi Cuenta',
+    'problema_pedido' => 'Consulta sobre un pedido'
 ];
 
 $asunto_texto = isset($asuntos_map[$asunto_sanitizado]) ? $asuntos_map[$asunto_sanitizado] : (!empty($asunto_sanitizado) ? $asunto_sanitizado : 'Sin asunto');

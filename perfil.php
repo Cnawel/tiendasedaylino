@@ -331,41 +331,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     header('Location: perfil.php');
                     exit;
                 } else {
-                    // Iniciar transacción
-                    $mysqli->begin_transaction();
-                    
                     try {
-                        // Obtener información del pago
-                        $pago = obtenerPagoPorPedido($mysqli, $id_pedido);
-                        
-                        // Si el pago estaba aprobado, restaurar stock
-                        if ($pago && $pago['estado_pago'] === 'aprobado') {
-                            if (!revertirStockPedido($mysqli, $id_pedido, $id_usuario, "Pedido cancelado por cliente")) {
-                                throw new Exception('Error al restaurar stock del pedido');
-                            }
-                        }
-                        
-                        // NOTA: Se puede usar actualizarEstadoPedidoConValidaciones($mysqli, $id_pedido, 'cancelado', $id_usuario)
-                        // de pedido_queries.php para una implementación más centralizada de las reglas de negocio según el plan.
-                        // Actualizar estado del pedido a cancelado
-                        if (!actualizarEstadoPedido($mysqli, $id_pedido, 'cancelado')) {
+                        // Usar actualizarEstadoPedidoConValidaciones() para validaciones centralizadas
+                        // según las reglas de negocio del plan
+                        require_once __DIR__ . '/includes/queries/pedido_queries.php';
+                        if (!actualizarEstadoPedidoConValidaciones($mysqli, $id_pedido, 'cancelado', $id_usuario)) {
                             throw new Exception('Error al cancelar el pedido');
                         }
                         
-                        // Cancelar el pago si existe
-                        if ($pago && $pago['estado_pago'] !== 'cancelado') {
-                            if (!actualizarEstadoPago($mysqli, $pago['id_pago'], 'cancelado')) {
-                                throw new Exception('Error al cancelar el pago');
-                            }
-                        }
-                        
-                        $mysqli->commit();
                         $_SESSION['mensaje'] = 'Pedido cancelado correctamente. El stock ha sido restaurado si era necesario.';
                         $_SESSION['mensaje_tipo'] = 'success';
                         header('Location: perfil.php');
                         exit;
                     } catch (Exception $e) {
-                        $mysqli->rollback();
                         $_SESSION['mensaje'] = 'Error al cancelar el pedido: ' . $e->getMessage();
                         $_SESSION['mensaje_tipo'] = 'danger';
                         header('Location: perfil.php');
@@ -963,15 +941,31 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                                     <?= date('d/m/Y H:i', strtotime($pedido['fecha_pedido'])) ?>
                                                 </td>
                                                 <td>
+                                                    <?php
+                                                    // Detectar inconsistencia: pedido completado/en_viaje con pago rechazado/cancelado
+                                                    $estado_pago_actual = $pago_pedido ? strtolower(trim($pago_pedido['estado_pago'] ?? '')) : '';
+                                                    $hay_inconsistencia = in_array($estado_pedido, ['completado', 'en_viaje']) 
+                                                                          && in_array($estado_pago_actual, ['rechazado', 'cancelado']);
+                                                    ?>
                                                     <span class="badge <?= htmlspecialchars($info_estado_pedido['clase']) ?> text-white">
                                                         <?= htmlspecialchars($info_estado_pedido['texto']) ?>
                                                     </span>
+                                                    <?php if ($hay_inconsistencia): ?>
+                                                        <br><small class="text-danger">
+                                                            <i class="fas fa-exclamation-triangle"></i> Inconsistencia detectada
+                                                        </small>
+                                                    <?php endif; ?>
                                                 </td>
                                                 <td>
                                                     <?php if ($pago_pedido): ?>
                                                         <span class="badge bg-<?= htmlspecialchars($info_estado_pago['color']) ?> text-white">
                                                             <?= htmlspecialchars($info_estado_pago['nombre']) ?>
                                                         </span>
+                                                        <?php if ($hay_inconsistencia): ?>
+                                                            <br><small class="text-danger">
+                                                                <i class="fas fa-exclamation-triangle"></i> Revisar estado
+                                                            </small>
+                                                        <?php endif; ?>
                                                         <?php if (!empty($pago_pedido['numero_transaccion'])): ?>
                                                             <br><small class="text-muted">Código: <?= htmlspecialchars($pago_pedido['numero_transaccion']) ?></small>
                                                         <?php endif; ?>

@@ -362,7 +362,7 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
                         <!-- Miniaturas compactas debajo -->
                         <div id="thumbnailsContainer" class="thumbnails-compactos mt-2">
                             <?php foreach ($imagenes as $index => $imagen): ?>
-                            <div class="thumbnail-compacto <?php echo $index === 0 ? 'active' : ''; ?>" onclick="cambiarImagenPrincipal(<?php echo $index; ?>)">
+                            <div class="thumbnail-compacto <?php echo $index === 0 ? 'active' : ''; ?>" data-image-index="<?php echo $index; ?>">
                                 <img src="<?php echo htmlspecialchars($imagen); ?>" 
                                      alt="Miniatura <?php echo $index + 1; ?>">
                             </div>
@@ -484,11 +484,11 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
                         <div class="mb-3">
                             <label class="form-label-compacto fw-bold mb-1">Cantidad:</label>
                             <div class="cantidad-selector-compacto d-flex align-items-center">
-                                <button type="button" class="btn-cantidad-compacto" onclick="cambiarCantidad(-1)">
+                                <button type="button" class="btn-cantidad-compacto" data-action="decrement">
                                     <i class="fas fa-minus"></i>
                                 </button>
                                 <input type="number" class="form-control-cantidad-compacto" id="cantidad" value="1" min="1">
-                                <button type="button" class="btn-cantidad-compacto" onclick="cambiarCantidad(1)">
+                                <button type="button" class="btn-cantidad-compacto" data-action="increment">
                                     <i class="fas fa-plus"></i>
                                 </button>
                             </div>
@@ -503,10 +503,10 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
                             <input type="hidden" name="cantidad" id="cantidad_hidden">
                             
                             <div class="d-grid gap-2">
-                                <button type="button" id="btn-comprar-ahora" class="btn btn-comprar-compacto" onclick="comprarAhora()">
+                                <button type="button" id="btn-comprar-ahora" class="btn btn-comprar-compacto">
                                     <i class="fas fa-credit-card me-2"></i>Comprar Ahora
                                 </button>
-                                <button type="button" id="btn-agregar-carrito" class="btn btn-carrito-compacto" onclick="agregarAlCarrito()">
+                                <button type="button" id="btn-agregar-carrito" class="btn btn-carrito-compacto">
                                     <i class="fas fa-shopping-cart me-2"></i>Agregar al Carrito
                                 </button>
                             </div>

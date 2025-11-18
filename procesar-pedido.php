@@ -38,6 +38,7 @@ require_once __DIR__ . '/includes/queries/forma_pago_queries.php';
 require_once __DIR__ . '/includes/queries/pago_queries.php';
 require_once __DIR__ . '/includes/perfil_functions.php';
 require_once __DIR__ . '/includes/envio_functions.php';
+require_once __DIR__ . '/includes/carrito_functions.php';
 
 /**
  * Validaciones iniciales
@@ -56,8 +57,8 @@ if (!isset($_SESSION['id_usuario'])) {
     exit;
 }
 
-// Verificar que el carrito tenga productos
-if (!isset($_SESSION['carrito']) || empty($_SESSION['carrito'])) {
+// Verificar que el carrito tenga productos reales (excluyendo _meta)
+if (!tieneProductosReales($_SESSION['carrito'] ?? [])) {
     $_SESSION['mensaje_error'] = "Tu carrito está vacío";
     header('Location: carrito.php');
     exit;
@@ -68,6 +69,7 @@ $carrito = $_SESSION['carrito'];
 
 /**
  * Limpiar errores de checkout anteriores al intentar procesar nuevamente
+ * Esto permite que el usuario intente procesar el pedido nuevamente después de corregir problemas
  */
 if (isset($_SESSION['checkout_errores'])) {
     unset($_SESSION['checkout_errores']);
@@ -150,7 +152,19 @@ if ($id_forma_pago <= 0) {
 
 /**
  * Validar stock disponible para todos los productos del carrito
- * Usar FOR UPDATE para evitar race conditions
+ * 
+ * NOTA SOBRE VALIDACIÓN DE STOCK:
+ * Esta es la validación DEFINITIVA que se ejecuta antes de crear el pedido.
+ * Usa FOR UPDATE para bloquear las filas de stock y prevenir race conditions.
+ * 
+ * DIFERENCIA CON checkout.php:
+ * - checkout.php: Validación preliminar rápida (sin bloqueo) para mostrar al usuario
+ * - procesar-pedido.php: Validación definitiva con transacción y FOR UPDATE
+ * 
+ * Esta validación es necesaria porque:
+ * 1. Múltiples usuarios pueden intentar comprar el mismo producto simultáneamente
+ * 2. El stock puede cambiar entre checkout y procesamiento
+ * 3. Garantiza que solo se procesen pedidos con stock realmente disponible
  */
 $productos_validos = [];
 $total_pedido = 0;
@@ -162,6 +176,17 @@ $checkout_productos_problema = [];
 $mysqli->begin_transaction();
 
 try {
+    /**
+     * Procesar cada producto del carrito
+     * NOTA: Este procesamiento es similar al de checkout.php pero con validación definitiva:
+     * - checkout.php: Validación rápida para mostrar información al usuario
+     * - procesar-pedido.php: Validación con FOR UPDATE para garantizar atomicidad
+     * 
+     * Ambos procesamientos son necesarios porque:
+     * 1. checkout.php muestra información preliminar al usuario
+     * 2. procesar-pedido.php valida definitivamente antes de crear el pedido
+     * 3. El stock puede cambiar entre ambas validaciones
+     */
     foreach ($carrito as $clave => $item) {
         // Saltar metadatos del carrito
         if ($clave === '_meta') {
@@ -470,6 +495,11 @@ try {
     
     /**
      * Calcular costo de envío
+     * NOTA: Este cálculo también se realiza en checkout.php, pero aquí es el cálculo FINAL
+     * que se guarda en la base de datos. Se calcula nuevamente porque:
+     * 1. El usuario puede haber modificado la dirección en el formulario de checkout
+     * 2. El stock puede haber cambiado entre checkout y procesamiento
+     * 3. Garantiza que el costo guardado corresponde exactamente a los datos del pedido procesado
      */
     $info_envio = calcularCostoEnvio($total_pedido, $provincia, $localidad);
     $costo_envio = $info_envio['costo'];
@@ -526,6 +556,9 @@ try {
         'metodo_pago' => $forma_pago['nombre'],
         'metodo_pago_descripcion' => $forma_pago['descripcion'] ?? null,
         'direccion' => $direccion_completa,
+        'localidad' => $localidad,
+        'provincia' => $provincia,
+        'codigo_postal' => $codigo_postal,
         'subtotal' => $total_pedido,
         'costo_envio' => $costo_envio,
         'es_envio_gratis' => $info_envio['es_gratis'],

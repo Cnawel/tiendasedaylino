@@ -360,7 +360,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                         </div>
                         <?php else: ?>
                         <div class="table-responsive">
-                            <table class="table table-hover sortable-table">
+                            <table class="table sortable-table">
                                 <thead class="table-dark">
                                     <tr>
                                         <th class="sortable">ID Pedido</th>
@@ -422,9 +422,20 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                         <td><?= date('d/m/Y H:i', strtotime($pedido['fecha_pedido'])) ?></td>
                                         <td>$<?= number_format($pedido['total_pedido'] ?? 0, 2, ',', '.') ?></td>
                                         <td>
+                                            <?php
+                                            // Detectar inconsistencia: pedido completado/en_viaje con pago rechazado/cancelado
+                                            $estado_pago_actual = $pago_pedido ? strtolower(trim($pago_pedido['estado_pago'] ?? '')) : '';
+                                            $hay_inconsistencia = in_array($estado_pedido, ['completado', 'en_viaje']) 
+                                                                  && in_array($estado_pago_actual, ['rechazado', 'cancelado']);
+                                            ?>
                                             <span class="badge bg-<?= htmlspecialchars($info_estado['color']) ?>">
                                                 <?= htmlspecialchars($info_estado['nombre']) ?>
                                             </span>
+                                            <?php if ($hay_inconsistencia): ?>
+                                                <br><small class="text-danger">
+                                                    <i class="fas fa-exclamation-triangle"></i> Inconsistencia detectada
+                                                </small>
+                                            <?php endif; ?>
                                         </td>
                                         <td>
                                             <?php if ($pago_pedido): ?>
@@ -447,6 +458,11 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                 <span class="badge bg-<?= htmlspecialchars($info_estado_pago['color']) ?>">
                                                     <?= htmlspecialchars($info_estado_pago['nombre']) ?>
                                                 </span>
+                                                <?php if ($hay_inconsistencia): ?>
+                                                    <br><small class="text-danger">
+                                                        <i class="fas fa-exclamation-triangle"></i> Revisar estado
+                                                    </small>
+                                                <?php endif; ?>
                                             <?php else: ?>
                                                 <span class="badge bg-secondary">Sin pago</span>
                                             <?php endif; ?>
@@ -707,6 +723,29 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                 <!-- Estado del Pedido -->
                                                 <div class="mb-3">
                                                     <label class="form-label"><strong>Estado del Pedido:</strong></label>
+                                                    <?php
+                                                    // Mapeo de estados de pedido para el modal
+                                                    $estados_pedido_map_modal = [
+                                                        'pendiente' => ['color' => 'warning', 'nombre' => 'Pendiente'],
+                                                        'preparacion' => ['color' => 'info', 'nombre' => 'Preparación'],
+                                                        'en_viaje' => ['color' => 'primary', 'nombre' => 'En Viaje'],
+                                                        'completado' => ['color' => 'success', 'nombre' => 'Completado'],
+                                                        'devolucion' => ['color' => 'secondary', 'nombre' => 'Devolución'],
+                                                        'cancelado' => ['color' => 'secondary', 'nombre' => 'Cancelado']
+                                                    ];
+                                                    // Obtener información del estado actual del pedido para el badge
+                                                    if (isset($estados_pedido_map_modal[$estado_actual_modal])) {
+                                                        $info_estado_pedido_actual = $estados_pedido_map_modal[$estado_actual_modal];
+                                                    } else {
+                                                        $info_estado_pedido_actual = ['color' => 'secondary', 'nombre' => ucfirst(str_replace('_', ' ', $estado_actual_modal))];
+                                                    }
+                                                    ?>
+                                                    <!-- Badge mostrando el estado actual -->
+                                                    <div class="mb-2">
+                                                        <span class="badge bg-<?= htmlspecialchars($info_estado_pedido_actual['color']) ?>">
+                                                            <i class="fas fa-info-circle me-1"></i>Estado Actual: <?= htmlspecialchars($info_estado_pedido_actual['nombre']) ?>
+                                                        </span>
+                                                    </div>
                                                     <select class="form-select" name="nuevo_estado" required>
                                                         <option value="pendiente" <?= $estado_actual_modal === 'pendiente' ? 'selected' : '' ?>>Pendiente</option>
                                                         <option value="preparacion" <?= $estado_actual_modal === 'preparacion' ? 'selected' : '' ?>>Preparación</option>
@@ -895,7 +934,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                         </div>
                         <?php else: ?>
                         <div class="table-responsive">
-                            <table class="table table-hover sortable-table">
+                            <table class="table sortable-table">
                                 <thead class="table-dark">
                                     <tr>
                                         <th class="sortable">ID</th>
@@ -1002,7 +1041,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                 </div>
                                 <?php else: ?>
                                 <div class="table-responsive">
-                                    <table class="table table-hover sortable-table">
+                                    <table class="table sortable-table">
                                         <thead class="table-dark">
                                             <tr>
                                                 <th class="sortable">ID</th>
@@ -1157,7 +1196,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                             <div class="card-body">
                                 <?php if (!empty($top_productos_vendidos)): ?>
                                     <div class="table-responsive">
-                                        <table class="table table-hover sortable-table">
+                                        <table class="table sortable-table">
                                             <thead class="table-dark">
                                                 <tr>
                                                     <th class="sortable">#</th>
@@ -1201,7 +1240,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                             <div class="card-body">
                                 <?php if (!empty($pedidos_tiempo_estado)): ?>
                                     <div class="table-responsive">
-                                        <table class="table table-sm table-hover sortable-table">
+                                        <table class="table table-sm sortable-table">
                                             <thead class="table-dark">
                                                 <tr>
                                                     <th class="sortable">ID</th>
@@ -1261,7 +1300,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                             <div class="card-body">
                                 <?php if (!empty($movimientos_stock)): ?>
                                     <div class="table-responsive">
-                                        <table class="table table-hover sortable-table">
+                                        <table class="table sortable-table">
                                             <thead class="table-dark">
                                                 <tr>
                                                     <th class="sortable">Fecha/Hora</th>
