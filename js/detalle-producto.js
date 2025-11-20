@@ -20,6 +20,36 @@
 
 // Esperar a que los datos estén disponibles
 document.addEventListener('DOMContentLoaded', function() {
+    // Controles de cantidad - Solo JS (UX inmediata)
+    // Listener para botones de cantidad con data-action
+    // Este código no depende de productoData, por lo que se ejecuta siempre
+    document.querySelectorAll('.btn-cantidad-compacto[data-action]').forEach(function(btn) {
+        // Evitar agregar múltiples listeners
+        if (btn.hasAttribute('data-listener-cantidad')) {
+            return;
+        }
+        btn.setAttribute('data-listener-cantidad', 'true');
+        
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const input = document.getElementById('cantidad');
+            if (!input) return;
+            
+            const action = btn.getAttribute('data-action');
+            let val = parseInt(input.value) || 1;
+            
+            if (action === 'increment') {
+                val += 1;
+            } else if (action === 'decrement') {
+                val -= 1;
+                if (val < 1) val = 1;
+            }
+            
+            input.value = val;
+        });
+    });
+    
     // Verificar que los datos estén disponibles
     if (!window.productoData) {
         console.error('productoData no está disponible');
@@ -52,17 +82,47 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Controles de cantidad - Solo JS (UX inmediata)
-    document.querySelectorAll('.btn[onclick*="cambiarCantidad"]').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            const input = document.getElementById('cantidad');
-            const delta = this.querySelector('i').classList.contains('fa-plus') ? 1 : -1;
-            let val = parseInt(input.value) + delta;
-            if (val < 1) val = 1;
-            input.value = val;
+    /**
+     * Inicializar listeners para thumbnails compactos
+     * Se ejecuta inmediatamente y también después de un delay para asegurar que la función esté disponible
+     */
+    function inicializarThumbnailsCompactos() {
+        document.querySelectorAll('.thumbnail-compacto').forEach(function(thumb, i) {
+            // Evitar agregar múltiples listeners
+            if (thumb.hasAttribute('data-listener-inicializado')) {
+                return;
+            }
+            thumb.setAttribute('data-listener-inicializado', 'true');
+            
+            thumb.style.cursor = 'pointer'; // Asegurar cursor de mano
+            thumb.style.pointerEvents = 'auto'; // Asegurar que los eventos de puntero funcionen
+            
+            // Obtener índice del atributo data-image-index o usar el índice del forEach
+            const imageIndex = thumb.getAttribute('data-image-index');
+            const index = imageIndex !== null ? parseInt(imageIndex) : i;
+            
+            thumb.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Llamar a la función global cambiarImagenPrincipal
+                if (typeof window.cambiarImagenPrincipal === 'function') {
+                    window.cambiarImagenPrincipal(index);
+                } else if (typeof cambiarImagenPrincipal === 'function') {
+                    // Fallback: intentar función global sin window
+                    cambiarImagenPrincipal(index);
+                } else {
+                    console.warn('cambiarImagenPrincipal no está disponible');
+                }
+            });
         });
-    });
+    }
+    
+    // Inicializar inmediatamente
+    inicializarThumbnailsCompactos();
+    
+    // También inicializar después de un pequeño delay para asegurar que la función esté disponible
+    setTimeout(inicializarThumbnailsCompactos, 100);
     
     /**
      * Actualizar talles tachados según el color seleccionado
@@ -319,14 +379,17 @@ document.addEventListener('DOMContentLoaded', function() {
         let stockDisponible = 0;
         
         if (talla && color) {
+            // Normalizar color para consistencia (primera letra mayúscula, resto minúscula)
+            const colorNormalizado = color.value.charAt(0).toUpperCase() + color.value.slice(1).toLowerCase();
+            
             // Normalizar la clave para que coincida (asegurar que el formato sea consistente)
-            const claveStock = talla.value + '-' + color.value;
+            const claveStock = talla.value + '-' + colorNormalizado;
             stockDisponible = stockVariantes[claveStock];
             
             // Si no se encuentra con ese formato, intentar buscar en stockPorTalleColor
             if (stockDisponible === undefined || stockDisponible === null) {
-                if (stockPorTalleColor[talla.value] && stockPorTalleColor[talla.value][color.value]) {
-                    stockDisponible = stockPorTalleColor[talla.value][color.value];
+                if (stockPorTalleColor[talla.value] && stockPorTalleColor[talla.value][colorNormalizado]) {
+                    stockDisponible = stockPorTalleColor[talla.value][colorNormalizado];
                 } else {
                     stockDisponible = 0;
                 }
@@ -593,6 +656,44 @@ document.addEventListener('DOMContentLoaded', function() {
             if (cantidadHidden) cantidadHidden.value = document.getElementById('cantidad').value;
         });
     }
+    
+    // Event listeners para botones comprar y agregar al carrito
+    // Función para asignar listeners cuando las funciones globales estén disponibles
+    function asignarListenersBotones() {
+        const btnComprarAhora = document.getElementById('btn-comprar-ahora');
+        if (btnComprarAhora && typeof window.comprarAhora === 'function') {
+            // Remover listeners anteriores si existen
+            const nuevoBtnComprar = btnComprarAhora.cloneNode(true);
+            btnComprarAhora.parentNode.replaceChild(nuevoBtnComprar, btnComprarAhora);
+            
+            nuevoBtnComprar.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (typeof window.comprarAhora === 'function') {
+                    window.comprarAhora();
+                }
+            });
+        }
+        
+        const btnAgregarCarrito = document.getElementById('btn-agregar-carrito');
+        if (btnAgregarCarrito && typeof window.agregarAlCarrito === 'function') {
+            // Remover listeners anteriores si existen
+            const nuevoBtnAgregar = btnAgregarCarrito.cloneNode(true);
+            btnAgregarCarrito.parentNode.replaceChild(nuevoBtnAgregar, btnAgregarCarrito);
+            
+            nuevoBtnAgregar.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (typeof window.agregarAlCarrito === 'function') {
+                    window.agregarAlCarrito();
+                }
+            });
+        }
+    }
+    
+    // Intentar asignar listeners después de que las funciones globales estén disponibles
+    // Las funciones se definen al final del archivo, así que esperamos un momento
+    setTimeout(function() {
+        asignarListenersBotones();
+    }, 100);
 });
 
 /**
@@ -664,6 +765,9 @@ function cambiarImagenPrincipal(index) {
     });
 }
 
+// Hacer la función disponible globalmente en window
+window.cambiarImagenPrincipal = cambiarImagenPrincipal;
+
 /**
  * Función auxiliar para mostrar zoom
  */
@@ -700,9 +804,6 @@ function cambiarCantidad(d) {
  * @param {boolean} redirigirCheckout - Si es true, redirige a checkout después de agregar
  */
 function agregarAlCarrito(redirigirCheckout = false) {
-    // Log para depuración
-    console.log('agregarAlCarrito: Función ejecutada', { redirigirCheckout });
-    
     // Verificar que window.productoData esté disponible
     if (!window.productoData) {
         console.error('agregarAlCarrito: window.productoData no está disponible');
@@ -745,7 +846,8 @@ function agregarAlCarrito(redirigirCheckout = false) {
         return false;
     }
     
-    // Validar cantidad
+    // Validar cantidad - leer valor fresco del input (no usar valor cacheado)
+    // Esto asegura que si el usuario cambió la cantidad con los botones, se lea el valor actualizado
     const cantidad = parseInt(cantidadInput.value) || 1;
     if (isNaN(cantidad) || cantidad < 1) {
         alert('La cantidad debe ser mayor a 0');
@@ -755,7 +857,10 @@ function agregarAlCarrito(redirigirCheckout = false) {
     
     // Verificar stock antes de agregar - usar múltiples fuentes para mayor robustez
     let stock = 0;
-    const claveStock = talla.value + '-' + color.value;
+    
+    // Normalizar color para consistencia (primera letra mayúscula, resto minúscula)
+    const colorNormalizado = color.value.charAt(0).toUpperCase() + color.value.slice(1).toLowerCase();
+    const claveStock = talla.value + '-' + colorNormalizado;
     
     // Intentar obtener stock de stockVariantes primero
     if (stockVariantes && typeof stockVariantes === 'object' && stockVariantes[claveStock] !== undefined) {
@@ -763,8 +868,8 @@ function agregarAlCarrito(redirigirCheckout = false) {
     }
     
     // Si no se encuentra en stockVariantes, intentar en stockPorTalleColor
-    if (stock === 0 && stockPorTalleColor && stockPorTalleColor[talla.value] && stockPorTalleColor[talla.value][color.value]) {
-        stock = parseInt(stockPorTalleColor[talla.value][color.value]) || 0;
+    if (stock === 0 && stockPorTalleColor && stockPorTalleColor[talla.value] && stockPorTalleColor[talla.value][colorNormalizado]) {
+        stock = parseInt(stockPorTalleColor[talla.value][colorNormalizado]) || 0;
     }
     
     // Validar que haya stock disponible (stock > 0)
