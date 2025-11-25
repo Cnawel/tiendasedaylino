@@ -92,9 +92,6 @@ function esUltimoAdmin($mysqli, $usuario_id) {
  * @return bool True si se actualizó correctamente, false en caso contrario
  */
 function actualizarUsuarioBD($mysqli, $user_id, $nombre, $apellido, $email, $rol, $contrasena_hash = null) {
-    // Configurar conexión con charset y collation correctos
-    configurarConexionBD($mysqli);
-    
     // Validar hash si se proporciona
     if ($contrasena_hash !== null) {
         if (empty($contrasena_hash) || strlen(trim($contrasena_hash)) === 0) {
@@ -103,7 +100,7 @@ function actualizarUsuarioBD($mysqli, $user_id, $nombre, $apellido, $email, $rol
         }
     }
     
-    // Usar función centralizada para actualizar usuario
+    // Usar función centralizada para actualizar usuario (ya llama a configurarConexionBD internamente)
     $resultado = actualizarUsuario($mysqli, $user_id, $nombre, $apellido, $email, $rol, $contrasena_hash);
     
     // Si se actualizó la contraseña, confiar en actualizarUsuario() que retorna true
@@ -159,10 +156,10 @@ function validarNombreApellido($valor, $campo = 'campo') {
         return ['valido' => false, 'valor' => '', 'error' => "El $campo solo puede contener letras, espacios, apóstrofe (') y acento agudo (´)."];
     }
     
-    // SANITIZACIÓN: Prevenir ataques XSS
-    // REGLA DE SEGURIDAD: Escapar caracteres HTML especiales para prevenir inyección de código
-    // LÓGICA: Aunque el regex ya valida el contenido, se sanitiza adicionalmente para mostrar en HTML de forma segura
-    $valor = htmlspecialchars($valor, ENT_QUOTES, 'UTF-8');
+    // NOTA: NO sanitizar aquí con htmlspecialchars() - los datos deben guardarse en BD sin sanitizar
+    // La sanitización debe hacerse solo al mostrar en HTML usando htmlspecialchars() en los templates
+    // REGLA DE SEGURIDAD: Los datos se validan con regex para prevenir caracteres peligrosos,
+    // pero se guardan en BD en su forma original para preservar caracteres especiales correctamente
     
     return ['valido' => true, 'valor' => $valor, 'error' => ''];
 }

@@ -40,6 +40,127 @@ function _normalizarEmail($email) {
 }
 
 /**
+ * Verifica que el hash de contraseña se guardó correctamente en la base de datos
+ * 
+ * Esta función auxiliar verifica que el hash guardado coincide con el hash original
+ * y registra advertencias si hay discrepancias.
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param int $id_usuario ID del usuario creado
+ * @param string $hash_original Hash original que se intentó guardar
+ * @return void
+ */
+function _verificarHashGuardado($mysqli, $id_usuario, $hash_original) {
+    $sql_verify = "SELECT contrasena FROM Usuarios WHERE id_usuario = ? LIMIT 1";
+    $stmt_verify = $mysqli->prepare($sql_verify);
+    
+    if (!$stmt_verify) {
+        error_log("ADVERTENCIA crearUsuarioCliente: No se pudo preparar consulta de verificación. ID Usuario: $id_usuario");
+        return;
+    }
+    
+    $stmt_verify->bind_param('i', $id_usuario);
+    if (!$stmt_verify->execute()) {
+        error_log("ERROR _verificarHashGuardado: No se pudo ejecutar consulta - " . $stmt_verify->error);
+        $stmt_verify->close();
+        return;
+    }
+    $result_verify = $stmt_verify->get_result();
+    $row_verify = $result_verify->fetch_assoc();
+    $stmt_verify->close();
+    
+    if (!$row_verify) {
+        error_log("ADVERTENCIA crearUsuarioCliente: No se pudo recuperar hash para verificación. ID Usuario: $id_usuario");
+        return;
+    }
+    
+    $hash_guardado = $row_verify['contrasena'];
+    $hash_original_length = strlen($hash_original);
+    $hash_guardado_length = strlen($hash_guardado);
+    
+    // Verificar que el hash guardado coincide con el hash original
+    if ($hash_guardado !== $hash_original) {
+        error_log("ADVERTENCIA crearUsuarioCliente: Hash guardado no coincide con hash original. ID Usuario: $id_usuario");
+        error_log("DEBUG crearUsuarioCliente: Hash original longitud: $hash_original_length, Hash guardado longitud: $hash_guardado_length");
+        error_log("DEBUG crearUsuarioCliente: Hash original (primeros 20 chars): " . substr($hash_original, 0, 20));
+        error_log("DEBUG crearUsuarioCliente: Hash guardado (primeros 20 chars): " . substr($hash_guardado, 0, 20));
+    } else {
+        error_log("DEBUG crearUsuarioCliente: Hash verificado correctamente. ID Usuario: $id_usuario, Longitud hash: $hash_original_length");
+    }
+    
+    // Verificar longitud del hash guardado
+    if ($hash_guardado_length !== $hash_original_length) {
+        error_log("ADVERTENCIA crearUsuarioCliente: Longitud del hash guardado ($hash_guardado_length) difiere de la original ($hash_original_length). ID Usuario: $id_usuario");
+    }
+}
+
+/**
+ * Función auxiliar base para buscar usuario por email
+ * 
+ * Esta función centraliza la lógica de búsqueda de usuarios por email.
+ * Los emails ya están normalizados al insertar/actualizar, por lo que
+ * solo se requiere una búsqueda directa.
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param string $email Email normalizado del usuario
+ * @param string $campos Campos a seleccionar en la consulta SQL (separados por comas)
+ * @return array|null Array con datos del usuario o null si no se encuentra
+ */
+function _buscarUsuarioPorEmailBase($mysqli, $email, $campos) {
+    // Validar conexión
+    if (!$mysqli || !($mysqli instanceof mysqli)) {
+        return null;
+    }
+    
+    // Validar campos contra lista blanca de campos permitidos (seguridad)
+    $campos_permitidos = [
+        'id_usuario', 'nombre', 'apellido', 'email', 'contrasena', 'rol', 'activo',
+        'telefono', 'direccion', 'localidad', 'provincia', 'codigo_postal',
+        'fecha_registro', 'fecha_actualizacion', 'fecha_nacimiento',
+        'pregunta_recupero', 'respuesta_recupero'
+    ];
+    
+    // Validar que todos los campos solicitados estén en la lista blanca
+    $campos_array = array_map('trim', explode(',', $campos));
+    foreach ($campos_array as $campo) {
+        if (!in_array($campo, $campos_permitidos, true)) {
+            error_log("ERROR _buscarUsuarioPorEmailBase: Campo no permitido: $campo");
+            return null;
+        }
+    }
+    
+    // Normalizar email
+    $email = _normalizarEmail($email);
+    if ($email === null) {
+        return null;
+    }
+    
+    // Configurar conexión antes de consultar
+    configurarConexionBD($mysqli);
+    
+    // Búsqueda directa (emails ya están normalizados en BD)
+    // Los campos ya fueron validados contra lista blanca, así que es seguro usarlos
+    $sql = "SELECT $campos FROM Usuarios WHERE email = ? AND activo = 1 LIMIT 1";
+    $stmt = $mysqli->prepare($sql);
+    
+    if (!$stmt) {
+        return null;
+    }
+    
+    $stmt->bind_param('s', $email);
+    if (!$stmt->execute()) {
+        error_log("ERROR _buscarUsuarioPorEmailBase: No se pudo ejecutar consulta - " . $stmt->error);
+        $stmt->close();
+        return null;
+    }
+    $result = $stmt->get_result();
+    $row = $result->num_rows > 0 ? $result->fetch_assoc() : null;
+    $stmt->close();
+    
+    return $row;
+}
+
+/**
  * Obtiene el rol de un usuario
  * 
  * Esta función retorna el rol de un usuario específico.
@@ -58,7 +179,11 @@ function obtenerRolUsuario($mysqli, $id_usuario) {
     }
     
     $stmt->bind_param('i', $id_usuario);
-    $stmt->execute();
+    if (!$stmt->execute()) {
+        error_log("ERROR obtenerRolUsuario: No se pudo ejecutar consulta - " . $stmt->error);
+        $stmt->close();
+        return null;
+    }
     $result = $stmt->get_result();
     $row = $result->fetch_assoc();
     $stmt->close();
@@ -78,23 +203,36 @@ function obtenerRolUsuario($mysqli, $id_usuario) {
  * @return bool True si el email está en uso, false si está disponible
  */
 function verificarEmailExistente($mysqli, $email, $excluir_id = null) {
+    // Normalizar email antes de buscar (consistencia con otras funciones)
+    $email = _normalizarEmail($email);
+    if ($email === null) {
+        return false;
+    }
+    
+    // Construir SQL con condición opcional
+    $sql = "SELECT 1 FROM Usuarios WHERE email = ?";
     if ($excluir_id !== null && $excluir_id > 0) {
-        $sql = "SELECT 1 FROM Usuarios WHERE email = ? AND id_usuario <> ? LIMIT 1";
-        $stmt = $mysqli->prepare($sql);
-        if (!$stmt) {
-            return false;
-        }
+        $sql .= " AND id_usuario <> ?";
+    }
+    $sql .= " LIMIT 1";
+    
+    $stmt = $mysqli->prepare($sql);
+    if (!$stmt) {
+        return false;
+    }
+    
+    // Vincular parámetros según si hay exclusión
+    if ($excluir_id !== null && $excluir_id > 0) {
         $stmt->bind_param('si', $email, $excluir_id);
     } else {
-        $sql = "SELECT 1 FROM Usuarios WHERE email = ? LIMIT 1";
-        $stmt = $mysqli->prepare($sql);
-        if (!$stmt) {
-            return false;
-        }
         $stmt->bind_param('s', $email);
     }
     
-    $stmt->execute();
+    if (!$stmt->execute()) {
+        error_log("ERROR verificarEmailExistente: No se pudo ejecutar consulta - " . $stmt->error);
+        $stmt->close();
+        return false;
+    }
     $result = $stmt->get_result();
     $existe = $result->num_rows > 0;
     $stmt->close();
@@ -146,23 +284,33 @@ function contarUsuariosPorRol($mysqli, $rol) {
  * @return bool True si se actualizó correctamente, false en caso contrario
  */
 function actualizarUsuario($mysqli, $id_usuario, $nombre, $apellido, $email, $rol, $contrasena_hash = null) {
+    // Asegurar que la conexión esté configurada con charset UTF-8 para caracteres especiales
+    configurarConexionBD($mysqli);
+    
+    // Construir SQL dinámicamente según si se actualiza contraseña
+    $sql = "UPDATE Usuarios SET nombre = ?, apellido = ?, email = ?, rol = ?";
     if ($contrasena_hash !== null) {
-        $sql = "UPDATE Usuarios SET nombre = ?, apellido = ?, email = ?, rol = ?, contrasena = ?, fecha_actualizacion = NOW() WHERE id_usuario = ?";
-        $stmt = $mysqli->prepare($sql);
-        if (!$stmt) {
-            return false;
-        }
+        $sql .= ", contrasena = ?";
+    }
+    $sql .= ", fecha_actualizacion = NOW() WHERE id_usuario = ?";
+    
+    $stmt = $mysqli->prepare($sql);
+    if (!$stmt) {
+        error_log("ERROR actualizarUsuario: No se pudo preparar consulta - " . $mysqli->error . " (Código: " . $mysqli->errno . ")");
+        return false;
+    }
+    
+    // Vincular parámetros según si hay contraseña
+    if ($contrasena_hash !== null) {
         $stmt->bind_param('sssssi', $nombre, $apellido, $email, $rol, $contrasena_hash, $id_usuario);
     } else {
-        $sql = "UPDATE Usuarios SET nombre = ?, apellido = ?, email = ?, rol = ?, fecha_actualizacion = NOW() WHERE id_usuario = ?";
-        $stmt = $mysqli->prepare($sql);
-        if (!$stmt) {
-            return false;
-        }
         $stmt->bind_param('ssssi', $nombre, $apellido, $email, $rol, $id_usuario);
     }
     
     $resultado = $stmt->execute();
+    if (!$resultado) {
+        error_log("ERROR actualizarUsuario: No se pudo ejecutar consulta - " . $stmt->error . " (Código: " . $stmt->errno . ")");
+    }
     $stmt->close();
     
     return $resultado;
@@ -184,10 +332,14 @@ function actualizarUsuario($mysqli, $id_usuario, $nombre, $apellido, $email, $ro
  * @return int ID del usuario creado o 0 si falló
  */
 function crearUsuarioStaff($mysqli, $nombre, $apellido, $email, $contrasena_hash, $rol) {
+    // Asegurar que la conexión esté configurada con charset UTF-8 para caracteres especiales
+    configurarConexionBD($mysqli);
+    
     $sql = "INSERT INTO Usuarios (nombre, apellido, email, contrasena, rol, fecha_registro) VALUES (?, ?, ?, ?, ?, NOW())";
     
     $stmt = $mysqli->prepare($sql);
     if (!$stmt) {
+        error_log("ERROR crearUsuarioStaff: No se pudo preparar consulta - " . $mysqli->error . " (Código: " . $mysqli->errno . ")");
         return 0;
     }
     
@@ -199,6 +351,7 @@ function crearUsuarioStaff($mysqli, $nombre, $apellido, $email, $contrasena_hash
         $stmt->close();
         return $id_usuario;
     } else {
+        error_log("ERROR crearUsuarioStaff: No se pudo ejecutar consulta - " . $stmt->error . " (Código: " . $stmt->errno . ")");
         $stmt->close();
         return 0;
     }
@@ -223,7 +376,11 @@ function verificarUsuarioTienePedidos($mysqli, $id_usuario) {
     }
     
     $stmt->bind_param('i', $id_usuario);
-    $stmt->execute();
+    if (!$stmt->execute()) {
+        error_log("ERROR verificarUsuarioTienePedidos: No se pudo ejecutar consulta - " . $stmt->error);
+        $stmt->close();
+        return false;
+    }
     $result = $stmt->get_result();
     $tiene_pedidos = $result->num_rows > 0;
     $stmt->close();
@@ -250,13 +407,18 @@ function verificarUsuarioTienePedidos($mysqli, $id_usuario) {
  * @return bool True si el usuario tiene pedidos activos con pago aprobado, false en caso contrario
  */
 function verificarUsuarioTienePedidosActivos($mysqli, $id_usuario) {
+    // Usar EXISTS para mejor rendimiento (solo verifica existencia, no necesita JOIN completo)
     $sql = "
         SELECT 1 
         FROM Pedidos p
-        INNER JOIN Pagos pag ON p.id_pedido = pag.id_pedido
         WHERE p.id_usuario = ?
           AND LOWER(TRIM(p.estado_pedido)) IN ('preparacion', 'en_viaje')
-          AND LOWER(TRIM(IFNULL(pag.estado_pago, ''))) = 'aprobado'
+          AND EXISTS (
+              SELECT 1 
+              FROM Pagos pag 
+              WHERE pag.id_pedido = p.id_pedido 
+                AND LOWER(TRIM(IFNULL(pag.estado_pago, ''))) = 'aprobado'
+          )
         LIMIT 1
     ";
     
@@ -290,11 +452,15 @@ function desactivarUsuario($mysqli, $id_usuario) {
     
     $stmt = $mysqli->prepare($sql);
     if (!$stmt) {
+        error_log("ERROR desactivarUsuario: No se pudo preparar consulta - " . $mysqli->error . " (Código: " . $mysqli->errno . ")");
         return false;
     }
     
     $stmt->bind_param('i', $id_usuario);
     $resultado = $stmt->execute();
+    if (!$resultado) {
+        error_log("ERROR desactivarUsuario: No se pudo ejecutar consulta - " . $stmt->error . " (Código: " . $stmt->errno . ")");
+    }
     $stmt->close();
     
     return $resultado;
@@ -316,11 +482,15 @@ function reactivarUsuario($mysqli, $id_usuario) {
     
     $stmt = $mysqli->prepare($sql);
     if (!$stmt) {
+        error_log("ERROR reactivarUsuario: No se pudo preparar consulta - " . $mysqli->error . " (Código: " . $mysqli->errno . ")");
         return false;
     }
     
     $stmt->bind_param('i', $id_usuario);
     $resultado = $stmt->execute();
+    if (!$resultado) {
+        error_log("ERROR reactivarUsuario: No se pudo ejecutar consulta - " . $stmt->error . " (Código: " . $stmt->errno . ")");
+    }
     $stmt->close();
     
     return $resultado;
@@ -345,7 +515,11 @@ function contarPedidosUsuario($mysqli, $id_usuario) {
     }
     
     $stmt->bind_param('i', $id_usuario);
-    $stmt->execute();
+    if (!$stmt->execute()) {
+        error_log("ERROR contarPedidosUsuario: No se pudo ejecutar consulta - " . $stmt->error);
+        $stmt->close();
+        return 0;
+    }
     $result = $stmt->get_result();
     $row = $result->fetch_assoc();
     $stmt->close();
@@ -371,11 +545,15 @@ function eliminarUsuarioFisicamente($mysqli, $id_usuario) {
     
     $stmt = $mysqli->prepare($sql);
     if (!$stmt) {
+        error_log("ERROR eliminarUsuarioFisicamente: No se pudo preparar consulta - " . $mysqli->error . " (Código: " . $mysqli->errno . ")");
         return false;
     }
     
     $stmt->bind_param('i', $id_usuario);
     $resultado = $stmt->execute();
+    if (!$resultado) {
+        error_log("ERROR eliminarUsuarioFisicamente: No se pudo ejecutar consulta - " . $stmt->error . " (Código: " . $stmt->errno . ")");
+    }
     $stmt->close();
     
     return $resultado;
@@ -397,11 +575,15 @@ function actualizarRolUsuario($mysqli, $id_usuario, $nuevo_rol) {
     
     $stmt = $mysqli->prepare($sql);
     if (!$stmt) {
+        error_log("ERROR actualizarRolUsuario: No se pudo preparar consulta - " . $mysqli->error . " (Código: " . $mysqli->errno . ")");
         return false;
     }
     
     $stmt->bind_param('si', $nuevo_rol, $id_usuario);
     $resultado = $stmt->execute();
+    if (!$resultado) {
+        error_log("ERROR actualizarRolUsuario: No se pudo ejecutar consulta - " . $stmt->error . " (Código: " . $stmt->errno . ")");
+    }
     $stmt->close();
     
     return $resultado;
@@ -426,7 +608,11 @@ function obtenerHashContrasena($mysqli, $id_usuario) {
     }
     
     $stmt->bind_param('i', $id_usuario);
-    $stmt->execute();
+    if (!$stmt->execute()) {
+        error_log("ERROR obtenerHashContrasena: No se pudo ejecutar consulta - " . $stmt->error);
+        $stmt->close();
+        return null;
+    }
     $result = $stmt->get_result();
     $row = $result->fetch_assoc();
     $stmt->close();
@@ -445,6 +631,15 @@ function obtenerHashContrasena($mysqli, $id_usuario) {
  * @return array Array asociativo de usuarios con todas sus columnas
  */
 function obtenerTodosUsuarios($mysqli, $rol_filtro = null) {
+    // Validar rol_filtro contra lista de roles permitidos
+    $roles_permitidos = ['admin', 'marketing', 'ventas', 'cliente'];
+    if ($rol_filtro !== null && $rol_filtro !== '') {
+        if (!in_array($rol_filtro, $roles_permitidos, true)) {
+            // Rol inválido, retornar array vacío
+            return [];
+        }
+    }
+    
     // Construir consulta SQL con filtro opcional por rol
     $sql = "SELECT 
                 id_usuario, nombre, apellido, email, rol, activo, 
@@ -476,7 +671,11 @@ function obtenerTodosUsuarios($mysqli, $rol_filtro = null) {
         $stmt->bind_param('s', $rol_filtro);
     }
     
-    $stmt->execute();
+    if (!$stmt->execute()) {
+        error_log("ERROR obtenerTodosUsuarios: No se pudo ejecutar consulta - " . $stmt->error);
+        $stmt->close();
+        return [];
+    }
     $result = $stmt->get_result();
     
     $usuarios = [];
@@ -557,8 +756,7 @@ function obtenerHistorialUsuarios($mysqli) {
                 fecha_actualizacion,
                 COALESCE(fecha_actualizacion, fecha_registro) as fecha_orden,
                 CASE 
-                    WHEN fecha_actualizacion IS NULL THEN 'Creación'
-                    WHEN fecha_actualizacion = fecha_registro THEN 'Creación'
+                    WHEN fecha_actualizacion IS NULL OR fecha_actualizacion = fecha_registro THEN 'Creación'
                     ELSE 'Modificación'
                 END as tipo_accion
             FROM Usuarios
@@ -569,7 +767,11 @@ function obtenerHistorialUsuarios($mysqli) {
         return [];
     }
     
-    $stmt->execute();
+    if (!$stmt->execute()) {
+        error_log("ERROR obtenerHistorialUsuarios: No se pudo ejecutar consulta - " . $stmt->error);
+        $stmt->close();
+        return [];
+    }
     $result = $stmt->get_result();
     
     $historial = [];
@@ -597,11 +799,15 @@ function anularUsuarioEnMovimientosStock($mysqli, $id_usuario) {
     
     $stmt = $mysqli->prepare($sql);
     if (!$stmt) {
+        error_log("ERROR anularUsuarioEnMovimientosStock: No se pudo preparar consulta - " . $mysqli->error . " (Código: " . $mysqli->errno . ")");
         return false;
     }
     
     $stmt->bind_param('i', $id_usuario);
     $resultado = $stmt->execute();
+    if (!$resultado) {
+        error_log("ERROR anularUsuarioEnMovimientosStock: No se pudo ejecutar consulta - " . $stmt->error . " (Código: " . $stmt->errno . ")");
+    }
     $stmt->close();
     
     return $resultado;
@@ -632,6 +838,20 @@ function crearUsuarioCliente($mysqli, $nombre, $apellido, $email, $hash_password
         return 0;
     }
     
+    // Validar longitud del hash antes de insertar
+    $hash_length = strlen($hash_password);
+    if ($hash_length < 60) {
+        error_log("ERROR crearUsuarioCliente: Hash de contraseña tiene longitud incorrecta: $hash_length caracteres (mínimo esperado: 60)");
+        return 0;
+    }
+    if ($hash_length > 255) {
+        error_log("ERROR crearUsuarioCliente: Hash de contraseña excede longitud máxima de columna: $hash_length caracteres (máximo: 255)");
+        return 0;
+    }
+    
+    // Asegurar que la conexión esté configurada con charset UTF-8
+    configurarConexionBD($mysqli);
+    
     $sql = "INSERT INTO Usuarios (nombre, apellido, email, contrasena, rol, fecha_nacimiento, pregunta_recupero, respuesta_recupero, fecha_registro) VALUES (?, ?, ?, ?, 'cliente', ?, ?, ?, NOW())";
     
     $stmt = $mysqli->prepare($sql);
@@ -645,12 +865,16 @@ function crearUsuarioCliente($mysqli, $nombre, $apellido, $email, $hash_password
     
     if ($resultado) {
         $id_usuario = $mysqli->insert_id;
+        
+        // Verificar que el hash se guardó correctamente
+        _verificarHashGuardado($mysqli, $id_usuario, $hash_password);
+        
         $stmt->close();
         error_log("DEBUG crearUsuarioCliente: Usuario creado exitosamente con ID: $id_usuario");
         return $id_usuario;
     } else {
         error_log("ERROR crearUsuarioCliente: No se pudo ejecutar consulta - " . $stmt->error . " (Código: " . $stmt->errno . ")");
-        error_log("DEBUG crearUsuarioCliente: Parámetros - nombre: " . substr($nombre, 0, 20) . ", email: " . substr($email, 0, 30) . ", pregunta_id: $pregunta_recupero_id");
+        error_log("DEBUG crearUsuarioCliente: Parámetros - nombre: " . substr($nombre, 0, 20) . ", email: " . substr($email, 0, 30) . ", pregunta_id: $pregunta_recupero_id, hash_length: $hash_length");
         $stmt->close();
         return 0;
     }
@@ -661,65 +885,14 @@ function crearUsuarioCliente($mysqli, $nombre, $apellido, $email, $hash_password
  * 
  * Esta función busca un usuario activo por email y retorna los datos necesarios
  * para el proceso de recuperación de contraseña (fecha_nacimiento, pregunta_recupero, respuesta_recupero).
- * Intenta múltiples estrategias de búsqueda para compatibilidad.
  * 
  * @param mysqli $mysqli Conexión a la base de datos
- * @param string $email Email del usuario (debe estar normalizado en minúsculas)
+ * @param string $email Email del usuario (será normalizado automáticamente)
  * @return array|null Array con datos del usuario (id_usuario, email, fecha_nacimiento, pregunta_recupero, respuesta_recupero) o null si no existe
  */
 function obtenerUsuarioPorEmailRecupero($mysqli, $email) {
-    // MEJORA DE ABREVIACIÓN: Código duplicado con buscarUsuarioPorEmail().
-    // Extraer normalización de email y configuración de conexión a funciones auxiliares.
-    // MEJORA DE RENDIMIENTO: Múltiples intentos de búsqueda son ineficientes.
-    // Normalizar emails en la BD al insertar/actualizar para evitar necesidad de múltiples búsquedas.
-    
-    // Normalizar email usando función auxiliar
-    $email = _normalizarEmail($email);
-    
-    if ($email === null) {
-        return null;
-    }
-    
-    // Configurar conexión antes de consultar
-    configurarConexionBD($mysqli);
-    
-    // Intento 1: Búsqueda directa (solo usuarios activos)
-    $stmt = $mysqli->prepare("SELECT id_usuario, email, fecha_nacimiento, pregunta_recupero, respuesta_recupero FROM Usuarios WHERE email = ? AND activo = 1 LIMIT 1");
-    if (!$stmt) {
-        return null;
-    }
-    
-    $stmt->bind_param('s', $email);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($result->num_rows > 0) {
-        $row = $result->fetch_assoc();
-        $stmt->close();
-        return $row;
-    }
-    
-    $stmt->close();
-    
-    // Intento 2: Búsqueda con TRIM (para emails con espacios en BD, solo usuarios activos)
-    $stmt = $mysqli->prepare("SELECT id_usuario, email, fecha_nacimiento, pregunta_recupero, respuesta_recupero FROM Usuarios WHERE TRIM(email) = ? AND activo = 1 LIMIT 1");
-    if (!$stmt) {
-        return null;
-    }
-    
-    $stmt->bind_param('s', $email);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($result->num_rows > 0) {
-        $row = $result->fetch_assoc();
-        $stmt->close();
-        return $row;
-    }
-    
-    $stmt->close();
-    
-    return null;
+    $campos = "id_usuario, email, fecha_nacimiento, pregunta_recupero, respuesta_recupero";
+    return _buscarUsuarioPorEmailBase($mysqli, $email, $campos);
 }
 
 /**
@@ -739,7 +912,11 @@ function obtenerTextoPreguntaRecupero($mysqli, $pregunta_id) {
     }
     
     $stmt->bind_param('i', $pregunta_id);
-    $stmt->execute();
+    if (!$stmt->execute()) {
+        error_log("ERROR obtenerTextoPreguntaRecupero: No se pudo ejecutar consulta - " . $stmt->error);
+        $stmt->close();
+        return null;
+    }
     $result = $stmt->get_result();
     $row = $result->fetch_assoc();
     $stmt->close();
@@ -764,7 +941,11 @@ function obtenerPreguntaRecuperoUsuario($mysqli, $id_usuario) {
     }
     
     $stmt->bind_param('i', $id_usuario);
-    $stmt->execute();
+    if (!$stmt->execute()) {
+        error_log("ERROR obtenerPreguntaRecuperoUsuario: No se pudo ejecutar consulta - " . $stmt->error);
+        $stmt->close();
+        return null;
+    }
     $result = $stmt->get_result();
     $row = $result->fetch_assoc();
     $stmt->close();
@@ -798,7 +979,11 @@ function verificarHashContrasena($mysqli, $id_usuario, $password_plain) {
     }
     
     $stmt->bind_param('i', $id_usuario);
-    $stmt->execute();
+    if (!$stmt->execute()) {
+        error_log("ERROR verificarHashContrasena: No se pudo ejecutar consulta - " . $stmt->error);
+        $stmt->close();
+        return false;
+    }
     $result = $stmt->get_result();
     $row = $result->fetch_assoc();
     $stmt->close();
@@ -814,29 +999,37 @@ function verificarHashContrasena($mysqli, $id_usuario, $password_plain) {
 /**
  * Busca un usuario por email en la base de datos
  * 
- * Esta función busca un usuario activo por email con múltiples estrategias de búsqueda
- * para compatibilidad (búsqueda directa, con TRIM, con COLLATE).
- * Retorna los datos completos del usuario necesarios para autenticación.
+ * Esta función busca un usuario activo por email y retorna los datos completos
+ * necesarios para autenticación.
  * 
  * @param mysqli $mysqli Conexión a la base de datos
- * @param string $email Email del usuario a buscar (será normalizado a minúsculas)
+ * @param string $email Email del usuario a buscar (será normalizado automáticamente)
  * @return array|null Array con datos del usuario (id_usuario, nombre, apellido, email, contrasena, rol, activo) o null si no se encuentra
  */
 function buscarUsuarioPorEmail($mysqli, $email) {
-    // MEJORA DE ABREVIACIÓN: Esta función tiene código duplicado con obtenerUsuarioPorEmailRecupero().
-    // Considerar crear función auxiliar _normalizarEmail() y _configurarConexionBD() para reutilizar.
-    // MEJORA DE RENDIMIENTO: Los múltiples intentos de búsqueda (3 intentos) son ineficientes.
-    // Considerar normalizar emails en la base de datos al insertar/actualizar para evitar
-    // necesidad de múltiples búsquedas. Crear índice funcional en email normalizado si es posible.
-    
+    $campos = "id_usuario, nombre, apellido, email, contrasena, rol, activo";
+    return _buscarUsuarioPorEmailBase($mysqli, $email, $campos);
+}
+
+/**
+ * Busca un usuario por email incluyendo usuarios inactivos
+ * 
+ * Esta función busca un usuario por email sin restricción de activo = 1,
+ * permitiendo encontrar usuarios inactivos. Útil para procesos de reactivación
+ * de cuentas durante el login.
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param string $email Email del usuario a buscar (será normalizado automáticamente)
+ * @return array|null Array con datos del usuario (id_usuario, nombre, apellido, email, contrasena, rol, activo) o null si no se encuentra
+ */
+function buscarUsuarioPorEmailIncluyendoInactivos($mysqli, $email) {
+    // Validar conexión
     if (!$mysqli || !($mysqli instanceof mysqli)) {
-        error_log("ERROR: buscarUsuarioPorEmail() recibió una conexión inválida");
         return null;
     }
     
-    // Limpiar y normalizar email usando función auxiliar
+    // Normalizar email
     $email = _normalizarEmail($email);
-    
     if ($email === null) {
         return null;
     }
@@ -844,69 +1037,26 @@ function buscarUsuarioPorEmail($mysqli, $email) {
     // Configurar conexión antes de consultar
     configurarConexionBD($mysqli);
     
-    // Buscar usuario por email (múltiples intentos para compatibilidad)
-    $row = null;
+    // Búsqueda sin restricción de activo (incluye usuarios inactivos)
+    $campos = "id_usuario, nombre, apellido, email, contrasena, rol, activo";
+    $sql = "SELECT $campos FROM Usuarios WHERE email = ? LIMIT 1";
+    $stmt = $mysqli->prepare($sql);
     
-    // Intento 1: Búsqueda directa (solo usuarios activos)
-    $stmt = $mysqli->prepare("SELECT id_usuario, nombre, apellido, email, contrasena, rol, activo FROM Usuarios WHERE email = ? AND activo = 1 LIMIT 1");
     if (!$stmt) {
-        error_log("ERROR: No se pudo preparar consulta (intento 1): " . $mysqli->error);
         return null;
     }
     
     $stmt->bind_param('s', $email);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($result->num_rows > 0) {
-        $row = $result->fetch_assoc();
+    if (!$stmt->execute()) {
+        error_log("ERROR buscarUsuarioPorEmailIncluyendoInactivos: No se pudo ejecutar consulta - " . $stmt->error);
         $stmt->close();
-        return $row;
-    }
-    
-    $stmt->close();
-    
-    // Intento 2: Búsqueda con TRIM (para emails con espacios en BD, solo usuarios activos)
-    $stmt = $mysqli->prepare("SELECT id_usuario, nombre, apellido, email, contrasena, rol, activo FROM Usuarios WHERE TRIM(email) = ? AND activo = 1 LIMIT 1");
-    if (!$stmt) {
-        error_log("ERROR: No se pudo preparar consulta (intento 2): " . $mysqli->error);
         return null;
     }
-    
-    $stmt->bind_param('s', $email);
-    $stmt->execute();
     $result = $stmt->get_result();
-    
-    if ($result->num_rows > 0) {
-        $row = $result->fetch_assoc();
-        $stmt->close();
-        return $row;
-    }
-    
+    $row = $result->num_rows > 0 ? $result->fetch_assoc() : null;
     $stmt->close();
     
-    // Intento 3: Búsqueda con COLLATE utf8mb4_bin (comparación exacta de bytes, solo usuarios activos)
-    try {
-        $stmt = $mysqli->prepare("SELECT id_usuario, nombre, apellido, email, contrasena, rol, activo FROM Usuarios WHERE email = ? COLLATE utf8mb4_bin AND activo = 1 LIMIT 1");
-        if ($stmt) {
-            $stmt->bind_param('s', $email);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            
-            if ($result->num_rows > 0) {
-                $row = $result->fetch_assoc();
-                $stmt->close();
-                return $row;
-            }
-            
-            $stmt->close();
-        }
-    } catch (Exception $e) {
-        error_log("ERROR: Excepción en búsqueda con COLLATE: " . $e->getMessage());
-    }
-    
-    // No se encontró el usuario
-    return null;
+    return $row;
 }
 
 /**
@@ -928,11 +1078,68 @@ function obtenerUsuarioPorId($mysqli, $id_usuario) {
     }
     
     $stmt->bind_param('i', $id_usuario);
-    $stmt->execute();
+    if (!$stmt->execute()) {
+        error_log("ERROR obtenerUsuarioPorId: No se pudo ejecutar consulta - " . $stmt->error);
+        $stmt->close();
+        return null;
+    }
+    $result = $stmt->get_result();
+    $usuario = $result->fetch_assoc();
+    $stmt->close();
+
+    return $usuario;
+}
+
+/**
+ * Elimina una cuenta de usuario (soft delete) con validación de email
+ * 
+ * Esta función realiza un soft delete de la cuenta de usuario, marcándola como inactiva.
+ * Valida que el email proporcionado coincida con el usuario antes de proceder.
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param int $id_usuario ID del usuario a eliminar
+ * @param string $email Email del usuario para validación
+ * @return bool True si se eliminó correctamente, false en caso contrario
+ */
+function eliminarCuentaUsuario($mysqli, $id_usuario, $email) {
+    // Verificar que el email coincida con el usuario
+    $stmt = $mysqli->prepare("SELECT id_usuario, email FROM Usuarios WHERE id_usuario = ? LIMIT 1");
+    if (!$stmt) {
+        error_log("ERROR eliminarCuentaUsuario: No se pudo preparar consulta SELECT - " . $mysqli->error . " (Código: " . $mysqli->errno . ")");
+        return false;
+    }
+    $stmt->bind_param('i', $id_usuario);
+    if (!$stmt->execute()) {
+        error_log("ERROR eliminarCuentaUsuario: No se pudo ejecutar consulta SELECT - " . $stmt->error . " (Código: " . $stmt->errno . ")");
+        $stmt->close();
+        return false;
+    }
     $result = $stmt->get_result();
     $usuario = $result->fetch_assoc();
     $stmt->close();
     
-    return $usuario;
+    if (!$usuario) {
+        return false;
+    }
+    
+    // Validar que el email coincida
+    if (strtolower(trim($usuario['email'])) !== strtolower(trim($email))) {
+        return false;
+    }
+    
+    // Marcar cuenta como inactiva (soft delete)
+    $stmt = $mysqli->prepare("UPDATE Usuarios SET activo = 0, fecha_actualizacion = NOW() WHERE id_usuario = ?");
+    if (!$stmt) {
+        error_log("ERROR eliminarCuentaUsuario: No se pudo preparar consulta UPDATE - " . $mysqli->error . " (Código: " . $mysqli->errno . ")");
+        return false;
+    }
+    $stmt->bind_param('i', $id_usuario);
+    $resultado = $stmt->execute();
+    if (!$resultado) {
+        error_log("ERROR eliminarCuentaUsuario: No se pudo ejecutar actualización - " . $stmt->error . " (Código: " . $stmt->errno . ")");
+    }
+    $stmt->close();
+    
+    return $resultado;
 }
 

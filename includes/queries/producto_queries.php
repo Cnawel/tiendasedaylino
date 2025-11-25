@@ -17,6 +17,26 @@
  */
 
 /**
+ * Función auxiliar: Asegura que obtenerTallesEstandar() esté disponible
+ * 
+ * Verifica si la función obtenerTallesEstandar() existe y carga talles_config.php si es necesario.
+ * Esta función centraliza la verificación para evitar duplicación de código.
+ * 
+ * @throws Exception Si no se puede encontrar o cargar talles_config.php
+ * @return void
+ */
+function _asegurarTallesEstandarDisponible() {
+    if (!function_exists('obtenerTallesEstandar')) {
+        $talles_config_path = __DIR__ . '/../talles_config.php';
+        if (!file_exists($talles_config_path)) {
+            error_log("ERROR: No se pudo encontrar talles_config.php en " . $talles_config_path);
+            die("Error crítico: Archivo de configuración de talles no encontrado. Por favor, contacta al administrador.");
+        }
+        require_once $talles_config_path;
+    }
+}
+
+/**
  * Obtiene los datos completos de un producto por su ID
  * 
  * @param mysqli $mysqli Conexión a la base de datos
@@ -304,12 +324,12 @@ function eliminarProductoCompleto($mysqli, $id_producto, $ruta_base = null) {
         
         // 3. Realizar soft delete de Stock_Variantes (marcar como inactivas)
         if (!eliminarVariantesStock($mysqli, $id_producto)) {
-            throw new Exception('Error al desactivar variantes de stock');
+            throw new Exception('Error al desactivar variantes de stock para producto #' . $id_producto);
         }
         
         // 4. Realizar soft delete de Fotos_Producto (marcar como inactivas)
         if (!eliminarFotosProducto($mysqli, $id_producto)) {
-            throw new Exception('Error al desactivar fotos del producto');
+            throw new Exception('Error al desactivar fotos del producto #' . $id_producto);
         }
         
         // 5. Eliminar imágenes del directorio (opcional, para limpiar espacio)
@@ -322,12 +342,14 @@ function eliminarProductoCompleto($mysqli, $id_producto, $ruta_base = null) {
         $sql = "UPDATE Productos SET activo = 0, fecha_actualizacion = NOW() WHERE id_producto = ?";
         $stmt = $mysqli->prepare($sql);
         if (!$stmt) {
-            throw new Exception('Error al preparar consulta de eliminación');
+            throw new Exception('Error al preparar consulta de eliminación para producto #' . $id_producto . ': ' . $mysqli->error);
         }
         
         $stmt->bind_param('i', $id_producto);
         if (!$stmt->execute()) {
-            throw new Exception('Error al desactivar el producto');
+            $error_msg = $stmt->error;
+            $stmt->close();
+            throw new Exception('Error al desactivar el producto #' . $id_producto . ': ' . $error_msg);
         }
         $stmt->close();
         
@@ -559,14 +581,7 @@ function obtenerTodasFotosProducto($mysqli, $id_producto) {
  */
 function obtenerVariantesColorMismoProducto($mysqli, $id_producto, $nombre_producto, $id_categoria, $genero) {
     // Obtener talles estándar para filtrar
-    if (!function_exists('obtenerTallesEstandar')) {
-        $talles_config_path = __DIR__ . '/../talles_config.php';
-        if (!file_exists($talles_config_path)) {
-            error_log("ERROR: No se pudo encontrar talles_config.php en " . $talles_config_path);
-            die("Error crítico: Archivo de configuración de talles no encontrado. Por favor, contacta al administrador.");
-        }
-        require_once $talles_config_path;
-    }
+    _asegurarTallesEstandarDisponible();
     $talles_estandar = obtenerTallesEstandar();
     $placeholders_talles = str_repeat('?,', count($talles_estandar) - 1) . '?';
     
@@ -983,14 +998,7 @@ function _construirFiltrosWhere($filtros, &$where_parts, &$params, &$types) {
     // Si no hay filtro de talles, no se agrega condición (permite mostrar todos los talles)
     if (!empty($filtros['talles']) && is_array($filtros['talles'])) {
         // Obtener talles estándar válidos
-        if (!function_exists('obtenerTallesEstandar')) {
-            $talles_config_path = __DIR__ . '/../talles_config.php';
-            if (!file_exists($talles_config_path)) {
-                error_log("ERROR: No se pudo encontrar talles_config.php en " . $talles_config_path);
-                die("Error crítico: Archivo de configuración de talles no encontrado. Por favor, contacta al administrador.");
-            }
-            require_once $talles_config_path;
-        }
+        _asegurarTallesEstandarDisponible();
         $talles_validos = obtenerTallesEstandar();
         
         // Filtrar solo talles estándar válidos
@@ -1080,12 +1088,13 @@ function _obtenerIdsProductosFiltrados($mysqli, $where_parts, $params, $types) {
     // - c.activo = 1 (solo categorías activas - agregado aquí)
     $where_parts_ids = array_merge($where_parts, ["c.activo = 1"]);
     
-    // Construir consulta SQL para obtener IDs únicos
-    // DISTINCT asegura que no haya IDs duplicados
+    // Construir consulta SQL para obtener combinaciones únicas (id_producto, color)
+    // DISTINCT asegura que no haya combinaciones duplicadas
     // JOIN con Stock_Variantes para aplicar filtros de talle/color
     // JOIN con Categorias para filtrar por categoría activa
     // NOTA: Esta función es usada por obtenerProductosFiltradosCatalogo() que requiere stock > 0
-    $sql_ids = "SELECT DISTINCT p.id_producto
+    // MODIFICADO: Ahora retorna combinaciones (id_producto, color) para mostrar todas las variantes de color
+    $sql_ids = "SELECT DISTINCT p.id_producto, sv.color
                 FROM Productos p
                 INNER JOIN Stock_Variantes sv ON p.id_producto = sv.id_producto AND sv.activo = 1
                 INNER JOIN Categorias c ON p.id_categoria = c.id_categoria
@@ -1118,7 +1127,7 @@ function _obtenerIdsProductosFiltrados($mysqli, $where_parts, $params, $types) {
         return [];
     }
     
-    // Obtener resultados y extraer IDs de productos
+    // Obtener resultados y extraer combinaciones (id_producto, color)
     $result_ids = $stmt_ids->get_result();
     if (!$result_ids) {
         // Si no se puede obtener el resultado, cerrar statement y retornar array vacío
@@ -1126,20 +1135,27 @@ function _obtenerIdsProductosFiltrados($mysqli, $where_parts, $params, $types) {
         return [];
     }
     
-    $productos_ids = [];
+    $productos_combinaciones = [];
     while ($row = $result_ids->fetch_assoc()) {
-        // Validar que el ID sea un entero válido
-        if (isset($row['id_producto'])) {
+        // Validar que el ID sea un entero válido y que haya color
+        if (isset($row['id_producto']) && isset($row['color'])) {
             $id_producto = filter_var($row['id_producto'], FILTER_VALIDATE_INT);
             if ($id_producto !== false && $id_producto > 0) {
-                $productos_ids[] = $id_producto;
+                $color = trim($row['color']);
+                if (!empty($color)) {
+                    // Retornar combinación (id_producto, color) en lugar de solo ID
+                    $productos_combinaciones[] = [
+                        'id_producto' => $id_producto,
+                        'color' => $color
+                    ];
+                }
             }
         }
     }
     
-    // Cerrar statement y retornar IDs
+    // Cerrar statement y retornar combinaciones
     $stmt_ids->close();
-    return $productos_ids;
+    return $productos_combinaciones;
 }
 
 /**
@@ -1235,41 +1251,50 @@ function _obtenerDatosBasicosProductos($mysqli, $productos_ids) {
 }
 
 /**
- * Función auxiliar: Obtiene color representativo y stock total agregado por producto
+ * Función auxiliar: Obtiene color y stock total agregado por combinación (id_producto, color)
  * 
- * Consulta que agrega información de color (primer color disponible) y stock total
- * de las variantes activas con stock. Puede filtrar por talles estándar si se requiere.
+ * Consulta que agrega información de color y stock total de las variantes activas con stock,
+ * agrupando por combinación (id_producto, color) para mostrar todas las variantes de color.
+ * Puede filtrar por talles estándar si se requiere.
  * 
  * @param mysqli $mysqli Conexión a la base de datos
- * @param array $productos_ids Array de IDs de productos (enteros)
+ * @param array $productos_combinaciones Array de combinaciones [['id_producto' => int, 'color' => string], ...]
  * @param bool $hay_filtro_talles Si true, solo considera talles estándar (S, M, L, XL)
- * @return array Array asociativo [id_producto => ['color' => string, 'total_stock' => int]] o array vacío
+ * @return array Array asociativo [id_producto-color => ['id_producto' => int, 'color' => string, 'total_stock' => int]] o array vacío
  */
-function _obtenerColorStockProductos($mysqli, $productos_ids, $hay_filtro_talles = false) {
+function _obtenerColorStockProductos($mysqli, $productos_combinaciones, $hay_filtro_talles = false) {
     // Validar entrada
     if ($mysqli === null || !($mysqli instanceof mysqli)) {
         return [];
     }
     
-    if (!is_array($productos_ids) || empty($productos_ids)) {
+    if (!is_array($productos_combinaciones) || empty($productos_combinaciones)) {
         return [];
     }
     
-    // Validar y filtrar IDs
-    $productos_ids_validos = [];
-    foreach ($productos_ids as $id) {
-        $id_validado = filter_var($id, FILTER_VALIDATE_INT);
-        if ($id_validado !== false && $id_validado > 0) {
-            $productos_ids_validos[] = $id_validado;
+    // Validar y filtrar combinaciones
+    $combinaciones_validas = [];
+    $productos_ids_unicos = [];
+    foreach ($productos_combinaciones as $combinacion) {
+        // Verificar si es array con id_producto y color
+        if (is_array($combinacion) && isset($combinacion['id_producto']) && isset($combinacion['color'])) {
+            $id_producto = filter_var($combinacion['id_producto'], FILTER_VALIDATE_INT);
+            $color = trim($combinacion['color']);
+            if ($id_producto !== false && $id_producto > 0 && !empty($color)) {
+                $combinaciones_validas[] = ['id_producto' => $id_producto, 'color' => $color];
+                if (!in_array($id_producto, $productos_ids_unicos)) {
+                    $productos_ids_unicos[] = $id_producto;
+                }
+            }
         }
     }
     
-    if (empty($productos_ids_validos)) {
+    if (empty($combinaciones_validas) || empty($productos_ids_unicos)) {
         return [];
     }
     
-    // Crear placeholders para IN clause
-    $placeholders = _crearPlaceholdersSQL(count($productos_ids_validos));
+    // Crear placeholders para IN clause de productos
+    $placeholders = _crearPlaceholdersSQL(count($productos_ids_unicos));
     if (empty($placeholders)) {
         return [];
     }
@@ -1277,14 +1302,7 @@ function _obtenerColorStockProductos($mysqli, $productos_ids, $hay_filtro_talles
     // Construir consulta según si hay filtro de talles
     if ($hay_filtro_talles) {
         // Obtener talles estándar
-        if (!function_exists('obtenerTallesEstandar')) {
-            $talles_config_path = __DIR__ . '/../talles_config.php';
-            if (!file_exists($talles_config_path)) {
-                error_log("ERROR: No se pudo encontrar talles_config.php en " . $talles_config_path);
-                die("Error crítico: Archivo de configuración de talles no encontrado. Por favor, contacta al administrador.");
-            }
-            require_once $talles_config_path;
-        }
+        _asegurarTallesEstandarDisponible();
         $talles_estandar = obtenerTallesEstandar();
         
         if (!is_array($talles_estandar) || empty($talles_estandar)) {
@@ -1296,17 +1314,17 @@ function _obtenerColorStockProductos($mysqli, $productos_ids, $hay_filtro_talles
             return [];
         }
         
-        // Consulta con filtro de talles estándar
+        // Consulta con filtro de talles estándar - Agrupar por (id_producto, color)
         $sql = "SELECT 
                     id_producto,
-                    MIN(color) as color,
+                    color,
                     SUM(stock) as total_stock
                 FROM Stock_Variantes
                 WHERE id_producto IN ($placeholders)
                 AND stock > 0
                 AND activo = 1
                 AND talle IN ($placeholders_talles)
-                GROUP BY id_producto";
+                GROUP BY id_producto, color";
         
         $stmt = $mysqli->prepare($sql);
         if (!$stmt) {
@@ -1314,8 +1332,8 @@ function _obtenerColorStockProductos($mysqli, $productos_ids, $hay_filtro_talles
             return [];
         }
         
-        $types = str_repeat('i', count($productos_ids_validos)) . str_repeat('s', count($talles_estandar));
-        $params = array_merge($productos_ids_validos, $talles_estandar);
+        $types = str_repeat('i', count($productos_ids_unicos)) . str_repeat('s', count($talles_estandar));
+        $params = array_merge($productos_ids_unicos, $talles_estandar);
         
         if (!$stmt->bind_param($types, ...$params)) {
             error_log("ERROR _obtenerColorStockProductos - bind_param falló: " . $stmt->error);
@@ -1323,16 +1341,16 @@ function _obtenerColorStockProductos($mysqli, $productos_ids, $hay_filtro_talles
             return [];
         }
     } else {
-        // Consulta sin filtro de talles (todos los talles)
+        // Consulta sin filtro de talles (todos los talles) - Agrupar por (id_producto, color)
         $sql = "SELECT 
                     id_producto,
-                    MIN(color) as color,
+                    color,
                     SUM(stock) as total_stock
                 FROM Stock_Variantes
                 WHERE id_producto IN ($placeholders)
                 AND stock > 0
                 AND activo = 1
-                GROUP BY id_producto";
+                GROUP BY id_producto, color";
         
         $stmt = $mysqli->prepare($sql);
         if (!$stmt) {
@@ -1340,8 +1358,8 @@ function _obtenerColorStockProductos($mysqli, $productos_ids, $hay_filtro_talles
             return [];
         }
         
-        $types = str_repeat('i', count($productos_ids_validos));
-        $params = $productos_ids_validos;
+        $types = str_repeat('i', count($productos_ids_unicos));
+        $params = $productos_ids_unicos;
         
         if (!$stmt->bind_param($types, ...$params)) {
             error_log("ERROR _obtenerColorStockProductos - bind_param falló: " . $stmt->error);
@@ -1362,14 +1380,29 @@ function _obtenerColorStockProductos($mysqli, $productos_ids, $hay_filtro_talles
         return [];
     }
     
-    // Convertir a array asociativo indexado por id_producto
+    // Convertir a array asociativo indexado por combinación id_producto-color
+    // Filtrar solo las combinaciones que fueron solicitadas originalmente
     $color_stock = [];
+    $combinaciones_solicitadas = [];
+    foreach ($combinaciones_validas as $comb) {
+        $key = $comb['id_producto'] . '-' . strtolower(trim($comb['color']));
+        $combinaciones_solicitadas[$key] = $comb;
+    }
+    
     while ($row = $result->fetch_assoc()) {
-        if (isset($row['id_producto'])) {
-            $color_stock[$row['id_producto']] = [
-                'color' => $row['color'],
-                'total_stock' => (int)$row['total_stock']
-            ];
+        if (isset($row['id_producto']) && isset($row['color'])) {
+            $id_producto = (int)$row['id_producto'];
+            $color = trim($row['color']);
+            $key = $id_producto . '-' . strtolower($color);
+            
+            // Solo incluir si esta combinación fue solicitada originalmente
+            if (isset($combinaciones_solicitadas[$key])) {
+                $color_stock[$key] = [
+                    'id_producto' => $id_producto,
+                    'color' => $color,
+                    'total_stock' => (int)$row['total_stock']
+                ];
+            }
         }
     }
     
@@ -1507,7 +1540,19 @@ function _seleccionarFotoConPrioridadPorColor($fotos_grupo, $id_producto, $color
  * @param array $color_stock Array asociativo [id_producto => ['color' => string, 'total_stock' => int]]
  * @return array Array asociativo [id_producto => ruta_foto] o array vacío
  */
-function _obtenerFotosMiniaturaProductos($mysqli, $productos_data, $color_stock) {
+/**
+ * Función auxiliar: Obtiene fotos miniatura de productos con lógica de priorización
+ * 
+ * MODIFICADA: Ahora puede retornar fotos indexadas por combinación (id_producto-color)
+ * cuando se proporcionan combinaciones válidas, permitiendo mostrar fotos específicas por color.
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param array $productos_data Array asociativo [id_producto => datos_basicos]
+ * @param array $color_stock Array asociativo [id_producto-color => ['id_producto' => int, 'color' => string, ...]] o [id_producto => ['color' => string]]
+ * @param array $combinaciones_validas Array de combinaciones [['id_producto' => int, 'color' => string], ...] - Opcional
+ * @return array Array asociativo [id_producto => foto] o [id_producto-color => foto] si se proporcionan combinaciones
+ */
+function _obtenerFotosMiniaturaProductos($mysqli, $productos_data, $color_stock, $combinaciones_validas = null) {
     // Validar entrada
     if ($mysqli === null || !($mysqli instanceof mysqli)) {
         return [];
@@ -1668,28 +1713,82 @@ function _obtenerFotosMiniaturaProductos($mysqli, $productos_data, $color_stock)
     // Aplicar lógica de priorización en PHP para cada producto usando nueva función auxiliar
     $fotos_seleccionadas = [];
     
-    foreach ($productos_data as $id_producto => $producto) {
-        // Validar que el producto tenga las claves necesarias antes de acceder
-        if (!isset($producto['nombre_producto']) || !isset($producto['id_categoria']) || !isset($producto['genero'])) {
-            // Si faltan datos esenciales, saltar este producto
-            error_log("ADVERTENCIA _obtenerFotosMiniaturaProductos: Producto ID {$id_producto} no tiene todas las claves necesarias (nombre_producto, id_categoria, genero)");
-            continue;
+    // Si se proporcionan combinaciones válidas, procesar por combinación (id_producto, color)
+    if (!empty($combinaciones_validas) && is_array($combinaciones_validas)) {
+        foreach ($combinaciones_validas as $combinacion) {
+            if (!isset($combinacion['id_producto']) || !isset($combinacion['color'])) {
+                continue;
+            }
+            
+            $id_producto = (int)$combinacion['id_producto'];
+            $color = trim($combinacion['color']);
+            $key_color_stock = $id_producto . '-' . strtolower($color);
+            
+            // Verificar que el producto exista en datos básicos
+            if (!isset($productos_data[$id_producto])) {
+                continue;
+            }
+            
+            $producto = $productos_data[$id_producto];
+            
+            // Validar que el producto tenga las claves necesarias antes de acceder
+            if (!isset($producto['nombre_producto']) || !isset($producto['id_categoria']) || !isset($producto['genero'])) {
+                // Si faltan datos esenciales, saltar este producto
+                error_log("ADVERTENCIA _obtenerFotosMiniaturaProductos: Producto ID {$id_producto} no tiene todas las claves necesarias (nombre_producto, id_categoria, genero)");
+                continue;
+            }
+            
+            $grupo_key = $producto['nombre_producto'] . '|' . $producto['id_categoria'] . '|' . $producto['genero'];
+            
+            // Obtener color de esta combinación específica
+            $color_representativo = null;
+            if (isset($color_stock[$key_color_stock]) && isset($color_stock[$key_color_stock]['color'])) {
+                $color_representativo = $color_stock[$key_color_stock]['color'];
+            } elseif (isset($color_stock[$id_producto]) && isset($color_stock[$id_producto]['color'])) {
+                $color_representativo = $color_stock[$id_producto]['color'];
+            } else {
+                $color_representativo = $color; // Usar el color de la combinación directamente
+            }
+            
+            if (!isset($fotos_por_grupo[$grupo_key])) {
+                continue; // No hay fotos para este grupo
+            }
+            
+            $fotos_grupo = $fotos_por_grupo[$grupo_key];
+            
+            // Usar función auxiliar para seleccionar foto con prioridad por color
+            $foto_seleccionada = _seleccionarFotoConPrioridadPorColor($fotos_grupo, $id_producto, $color_representativo);
+            
+            if ($foto_seleccionada !== null) {
+                // Indexar por combinación (id_producto-color) para permitir fotos diferentes por color
+                $fotos_seleccionadas[$key_color_stock] = $foto_seleccionada;
+            }
         }
-        
-        $grupo_key = $producto['nombre_producto'] . '|' . $producto['id_categoria'] . '|' . $producto['genero'];
-        $color_representativo = isset($color_stock[$id_producto]) ? $color_stock[$id_producto]['color'] : null;
-        
-        if (!isset($fotos_por_grupo[$grupo_key])) {
-            continue; // No hay fotos para este grupo
-        }
-        
-        $fotos_grupo = $fotos_por_grupo[$grupo_key];
-        
-        // Usar función auxiliar para seleccionar foto con prioridad por color
-        $foto_seleccionada = _seleccionarFotoConPrioridadPorColor($fotos_grupo, $id_producto, $color_representativo);
-        
-        if ($foto_seleccionada !== null) {
-            $fotos_seleccionadas[$id_producto] = $foto_seleccionada;
+    } else {
+        // Comportamiento anterior: procesar por id_producto (compatibilidad)
+        foreach ($productos_data as $id_producto => $producto) {
+            // Validar que el producto tenga las claves necesarias antes de acceder
+            if (!isset($producto['nombre_producto']) || !isset($producto['id_categoria']) || !isset($producto['genero'])) {
+                // Si faltan datos esenciales, saltar este producto
+                error_log("ADVERTENCIA _obtenerFotosMiniaturaProductos: Producto ID {$id_producto} no tiene todas las claves necesarias (nombre_producto, id_categoria, genero)");
+                continue;
+            }
+            
+            $grupo_key = $producto['nombre_producto'] . '|' . $producto['id_categoria'] . '|' . $producto['genero'];
+            $color_representativo = isset($color_stock[$id_producto]) ? $color_stock[$id_producto]['color'] : null;
+            
+            if (!isset($fotos_por_grupo[$grupo_key])) {
+                continue; // No hay fotos para este grupo
+            }
+            
+            $fotos_grupo = $fotos_por_grupo[$grupo_key];
+            
+            // Usar función auxiliar para seleccionar foto con prioridad por color
+            $foto_seleccionada = _seleccionarFotoConPrioridadPorColor($fotos_grupo, $id_producto, $color_representativo);
+            
+            if ($foto_seleccionada !== null) {
+                $fotos_seleccionadas[$id_producto] = $foto_seleccionada;
+            }
         }
     }
     
@@ -1699,38 +1798,90 @@ function _obtenerFotosMiniaturaProductos($mysqli, $productos_data, $color_stock)
 /**
  * Función auxiliar: Combina datos de productos desde múltiples fuentes
  * 
- * Combina datos básicos, color/stock y fotos en un solo array de productos
- * con la misma estructura que retornaba la consulta compleja original.
+ * Combina datos básicos, color/stock y fotos en un solo array de productos.
+ * MODIFICADA: Ahora crea múltiples entradas por producto (una por cada variante de color)
+ * para permitir mostrar todas las variantes de color en el catálogo.
  * 
  * @param array $datos_basicos Array asociativo [id_producto => datos_basicos]
- * @param array $color_stock Array asociativo [id_producto => ['color' => string, 'total_stock' => int]]
- * @param array $fotos Array asociativo [id_producto => foto_prod_miniatura]
- * @return array Array de productos con estructura completa (compatible con consulta original)
+ * @param array $color_stock Array asociativo [id_producto-color => ['id_producto' => int, 'color' => string, 'total_stock' => int]]
+ * @param array $fotos Array asociativo [id_producto => foto_prod_miniatura] o [id_producto-color => foto_prod_miniatura]
+ * @param array $combinaciones_validas Array de combinaciones [['id_producto' => int, 'color' => string], ...] - Opcional, usado para iterar sobre todas las combinaciones
+ * @return array Array de productos (arrays asociativos) con estructura completa, una entrada por combinación (id_producto, color)
  */
-function _combinarDatosProductos($datos_basicos, $color_stock, $fotos) {
+function _combinarDatosProductos($datos_basicos, $color_stock, $fotos, $combinaciones_validas = null) {
     $productos_completos = [];
     
-    // Iterar sobre datos básicos (estos son los productos que existen)
-    foreach ($datos_basicos as $id_producto => $producto) {
-        $producto_completo = $producto; // Copiar datos básicos
-        
-        // Agregar color y stock si existen
-        if (isset($color_stock[$id_producto])) {
-            $producto_completo['color'] = $color_stock[$id_producto]['color'];
-            $producto_completo['total_stock'] = $color_stock[$id_producto]['total_stock'];
-        } else {
-            $producto_completo['color'] = null;
-            $producto_completo['total_stock'] = 0;
+    // Si se proporcionan combinaciones válidas, usarlas para crear múltiples entradas por color
+    if (!empty($combinaciones_validas) && is_array($combinaciones_validas)) {
+        foreach ($combinaciones_validas as $combinacion) {
+            if (!isset($combinacion['id_producto']) || !isset($combinacion['color'])) {
+                continue;
+            }
+            
+            $id_producto = (int)$combinacion['id_producto'];
+            $color = trim($combinacion['color']);
+            $key_color_stock = $id_producto . '-' . strtolower($color);
+            
+            // Verificar que el producto exista en datos básicos
+            if (!isset($datos_basicos[$id_producto])) {
+                continue;
+            }
+            
+            // Verificar que esta combinación tenga stock disponible
+            if (!isset($color_stock[$key_color_stock])) {
+                continue;
+            }
+            
+            $producto_completo = $datos_basicos[$id_producto]; // Copiar datos básicos
+            
+            // Agregar color y stock de esta combinación específica
+            $producto_completo['color'] = $color_stock[$key_color_stock]['color'];
+            $producto_completo['total_stock'] = $color_stock[$key_color_stock]['total_stock'];
+            
+            // Buscar foto: primero por combinación (id_producto-color), luego por id_producto
+            $foto_encontrada = null;
+            if (isset($fotos[$key_color_stock])) {
+                $foto_encontrada = $fotos[$key_color_stock];
+            } elseif (isset($fotos[$id_producto])) {
+                $foto_encontrada = $fotos[$id_producto];
+            }
+            
+            $producto_completo['foto_prod_miniatura'] = $foto_encontrada;
+            
+            $productos_completos[] = $producto_completo;
         }
-        
-        // Agregar foto miniatura si existe
-        if (isset($fotos[$id_producto])) {
-            $producto_completo['foto_prod_miniatura'] = $fotos[$id_producto];
-        } else {
-            $producto_completo['foto_prod_miniatura'] = null;
+    } else {
+        // Fallback: comportamiento anterior (una entrada por producto)
+        // Iterar sobre datos básicos (estos son los productos que existen)
+        foreach ($datos_basicos as $id_producto => $producto) {
+            $producto_completo = $producto; // Copiar datos básicos
+            
+            // Buscar color_stock por id_producto (compatibilidad con código antiguo)
+            $color_stock_encontrado = null;
+            foreach ($color_stock as $key => $data) {
+                if (isset($data['id_producto']) && $data['id_producto'] == $id_producto) {
+                    $color_stock_encontrado = $data;
+                    break;
+                }
+            }
+            
+            if ($color_stock_encontrado) {
+                $producto_completo['color'] = $color_stock_encontrado['color'];
+                $producto_completo['total_stock'] = $color_stock_encontrado['total_stock'];
+            } else {
+                $producto_completo['color'] = null;
+                $producto_completo['total_stock'] = 0;
+            }
+            
+            // Agregar foto miniatura si existe
+            if (isset($fotos[$id_producto])) {
+                $producto_completo['foto_prod_miniatura'] = $fotos[$id_producto];
+            } else {
+                $producto_completo['foto_prod_miniatura'] = null;
+            }
+            
+            $productos_completos[] = $producto_completo;
         }
-        
-        $productos_completos[] = $producto_completo;
     }
     
     return $productos_completos;
@@ -1743,36 +1894,45 @@ function _combinarDatosProductos($datos_basicos, $color_stock, $fotos) {
  * REFACTORIZADA: Esta función ahora usa múltiples consultas simples en lugar de una consulta compleja.
  * Ejecuta 3 consultas separadas y combina los resultados en PHP:
  * 1. Datos básicos de productos
- * 2. Color y stock agregado
+ * 2. Color y stock agregado (por combinación id_producto-color)
  * 3. Fotos miniatura con lógica de priorización
  * 
- * Esta estrategia es más fácil de mantener y depurar que la consulta compleja anterior.
+ * MODIFICADA: Ahora acepta combinaciones (id_producto, color) en lugar de solo IDs,
+ * permitiendo mostrar múltiples variantes de color por producto.
  * 
  * @param mysqli $mysqli Conexión a la base de datos
- * @param array $productos_ids Array de IDs de productos (enteros)
+ * @param array $productos_combinaciones Array de combinaciones [['id_producto' => int, 'color' => string], ...]
  * @param bool $hay_filtro_talles Si true, solo considera talles estándar para color/stock
  * @return array Array de productos (arrays asociativos) con estructura completa o array vacío si falla
  */
-function _obtenerDatosCompletosProductos($mysqli, $productos_ids, $hay_filtro_talles = false) {
+function _obtenerDatosCompletosProductos($mysqli, $productos_combinaciones, $hay_filtro_talles = false) {
     // Validación de entrada
     if ($mysqli === null || !($mysqli instanceof mysqli)) {
         return [];
     }
     
-    if (!is_array($productos_ids) || empty($productos_ids)) {
+    if (!is_array($productos_combinaciones) || empty($productos_combinaciones)) {
         return [];
     }
     
-    // Validar y filtrar IDs
+    // Validar y extraer IDs únicos de productos
     $productos_ids_validos = [];
-    foreach ($productos_ids as $id) {
-        $id_validado = filter_var($id, FILTER_VALIDATE_INT);
-        if ($id_validado !== false && $id_validado > 0) {
-            $productos_ids_validos[] = $id_validado;
+    $combinaciones_validas = [];
+    foreach ($productos_combinaciones as $combinacion) {
+        // Verificar si es array con id_producto y color
+        if (is_array($combinacion) && isset($combinacion['id_producto']) && isset($combinacion['color'])) {
+            $id_producto = filter_var($combinacion['id_producto'], FILTER_VALIDATE_INT);
+            $color = trim($combinacion['color']);
+            if ($id_producto !== false && $id_producto > 0 && !empty($color)) {
+                if (!in_array($id_producto, $productos_ids_validos)) {
+                    $productos_ids_validos[] = $id_producto;
+                }
+                $combinaciones_validas[] = ['id_producto' => $id_producto, 'color' => $color];
+            }
         }
     }
     
-    if (empty($productos_ids_validos)) {
+    if (empty($productos_ids_validos) || empty($combinaciones_validas)) {
         return [];
     }
     
@@ -1784,14 +1944,15 @@ function _obtenerDatosCompletosProductos($mysqli, $productos_ids, $hay_filtro_ta
         return []; // Si no hay datos básicos, no hay productos
     }
     
-    // 2. Obtener color y stock agregado
-    $color_stock = _obtenerColorStockProductos($mysqli, $productos_ids_validos, $hay_filtro_talles);
+    // 2. Obtener color y stock agregado por combinación (id_producto, color)
+    $color_stock = _obtenerColorStockProductos($mysqli, $combinaciones_validas, $hay_filtro_talles);
     
     // 3. Obtener fotos miniatura con lógica de priorización
-    $fotos = _obtenerFotosMiniaturaProductos($mysqli, $datos_basicos, $color_stock);
+    // Pasar combinaciones válidas para obtener fotos por combinación (id_producto, color)
+    $fotos = _obtenerFotosMiniaturaProductos($mysqli, $datos_basicos, $color_stock, $combinaciones_validas);
     
-    // 4. Combinar todos los datos
-    $productos_completos = _combinarDatosProductos($datos_basicos, $color_stock, $fotos);
+    // 4. Combinar todos los datos (creará múltiples entradas por producto, una por color)
+    $productos_completos = _combinarDatosProductos($datos_basicos, $color_stock, $fotos, $combinaciones_validas);
     
     return $productos_completos;
 }
@@ -1831,15 +1992,7 @@ function obtenerProductosFiltradosCatalogo($mysqli, $filtros = []) {
     // SECCIÓN 1: INICIALIZACIÓN Y VALIDACIÓN DE DEPENDENCIAS
     // ===================================================================
     // Verificar que la función obtenerTallesEstandar() esté disponible
-    // (debería estar incluida desde talles_config.php, pero incluimos por si acaso)
-    if (!function_exists('obtenerTallesEstandar')) {
-        $talles_config_path = __DIR__ . '/../talles_config.php';
-        if (!file_exists($talles_config_path)) {
-            error_log("ERROR: No se pudo encontrar talles_config.php en " . $talles_config_path);
-            die("Error crítico: Archivo de configuración de talles no encontrado. Por favor, contacta al administrador.");
-        }
-        require_once $talles_config_path;
-    }
+    _asegurarTallesEstandarDisponible();
     
     // ===================================================================
     // SECCIÓN 2: CONSTRUCCIÓN DE FILTROS WHERE DINÁMICOS
@@ -1944,16 +2097,8 @@ function obtenerTallesDisponibles($mysqli, $categoria_id = null) {
         }
     }
     
-    // Verificar si la función obtenerTallesEstandar() existe (debería estar incluida desde talles_config.php)
-    // Si no existe, incluir el archivo que la contiene
-    if (!function_exists('obtenerTallesEstandar')) {
-        $talles_config_path = __DIR__ . '/../talles_config.php';
-        if (!file_exists($talles_config_path)) {
-            error_log("ERROR: No se pudo encontrar talles_config.php en " . $talles_config_path);
-            die("Error crítico: Archivo de configuración de talles no encontrado. Por favor, contacta al administrador.");
-        }
-        require_once $talles_config_path;
-    }
+    // Verificar que la función obtenerTallesEstandar() esté disponible
+    _asegurarTallesEstandarDisponible();
     
     // Obtener array de talles estándar (ej: ['S', 'M', 'L', 'XL'])
     $talles_estandar = obtenerTallesEstandar();
@@ -2170,6 +2315,14 @@ function _normalizarColor($color) {
 /**
  * Obtiene colores disponibles con stock desde la base de datos, opcionalmente filtrados por categoría
  * 
+ * NOTA: Esta función consulta la BD (tabla Stock_Variantes) para obtener colores con stock disponible.
+ * Para obtener colores desde la estructura de carpetas de imágenes, usar obtenerColoresDisponibles() 
+ * de includes/image_helper.php
+ * 
+ * DIFERENCIAS:
+ * - obtenerColoresDisponiblesStock(): Consulta la BD (tabla Stock_Variantes con stock > 0)
+ * - obtenerColoresDisponibles(): Lee del sistema de archivos (carpetas imagenes/productos/)
+ * 
  * Esta función consulta la base de datos para obtener todos los colores que tienen productos
  * con stock disponible. Normaliza los colores para evitar duplicados por formato (ej: "Negro", "negro", "NEGRO").
  * Solo considera variantes y productos activos.
@@ -2309,17 +2462,15 @@ function obtenerEstadisticasProductos($mysqli) {
     $stmt->close();
     
     // Productos sin stock (solo productos activos)
+    // OPTIMIZADO: Usar LEFT JOIN con IS NULL en lugar de NOT IN para mejor rendimiento
     $stmt = $mysqli->prepare("
         SELECT COUNT(DISTINCT p.id_producto) as productos_sin_stock
         FROM Productos p
-        LEFT JOIN Stock_Variantes sv ON sv.id_producto = p.id_producto AND sv.activo = 1
+        LEFT JOIN Stock_Variantes sv ON sv.id_producto = p.id_producto 
+            AND sv.activo = 1 
+            AND sv.stock > 0
         WHERE p.activo = 1
-        AND (sv.id_variante IS NULL 
-           OR p.id_producto NOT IN (
-               SELECT DISTINCT id_producto 
-               FROM Stock_Variantes 
-               WHERE stock > 0 AND activo = 1
-           ))
+          AND sv.id_variante IS NULL
     ");
     $stmt->execute();
     $result = $stmt->get_result()->fetch_assoc();
@@ -3519,23 +3670,23 @@ function eliminarProductoPermanentemente($mysqli, $id_producto, $ruta_base = nul
         // 2. Eliminar físicamente Movimientos_Stock relacionados a esas variantes
         if (!empty($variantes_ids)) {
             if (!eliminarMovimientosStockVariantes($mysqli, $variantes_ids)) {
-                throw new Exception('Error al eliminar movimientos de stock');
+                throw new Exception('Error al eliminar movimientos de stock para producto #' . $id_producto);
             }
         }
         
         // 3. Eliminar físicamente Stock_Variantes del producto
         if (!eliminarVariantesStockFisicamente($mysqli, $id_producto)) {
-            throw new Exception('Error al eliminar variantes de stock');
+            throw new Exception('Error al eliminar variantes de stock para producto #' . $id_producto);
         }
         
         // 4. Eliminar físicamente Fotos_Producto del producto
         if (!eliminarFotosProductoFisicamente($mysqli, $id_producto)) {
-            throw new Exception('Error al eliminar fotos del producto');
+            throw new Exception('Error al eliminar fotos del producto #' . $id_producto);
         }
         
         // 5. Eliminar físicamente el Producto
         if (!eliminarProductoFisicamente($mysqli, $id_producto)) {
-            throw new Exception('Error al eliminar el producto');
+            throw new Exception('Error al eliminar el producto #' . $id_producto);
         }
         
         // 6. Eliminar directorio de imágenes físicas (opcional, no crítico)

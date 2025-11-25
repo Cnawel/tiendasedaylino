@@ -14,12 +14,17 @@
  * - validateEmailInput(): Valida email en un input directamente
  * - validarCodigoPostal(): Valida y limpia código postal
  * - cambiarLimitePedidos(): Cambia límite de pedidos mostrados (ventas)
+ * - setFieldValidation(): Establece estado de validación de un campo
+ * - scrollToFirstError(): Hace scroll al primer campo con error en un formulario
+ * - mostrarErrorCampo(): Muestra error en un campo (soporta elementos preexistentes o creación dinámica)
+ * - limpiarErrorCampo(): Limpia error de un campo (soporta elementos preexistentes o búsqueda automática)
+ * - mostrarFeedbackValidacion(): Muestra feedback de validación (válido/inválido) en un campo
  * 
  * USO:
  * Incluir este archivo antes de cerrar el tag </body> o en la sección <script>
  * 
  * @package TiendaSedaYLino
- * @version 2.0
+ * @version 3.0
  * ========================================================================
  */
 ?>
@@ -369,6 +374,129 @@ function scrollToFirstError(form) {
         return firstError;
     }
     return null;
+}
+
+/**
+ * Muestra error en un campo de forma genérica
+ * Soporta tanto elementos de error preexistentes como creación dinámica
+ * @param {HTMLElement} campo - Campo a marcar como inválido
+ * @param {HTMLElement|string|null} errorElementOrId - Elemento de error existente, ID del elemento, o null para crear dinámicamente
+ * @param {string} mensaje - Mensaje de error a mostrar
+ */
+function mostrarErrorCampo(campo, errorElementOrId, mensaje) {
+    if (!campo) return;
+    
+    campo.classList.remove('is-valid');
+    campo.classList.add('is-invalid');
+    
+    let errorElement = null;
+    
+    // Si es un string, buscar por ID
+    if (typeof errorElementOrId === 'string') {
+        errorElement = document.getElementById(errorElementOrId);
+    } else if (errorElementOrId) {
+        // Si es un elemento, usarlo directamente
+        errorElement = errorElementOrId;
+    }
+    
+    // Si no hay elemento de error, crear uno dinámicamente
+    if (!errorElement) {
+        // Buscar si ya existe un elemento de feedback
+        const container = campo.closest('.mb-3') || campo.closest('.form-group') || campo.parentElement;
+        errorElement = container.querySelector('.invalid-feedback');
+        
+        if (!errorElement) {
+            // Crear nuevo elemento de feedback
+            errorElement = document.createElement('div');
+            errorElement.className = 'invalid-feedback';
+            container.appendChild(errorElement);
+        }
+    }
+    
+    if (errorElement) {
+        errorElement.textContent = mensaje || '';
+        errorElement.style.display = 'block';
+    }
+    
+    // Establecer custom validity si el campo lo soporta
+    if (campo.setCustomValidity) {
+        campo.setCustomValidity(mensaje || '');
+    }
+}
+
+/**
+ * Limpia error de un campo de forma genérica
+ * Soporta tanto elementos de error preexistentes como elementos creados dinámicamente
+ * @param {HTMLElement} campo - Campo a limpiar
+ * @param {HTMLElement|string|null} errorElementOrId - Elemento de error existente, ID del elemento, o null para buscar automáticamente
+ */
+function limpiarErrorCampo(campo, errorElementOrId) {
+    if (!campo) return;
+    
+    campo.classList.remove('is-invalid', 'is-valid');
+    
+    if (campo.setCustomValidity) {
+        campo.setCustomValidity('');
+    }
+    
+    let errorElement = null;
+    
+    // Si es un string, buscar por ID
+    if (typeof errorElementOrId === 'string') {
+        errorElement = document.getElementById(errorElementOrId);
+    } else if (errorElementOrId) {
+        // Si es un elemento, usarlo directamente
+        errorElement = errorElementOrId;
+    } else {
+        // Buscar automáticamente en el contenedor
+        const container = campo.closest('.mb-3') || campo.closest('.form-group') || campo.parentElement;
+        errorElement = container.querySelector('.invalid-feedback');
+    }
+    
+    if (errorElement) {
+        errorElement.textContent = '';
+        errorElement.style.display = 'none';
+    }
+}
+
+/**
+ * Muestra feedback de validación (válido o inválido) en un campo
+ * Crea elementos de feedback dinámicamente si no existen
+ * @param {HTMLElement} input - Campo a validar
+ * @param {boolean} esValido - true si es válido, false si es inválido
+ * @param {string} mensaje - Mensaje a mostrar (opcional, solo para errores)
+ */
+function mostrarFeedbackValidacion(input, esValido, mensaje) {
+    if (!input) return;
+    
+    input.classList.remove('is-valid', 'is-invalid');
+    
+    if (esValido) {
+        input.classList.add('is-valid');
+    } else {
+        input.classList.add('is-invalid');
+    }
+    
+    // Buscar o crear elemento de feedback
+    const container = input.closest('.mb-3') || input.closest('.form-group') || input.parentElement;
+    let feedback = container.querySelector('.invalid-feedback');
+    
+    if (!feedback && !esValido) {
+        // Crear elemento de feedback solo si hay error
+        feedback = document.createElement('div');
+        feedback.className = 'invalid-feedback';
+        container.appendChild(feedback);
+    }
+    
+    if (feedback) {
+        feedback.textContent = mensaje || '';
+        feedback.style.display = esValido ? 'none' : 'block';
+    }
+    
+    // Establecer custom validity si el campo lo soporta
+    if (input.setCustomValidity) {
+        input.setCustomValidity(esValido ? '' : (mensaje || ''));
+    }
 }
 </script>
 

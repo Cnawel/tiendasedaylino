@@ -3,7 +3,7 @@
  * ========================================================================
  * FUNCIONES DE ENVÍO - Tienda Seda y Lino
  * ========================================================================
- * Funciones para calcular costos de envío
+ * Funciones para calcular costos de envío y parsear direcciones
  * 
  * Lógica de envío:
  * - Envío gratis para CABA/GBA con compras superiores a $80,000
@@ -14,6 +14,7 @@
  * - calcularCostoEnvio(): Calcula el costo de envío según total y ubicación
  * - obtenerInfoEnvioCarrito(): Obtiene información de envío para mostrar en carrito
  * - esCABAGBA(): Verifica si la localidad es CABA o GBA
+ * - parsearDireccion(): Parsea una dirección completa en componentes (calle, número, piso)
  * ========================================================================
  */
 
@@ -323,5 +324,36 @@ function obtenerMontoFaltanteEnvioGratis($total_actual, $monto_minimo_gratis = 8
         return 0;
     }
     return $monto_minimo_gratis - $total_actual;
+}
+
+/**
+ * Parsea una dirección completa en componentes (calle, número, piso)
+ * 
+ * Esta función centraliza la lógica de parseo de direcciones que se repetía
+ * en múltiples archivos (perfil.php, checkout.php, etc.)
+ * 
+ * @param string $direccion_completa Dirección completa a parsear
+ * @return array Array asociativo con 'calle', 'numero', 'piso'
+ *               Ejemplo: ['calle' => 'Av. Corrientes', 'numero' => '1234', 'piso' => '2° A']
+ */
+function parsearDireccion($direccion_completa) {
+    $direccion_parseada = ['calle' => '', 'numero' => '', 'piso' => ''];
+    
+    if (empty($direccion_completa)) {
+        return $direccion_parseada;
+    }
+    
+    // Parseo simple: buscar primer número
+    // Patrón: texto + número + texto opcional (piso/depto)
+    if (preg_match('/^(.+?)\s+(\d+)(.*)$/', trim($direccion_completa), $matches)) {
+        $direccion_parseada['calle'] = trim($matches[1]);
+        $direccion_parseada['numero'] = $matches[2];
+        $direccion_parseada['piso'] = trim($matches[3]);
+    } else {
+        // Si no hay número, toda la dirección es la calle
+        $direccion_parseada['calle'] = trim($direccion_completa);
+    }
+    
+    return $direccion_parseada;
 }
 

@@ -21,9 +21,17 @@
  */
 
 /**
- * Obtiene el stock disponible para una combinación de talla y color
+ * Obtiene el stock disponible para una combinación de talla y color desde un array en memoria
  * 
- * @param array $variantes Array de variantes del producto
+ * NOTA: Esta función trabaja con datos ya cargados en memoria (arrays de variantes).
+ * Para consultar stock directamente desde la base de datos, usar obtenerStockDisponible() 
+ * de includes/queries/stock_queries.php
+ * 
+ * DIFERENCIAS:
+ * - obtenerStock(): Trabaja con arrays en memoria, busca por talle+color en variantes ya cargadas
+ * - obtenerStockDisponible(): Consulta la BD directamente por ID de variante
+ * 
+ * @param array $variantes Array de variantes del producto (ya cargadas en memoria)
  * @param string $talla Talla seleccionada
  * @param string $color Color seleccionado
  * @return int Cantidad en stock (0 si no hay)

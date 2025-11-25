@@ -19,6 +19,16 @@
  * Configura la conexión MySQLi con charset y collation correctos
  * Esta función debe llamarse después de require_once 'config/database.php'
  * 
+ * CUÁNDO LLAMAR ESTA FUNCIÓN:
+ * - Antes de insertar/actualizar datos con caracteres especiales (acentos, emojis, etc.)
+ * - Antes de trabajar con contraseñas (generar hash, verificar)
+ * - Antes de operaciones que requieran comparaciones de texto consistentes
+ * - En funciones de queries que manejan datos de usuario (nombre, apellido, email)
+ * 
+ * NOTA: Esta función es idempotente (puede llamarse múltiples veces sin problemas).
+ * Sin embargo, para mejor rendimiento, se recomienda llamarla una vez al inicio
+ * de funciones que realizan múltiples operaciones con la BD.
+ * 
  * @param mysqli $mysqli Conexión MySQLi a configurar
  * @return bool True si se configuró correctamente, false en caso contrario
  */

@@ -155,11 +155,19 @@ function obtenerMiniaturaPorColor($categoria, $genero, $color) {
 
 
 /**
- * Obtiene los colores disponibles para un producto según las carpetas existentes
+ * Obtiene los colores disponibles para un producto según las carpetas de imágenes en el sistema de archivos
+ * 
+ * NOTA: Esta función lee colores desde la estructura de carpetas de imágenes.
+ * Para obtener colores desde la base de datos (tabla Stock_Variantes), usar 
+ * obtenerColoresDisponiblesStock() de includes/queries/producto_queries.php
+ * 
+ * DIFERENCIAS:
+ * - obtenerColoresDisponibles(): Lee del sistema de archivos (carpetas imagenes/productos/)
+ * - obtenerColoresDisponiblesStock(): Consulta la BD (tabla Stock_Variantes con stock > 0)
  * 
  * @param string $categoria Nombre de la categoría
  * @param string $genero Genero del producto
- * @return array Array de colores disponibles
+ * @return array Array de colores disponibles (basado en carpetas de imágenes)
  */
 function obtenerColoresDisponibles($categoria, $genero) {
     $categoria = strtolower($categoria);

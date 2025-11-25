@@ -14,6 +14,8 @@
  */
 
 // Verificar que la sesión esté iniciada
+// NOTA: Esta verificación previene múltiples llamadas a session_start()
+// auth_check.php (incluido más abajo) también verifica antes de iniciar sesión.
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -36,7 +38,7 @@ if (in_array($current_page, $panel_pages)) {
 <html lang="es">
 <head>
     <?php 
-    include 'includes/head.php'; 
+    include_once 'includes/head.php'; 
     render_head($titulo_pagina); 
     ?>
 </head>
@@ -44,8 +46,8 @@ if (in_array($current_page, $panel_pages)) {
     <?php 
     // Verificar que auth_check.php esté disponible para navigation
     if (!function_exists('isLoggedIn')) {
-        include 'includes/auth_check.php';
+        include_once 'includes/auth_check.php';
     }
-    include 'includes/navigation.php'; 
+    include_once 'includes/navigation.php'; 
     ?>
 

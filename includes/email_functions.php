@@ -23,7 +23,17 @@ if (!file_exists($email_config_path)) {
 require_once $email_config_path;
 
 /**
- * Envía email de confirmación de pedido al cliente
+ * Envía email de confirmación de pedido al cliente usando función mail() nativa de PHP
+ * 
+ * NOTA: Esta función usa mail() nativa de PHP. Actualmente el sistema usa 
+ * enviar_email_confirmacion_pedido_gmail() de includes/email_gmail_functions.php 
+ * que utiliza PHPMailer con Gmail SMTP.
+ * 
+ * DIFERENCIAS:
+ * - enviar_email_confirmacion_pedido(): Usa mail() nativo, recibe $datos_pedido y $datos_usuario
+ * - enviar_email_confirmacion_pedido_gmail(): Usa PHPMailer/Gmail SMTP, recibe $pedido_exitoso (de $_SESSION) y $datos_usuario
+ * 
+ * Esta función se mantiene como alternativa si se requiere usar mail() nativo en lugar de SMTP.
  * 
  * @param array $datos_pedido Datos del pedido (del procesamiento)
  * @param array $datos_usuario Datos del usuario

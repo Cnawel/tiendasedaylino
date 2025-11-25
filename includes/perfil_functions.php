@@ -298,16 +298,16 @@ function procesarActualizacionDatos($mysqli, $id_usuario, $post) {
         }
         $direccion = trim($direccion);
         
-        // Validar dirección combinada según diccionario: longitud 5-100, caracteres [A-Z, a-z, 0-9, , .,-]
+        // Validar dirección combinada según diccionario: longitud 5-100, caracteres [A-Z, a-z, 0-9, , .,-,']
         if (strlen($direccion) < 5) {
             $mensaje = 'La dirección debe tener al menos 5 caracteres.';
             $mensaje_tipo = 'danger';
         } elseif (strlen($direccion) > 100) {
             $mensaje = 'La dirección no puede exceder 100 caracteres.';
             $mensaje_tipo = 'danger';
-        } elseif (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\.,\-]+$/', $direccion)) {
-            // Validar caracteres permitidos según diccionario: [A-Z, a-z, 0-9, , .,-]
-            $mensaje = 'La dirección contiene caracteres no permitidos. Solo se permiten letras, números, espacios, puntos, comas y guiones.';
+        } elseif (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\.,\-\'`]+$/', $direccion)) {
+            // Validar caracteres permitidos según diccionario: [A-Z, a-z, 0-9, , .,-,'`]
+            $mensaje = 'La dirección contiene caracteres no permitidos. Solo se permiten letras, números, espacios, puntos, comas, guiones, apóstrofes y acentos graves.';
             $mensaje_tipo = 'danger';
         }
     } elseif (!$actualizando_envio) {
@@ -445,8 +445,7 @@ function procesarCambioContrasena($mysqli, $id_usuario, $post) {
             $mensaje_tipo = 'warning';
         } else {
             // Todo válido, cambiar contraseña
-            // Usar función centralizada para generar hash
-            configurarConexionBD($mysqli);
+            // Usar función centralizada para generar hash (ya llama a configurarConexionBD internamente)
             $nueva_contrasena_hash = generarHashPassword($nueva_contrasena, $mysqli);
             
             if ($nueva_contrasena_hash === false) {
@@ -726,4 +725,123 @@ function procesarEliminacionCuenta($mysqli, $id_usuario, $post) {
     return ['mensaje' => $mensaje, 'mensaje_tipo' => $mensaje_tipo, 'eliminado' => $eliminado, 'debug_info' => $debug_info];
 }
 
+/**
+ * Valida que un pago puede ser marcado como pagado por el cliente
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param int $id_pago ID del pago a validar
+ * @param int $id_usuario ID del usuario que intenta marcar el pago
+ * @return array Array con 'valido' => bool, 'mensaje' => string, 'mensaje_tipo' => string, 'pago' => array|null, 'pedido' => array|null
+ */
+function validarPagoParaMarcarPagado($mysqli, $id_pago, $id_usuario) {
+    require_once __DIR__ . '/queries/pago_queries.php';
+    require_once __DIR__ . '/queries/pedido_queries.php';
+    
+    // Validar ID de pago
+    if ($id_pago <= 0) {
+        return [
+            'valido' => false,
+            'mensaje' => 'ID de pago inválido',
+            'mensaje_tipo' => 'danger',
+            'pago' => null,
+            'pedido' => null
+        ];
+    }
+    
+    // Obtener información del pago
+    $pago = obtenerPagoPorId($mysqli, $id_pago);
+    if (!$pago) {
+        return [
+            'valido' => false,
+            'mensaje' => 'Pago no encontrado',
+            'mensaje_tipo' => 'danger',
+            'pago' => null,
+            'pedido' => null
+        ];
+    }
+    
+    // Verificar que el pedido pertenece al usuario actual
+    $pedido = obtenerPedidoPorId($mysqli, $pago['id_pedido']);
+    if (!$pedido || intval($pedido['id_usuario']) !== $id_usuario) {
+        return [
+            'valido' => false,
+            'mensaje' => 'No tienes permiso para modificar este pago',
+            'mensaje_tipo' => 'danger',
+            'pago' => $pago,
+            'pedido' => $pedido
+        ];
+    }
+    
+    // Validar estado del pago
+    if ($pago['estado_pago'] !== 'pendiente') {
+        return [
+            'valido' => false,
+            'mensaje' => 'Solo se pueden marcar como pagados los pagos pendientes',
+            'mensaje_tipo' => 'warning',
+            'pago' => $pago,
+            'pedido' => $pedido
+        ];
+    }
+    
+    return [
+        'valido' => true,
+        'mensaje' => '',
+        'mensaje_tipo' => '',
+        'pago' => $pago,
+        'pedido' => $pedido
+    ];
+}
 
+/**
+ * Construye mensaje de error para el usuario basado en el tipo de error
+ * 
+ * @param string $error_message Mensaje de error de la excepción
+ * @param int $id_pago ID del pago (para logging)
+ * @param int $id_usuario ID del usuario (para logging)
+ * @return array Array con 'mensaje' => string, 'mensaje_tipo' => string
+ */
+function construirMensajeErrorPago($error_message, $id_pago = 0, $id_usuario = 0) {
+    // Loggear error crítico
+    error_log("ERROR al marcar pago #{$id_pago} (Usuario: {$id_usuario}): {$error_message}");
+    
+    // Construir mensaje según el tipo de error
+    if (strpos($error_message, 'STOCK_INSUFICIENTE') !== false) {
+        return [
+            'mensaje' => 'No hay stock disponible para completar este pedido. Por favor, <a href="index.php#contacto" class="alert-link">comunícate con nosotros</a> para más información.',
+            'mensaje_tipo' => 'warning'
+        ];
+    } elseif (strpos($error_message, 'Ya existe otro pago aprobado') !== false) {
+        return [
+            'mensaje' => 'Ya existe un pago aprobado para este pedido. No se puede aprobar otro pago.',
+            'mensaje_tipo' => 'warning'
+        ];
+    } elseif (strpos($error_message, 'monto menor o igual a cero') !== false) {
+        return [
+            'mensaje' => 'El monto del pago no es válido. Por favor, comunícate con nosotros para más información.',
+            'mensaje_tipo' => 'danger'
+        ];
+    } elseif (strpos($error_message, 'Pago no encontrado') !== false) {
+        return [
+            'mensaje' => 'El pago no fue encontrado en el sistema. Por favor, recarga la página e intenta nuevamente.',
+            'mensaje_tipo' => 'danger'
+        ];
+    } elseif (strpos($error_message, 'Estado de pago inválido') !== false) {
+        return [
+            'mensaje' => 'El estado del pago no es válido. Por favor, comunícate con nosotros para más información.',
+            'mensaje_tipo' => 'danger'
+        ];
+    } elseif (strpos($error_message, 'Error al preparar') !== false || 
+              strpos($error_message, 'Error al ejecutar') !== false ||
+              strpos($error_message, 'Error al actualizar') !== false ||
+              strpos($error_message, 'Error al obtener') !== false) {
+        return [
+            'mensaje' => 'Error de base de datos al procesar el pago. Por favor, <a href="index.php#contacto" class="alert-link">comunícate con nosotros</a> para más información.',
+            'mensaje_tipo' => 'danger'
+        ];
+    } else {
+        return [
+            'mensaje' => 'Error al procesar el pago. Por favor, <a href="index.php#contacto" class="alert-link">comunícate con nosotros</a> para más información.',
+            'mensaje_tipo' => 'danger'
+        ];
+    }
+}

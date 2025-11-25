@@ -31,7 +31,9 @@ if (!function_exists('renderFormularioMarcarPago')) {
                    name="numero_transaccion" 
                    placeholder="Código de pago" 
                    maxlength="100"
-                   size="15">
+                   size="15"
+                   pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s'´$€£¥]+"
+                   title="Letras, números, espacios, apóstrofe ('), acento agudo (´) y símbolos de dinero ($, €, £, ¥)">
             <button type="submit" name="marcar_pago_pagado" class="btn btn-sm btn-success">
                 <i class="fas fa-check-circle me-1"></i>Marcar Pago
             </button>
@@ -42,93 +44,28 @@ if (!function_exists('renderFormularioMarcarPago')) {
 
 if (!function_exists('renderFormularioCancelarPedido')) {
     /**
-     * Renderiza botón para cancelar pedido que abre modal de confirmación
+     * Renderiza formulario para cancelar pedido
+     * El envío se maneja mediante JavaScript en js/perfil.js
      * 
      * @param array $pedido Datos del pedido
+     * @param array|null $pago Datos del pago (opcional)
      * @return void
      */
-    function renderFormularioCancelarPedido($pedido) {
+    function renderFormularioCancelarPedido($pedido, $pago = null) {
         $id_pedido = intval($pedido['id_pedido']);
-        $total_pedido = number_format($pedido['total_pedido'] ?? 0, 2, ',', '.');
+        $estado_pedido = !empty($pedido['estado_pedido']) ? strtolower(trim($pedido['estado_pedido'])) : 'pendiente';
+        $estado_pago = $pago && !empty($pago['estado_pago']) ? strtolower(trim($pago['estado_pago'])) : '';
         ?>
-        <button type="button" 
-                class="btn btn-sm btn-secondary" 
-                data-bs-toggle="modal" 
-                data-bs-target="#modalCancelarPedido<?= $id_pedido ?>">
-            <i class="fas fa-times-circle me-1"></i>Cancelar Pedido
-        </button>
-        <?php
-        // Renderizar el modal de confirmación
-        renderModalCancelarPedido($pedido);
-    }
-}
-
-if (!function_exists('renderModalCancelarPedido')) {
-    /**
-     * Renderiza modal de confirmación para cancelar pedido
-     * 
-     * @param array $pedido Datos del pedido
-     * @return void
-     */
-    function renderModalCancelarPedido($pedido) {
-        $id_pedido = intval($pedido['id_pedido']);
-        $total_pedido = number_format($pedido['total_pedido'] ?? 0, 2, ',', '.');
-        $fecha_pedido = date('d/m/Y H:i', strtotime($pedido['fecha_pedido'] ?? 'now'));
-        ?>
-        <div class="modal fade" id="modalCancelarPedido<?= $id_pedido ?>" tabindex="-1" aria-labelledby="modalCancelarPedidoLabel<?= $id_pedido ?>" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header bg-warning text-dark">
-                        <h5 class="modal-title" id="modalCancelarPedidoLabel<?= $id_pedido ?>">
-                            <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Cancelación de Pedido
-                        </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <form method="POST" action="">
-                        <div class="modal-body">
-                            <div class="alert alert-warning">
-                                <strong><i class="fas fa-info-circle me-2"></i>¿Estás seguro de que deseas cancelar este pedido?</strong>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <p class="mb-2"><strong>Detalles del pedido:</strong></p>
-                                <ul class="list-unstyled ms-3">
-                                    <li><strong>ID Pedido:</strong> #<?= $id_pedido ?></li>
-                                    <li><strong>Fecha:</strong> <?= htmlspecialchars($fecha_pedido) ?></li>
-                                    <li><strong>Total:</strong> $<?= htmlspecialchars($total_pedido) ?></li>
-                                    <li><strong>Estado actual:</strong> 
-                                        <span class="badge bg-<?= $pedido['estado_pedido'] === 'pendiente' ? 'warning' : 'info' ?> text-white">
-                                            <?= htmlspecialchars(ucfirst($pedido['estado_pedido'] ?? 'pendiente')) ?>
-                                        </span>
-                                    </li>
-                                </ul>
-                            </div>
-                            
-                            <div class="alert alert-info mb-0">
-                                <i class="fas fa-info-circle me-2"></i>
-                                <strong>Importante:</strong> Al cancelar el pedido:
-                                <ul class="mb-0 mt-2">
-                                    <li>El pedido cambiará a estado "Cancelado"</li>
-                                    <li>Si el pago estaba aprobado, el stock será restaurado automáticamente</li>
-                                    <li>El pago asociado será cancelado</li>
-                                    <li>Esta acción no se puede deshacer</li>
-                                </ul>
-                            </div>
-                            
-                            <input type="hidden" name="id_pedido" value="<?= $id_pedido ?>">
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                                <i class="fas fa-times me-2"></i>No, mantener pedido
-                            </button>
-                            <button type="submit" name="cancelar_pedido_cliente" class="btn btn-warning">
-                                <i class="fas fa-times-circle me-2"></i>Sí, cancelar pedido
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
+        <form method="POST" action="" class="d-inline" 
+              data-estado-pedido="<?= htmlspecialchars($estado_pedido, ENT_QUOTES, 'UTF-8') ?>"
+              data-estado-pago="<?= htmlspecialchars($estado_pago, ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="id_pedido" value="<?= $id_pedido ?>">
+            <button type="submit" 
+                    name="cancelar_pedido_cliente" 
+                    class="btn btn-sm btn-secondary">
+                <i class="fas fa-times-circle me-1"></i>Cancelar Pedido
+            </button>
+        </form>
         <?php
     }
 }
@@ -144,7 +81,8 @@ if (!function_exists('renderModalVerPedido')) {
      */
     function renderModalVerPedido($mysqli, $pedido) {
         // Obtener información completa del pedido
-        // Las funciones ya deberían estar cargadas desde perfil.php, pero las incluimos por seguridad
+        // NOTA: Verificaciones function_exists() son necesarias porque esta función puede llamarse
+        // desde diferentes contextos donde los archivos de queries pueden no estar cargados
         if (!function_exists('obtenerPedidoPorId')) {
             $pedido_queries_path = __DIR__ . '/queries/pedido_queries.php';
             if (!file_exists($pedido_queries_path)) {
@@ -162,6 +100,14 @@ if (!function_exists('renderModalVerPedido')) {
             require_once $pago_queries_path;
         }
         
+        // Cargar helpers de estados si no están cargados
+        if (!function_exists('obtenerInfoEstadoPedido')) {
+            $estado_helpers_path = __DIR__ . '/estado_helpers.php';
+            if (file_exists($estado_helpers_path)) {
+                require_once $estado_helpers_path;
+            }
+        }
+        
         $pedido_completo = obtenerPedidoPorId($mysqli, $pedido['id_pedido']);
         $detalles_pedido = obtenerDetallesPedido($mysqli, $pedido['id_pedido']);
         $pago_detalle = obtenerPagoPorPedido($mysqli, $pedido['id_pedido']);
@@ -172,25 +118,8 @@ if (!function_exists('renderModalVerPedido')) {
         
         $id_pedido = intval($pedido['id_pedido']);
         
-        // Mapeo de estados
-        $estados_pedido_map = [
-            'pendiente' => ['color' => 'warning', 'nombre' => 'Pendiente'],
-            'preparacion' => ['color' => 'info', 'nombre' => 'En Preparación'],
-            'en_viaje' => ['color' => 'primary', 'nombre' => 'En Viaje'],
-            'completado' => ['color' => 'success', 'nombre' => 'Completado'],
-            'devolucion' => ['color' => 'secondary', 'nombre' => 'En Devolución'],
-            'cancelado' => ['color' => 'secondary', 'nombre' => 'Cancelado']
-        ];
-        
-        $estados_pago_map = [
-            'pendiente' => ['color' => 'warning', 'nombre' => 'Pendiente'],
-            'aprobado' => ['color' => 'success', 'nombre' => 'Aprobado'],
-            'rechazado' => ['color' => 'danger', 'nombre' => 'Rechazado'],
-            'cancelado' => ['color' => 'secondary', 'nombre' => 'Cancelado']
-        ];
-        
-        $estado_actual = trim(strtolower($pedido_completo['estado_pedido'] ?? 'pendiente'));
-        $info_estado_detalle = $estados_pedido_map[$estado_actual] ?? ['color' => 'secondary', 'nombre' => ucfirst($estado_actual)];
+        // Obtener información del estado usando función centralizada
+        $info_estado_detalle = obtenerInfoEstadoPedido($pedido_completo['estado_pedido'] ?? '');
         ?>
         <div class="modal fade" id="verPedidoModal<?= $id_pedido ?>" tabindex="-1" aria-labelledby="verPedidoModalLabel<?= $id_pedido ?>" aria-hidden="true">
             <div class="modal-dialog modal-lg">
@@ -239,7 +168,7 @@ if (!function_exists('renderModalVerPedido')) {
                                         <p class="mb-1">
                                             <strong>Estado Pago:</strong> 
                                             <?php
-                                            $info_estado_pago_detalle = $estados_pago_map[$pago_detalle['estado_pago']] ?? ['color' => 'secondary', 'nombre' => ucfirst($pago_detalle['estado_pago'])];
+                                            $info_estado_pago_detalle = obtenerInfoEstadoPago($pago_detalle['estado_pago'] ?? '');
                                             ?>
                                             <span class="badge bg-<?= htmlspecialchars($info_estado_pago_detalle['color']) ?>">
                                                 <?= htmlspecialchars($info_estado_pago_detalle['nombre']) ?>

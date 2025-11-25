@@ -17,6 +17,9 @@
  */
 
 // Iniciar sesión si no está activa
+// NOTA: Esta verificación previene múltiples llamadas a session_start()
+// que causarían warnings. Otros archivos (header.php, session_functions.php)
+// también verifican session_status() antes de iniciar sesión.
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }

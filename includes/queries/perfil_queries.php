@@ -30,7 +30,11 @@ function obtenerPreguntasRecupero($mysqli) {
         return [];
     }
     
-    $stmt->execute();
+    if (!$stmt->execute()) {
+        error_log("ERROR obtenerPreguntasRecupero: No se pudo ejecutar consulta - " . $stmt->error);
+        $stmt->close();
+        return [];
+    }
     $result = $stmt->get_result();
     
     $preguntas = [];
@@ -96,12 +100,19 @@ function verificarPreguntaRecupero($mysqli, $pregunta_id) {
  * @return array|null Datos del usuario o null si no existe
  */
 function obtenerDatosUsuario($mysqli, $id_usuario) {
+    // Asegurar que la conexión esté configurada con charset UTF-8 para leer caracteres especiales correctamente
+    configurarConexionBD($mysqli);
+    
     $stmt = $mysqli->prepare("SELECT nombre, apellido, email, telefono, direccion, localidad, provincia, codigo_postal, fecha_nacimiento, pregunta_recupero, respuesta_recupero FROM Usuarios WHERE id_usuario = ? LIMIT 1");
     if (!$stmt) {
         return null;
     }
     $stmt->bind_param('i', $id_usuario);
-    $stmt->execute();
+    if (!$stmt->execute()) {
+        error_log("ERROR obtenerDatosUsuario: No se pudo ejecutar consulta - " . $stmt->error);
+        $stmt->close();
+        return null;
+    }
     $result = $stmt->get_result();
     $usuario = $result->fetch_assoc();
     $stmt->close();
@@ -116,12 +127,19 @@ function obtenerDatosUsuario($mysqli, $id_usuario) {
  * @return array|null Datos básicos del usuario o null si no existe
  */
 function obtenerDatosBasicosUsuario($mysqli, $id_usuario) {
+    // Asegurar que la conexión esté configurada con charset UTF-8 para leer caracteres especiales correctamente
+    configurarConexionBD($mysqli);
+    
     $stmt = $mysqli->prepare("SELECT nombre, apellido, email, telefono, direccion, localidad, provincia, codigo_postal, fecha_nacimiento FROM Usuarios WHERE id_usuario = ? LIMIT 1");
     if (!$stmt) {
         return null;
     }
     $stmt->bind_param('i', $id_usuario);
-    $stmt->execute();
+    if (!$stmt->execute()) {
+        error_log("ERROR obtenerDatosBasicosUsuario: No se pudo ejecutar consulta - " . $stmt->error);
+        $stmt->close();
+        return null;
+    }
     $result = $stmt->get_result();
     $usuario = $result->fetch_assoc();
     $stmt->close();
@@ -145,6 +163,9 @@ function obtenerDatosBasicosUsuario($mysqli, $id_usuario) {
  * @return bool True si se actualizó correctamente, false en caso contrario
  */
 function actualizarDatosUsuario($mysqli, $id_usuario, $nombre, $apellido, $email, $telefono, $direccion, $localidad, $provincia, $codigo_postal, $fecha_nacimiento) {
+    // Asegurar que la conexión esté configurada con charset UTF-8 para guardar caracteres especiales correctamente
+    configurarConexionBD($mysqli);
+    
     // Manejar fecha_nacimiento NULL correctamente
     // Incluir fecha_actualizacion explícitamente (aunque tiene ON UPDATE CURRENT_TIMESTAMP, es mejor ser explícito)
     if ($fecha_nacimiento === null || $fecha_nacimiento === '') {
@@ -161,6 +182,9 @@ function actualizarDatosUsuario($mysqli, $id_usuario, $nombre, $apellido, $email
         $stmt->bind_param('sssssssssi', $nombre, $apellido, $email, $telefono, $direccion, $localidad, $provincia, $codigo_postal, $fecha_nacimiento, $id_usuario);
     }
     $resultado = $stmt->execute();
+    if (!$resultado) {
+        error_log("ERROR actualizarDatosUsuario: No se pudo ejecutar consulta - " . $stmt->error);
+    }
     $stmt->close();
     return $resultado;
 }
@@ -182,6 +206,9 @@ function actualizarPreguntaRecupero($mysqli, $id_usuario, $pregunta_recupero_id,
     }
     $stmt->bind_param('isi', $pregunta_recupero_id, $respuesta_recupero, $id_usuario);
     $resultado = $stmt->execute();
+    if (!$resultado) {
+        error_log("ERROR actualizarPreguntaRecupero: No se pudo ejecutar consulta - " . $stmt->error);
+    }
     $stmt->close();
     return $resultado;
 }
@@ -207,6 +234,9 @@ function actualizarContrasena($mysqli, $id_usuario, $hash_contrasena) {
     }
     $stmt->bind_param('si', $hash_contrasena, $id_usuario);
     $resultado = $stmt->execute();
+    if (!$resultado) {
+        error_log("ERROR actualizarContrasena: No se pudo ejecutar consulta - " . $stmt->error);
+    }
     $stmt->close();
     return $resultado;
 }
@@ -248,7 +278,11 @@ function obtenerPedidosUsuario($mysqli, $id_usuario) {
     }
     
     $stmt->bind_param('i', $id_usuario);
-    $stmt->execute();
+    if (!$stmt->execute()) {
+        error_log("ERROR obtenerPedidosUsuario: No se pudo ejecutar consulta - " . $stmt->error);
+        $stmt->close();
+        return [];
+    }
     $result = $stmt->get_result();
     
     $pedidos = [];
@@ -276,14 +310,19 @@ function obtenerPedidosUsuario($mysqli, $id_usuario) {
     if ($stmt_totales) {
         $types = str_repeat('i', count($pedidos_ids));
         $stmt_totales->bind_param($types, ...$pedidos_ids);
-        $stmt_totales->execute();
-        $result_totales = $stmt_totales->get_result();
-        
-        $totales = [];
-        while ($row = $result_totales->fetch_assoc()) {
-            $totales[$row['id_pedido']] = floatval($row['total']);
+        if (!$stmt_totales->execute()) {
+            error_log("ERROR obtenerPedidosUsuario: No se pudo ejecutar consulta de totales - " . $stmt_totales->error);
+            $stmt_totales->close();
+            $totales = [];
+        } else {
+            $result_totales = $stmt_totales->get_result();
+            
+            $totales = [];
+            while ($row = $result_totales->fetch_assoc()) {
+                $totales[$row['id_pedido']] = floatval($row['total']);
+            }
+            $stmt_totales->close();
         }
-        $stmt_totales->close();
     } else {
         $totales = [];
     }
@@ -309,43 +348,15 @@ function obtenerPedidosUsuario($mysqli, $id_usuario) {
  * Procesa la eliminación de cuenta del usuario
  * Marca la cuenta como inactiva (soft delete)
  * 
+ * NOTA: Esta función ha sido movida a usuario_queries.php para centralizar
+ * las funciones de gestión de usuarios. La implementación está en usuario_queries.php
+ * 
+ * @deprecated Use eliminarCuentaUsuario() de usuario_queries.php
  * @param mysqli $mysqli Conexión a la base de datos
  * @param int $id_usuario ID del usuario
  * @param string $email Email del usuario para validación
  * @return bool True si se procesó correctamente, false en caso contrario
  */
-function eliminarCuentaUsuario($mysqli, $id_usuario, $email) {
-    // Verificar que el email coincida con el usuario
-    $stmt = $mysqli->prepare("SELECT id_usuario, email FROM Usuarios WHERE id_usuario = ? LIMIT 1");
-    if (!$stmt) {
-        return false;
-    }
-    $stmt->bind_param('i', $id_usuario);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $usuario = $result->fetch_assoc();
-    $stmt->close();
-    
-    if (!$usuario) {
-        return false;
-    }
-    
-    // Validar que el email coincida
-    if (strtolower(trim($usuario['email'])) !== strtolower(trim($email))) {
-        return false;
-    }
-    
-    // Marcar cuenta como inactiva (soft delete)
-    $stmt = $mysqli->prepare("UPDATE Usuarios SET activo = 0, fecha_actualizacion = NOW() WHERE id_usuario = ?");
-    if (!$stmt) {
-        return false;
-    }
-    $stmt->bind_param('i', $id_usuario);
-    $resultado = $stmt->execute();
-    $stmt->close();
-    
-    return $resultado;
-}
 
 /**
  * Reactiva una cuenta de usuario desactivada
@@ -361,6 +372,9 @@ function reactivarCuentaUsuario($mysqli, $id_usuario) {
     }
     $stmt->bind_param('i', $id_usuario);
     $resultado = $stmt->execute();
+    if (!$resultado) {
+        error_log("ERROR reactivarCuentaUsuario: No se pudo ejecutar consulta - " . $stmt->error);
+    }
     $stmt->close();
     
     return $resultado;
