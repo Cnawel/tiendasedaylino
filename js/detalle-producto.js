@@ -56,6 +56,17 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
+    // Verificar que las funciones globales estén disponibles
+    // Si no están disponibles, esperar un momento y reintentar
+    if (typeof window.cambiarImagenPrincipal !== 'function' || typeof window.navegarSiguienteImagen !== 'function') {
+        // Las funciones se definen más adelante en el archivo, esperar un momento
+        setTimeout(function() {
+            if (typeof window.cambiarImagenPrincipal !== 'function' || typeof window.navegarSiguienteImagen !== 'function') {
+                console.warn('Funciones globales de navegación de imágenes no están disponibles aún');
+            }
+        }, 50);
+    }
+
     const stockVariantes = window.productoData.stockVariantes || {};
     const stockPorTalleColor = window.productoData.stockPorTalleColor || {};
     const fotosPorColor = window.productoData.fotosPorColor || {};
@@ -123,6 +134,45 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // También inicializar después de un pequeño delay para asegurar que la función esté disponible
     setTimeout(inicializarThumbnailsCompactos, 100);
+    
+    /**
+     * Inicializar event listener para la imagen principal
+     * Permite navegar entre imágenes al hacer clic
+     */
+    function inicializarImagenPrincipal() {
+        const imagenPrincipal = document.getElementById('imagenPrincipalLimpia');
+        if (!imagenPrincipal) {
+            return;
+        }
+        
+        // Evitar agregar múltiples listeners
+        if (imagenPrincipal.hasAttribute('data-listener-inicializado')) {
+            return;
+        }
+        imagenPrincipal.setAttribute('data-listener-inicializado', 'true');
+        
+        // Agregar event listener para navegar a la siguiente imagen
+        imagenPrincipal.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Llamar a la función global navegarSiguienteImagen
+            if (typeof window.navegarSiguienteImagen === 'function') {
+                window.navegarSiguienteImagen();
+            } else if (typeof navegarSiguienteImagen === 'function') {
+                // Fallback: intentar función global sin window
+                navegarSiguienteImagen();
+            } else {
+                console.warn('navegarSiguienteImagen no está disponible');
+            }
+        });
+    }
+    
+    // Inicializar event listener para la imagen principal
+    inicializarImagenPrincipal();
+    
+    // También inicializar después de un pequeño delay para asegurar que la función esté disponible
+    setTimeout(inicializarImagenPrincipal, 100);
     
     /**
      * Actualizar talles tachados según el color seleccionado
@@ -321,12 +371,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 const thumbnailDiv = document.createElement('div');
                 thumbnailDiv.className = 'thumbnail-compacto' + (index === 0 ? ' active' : '');
                 
-                // Usar closure para mantener el índice correcto
-                (function(idx) {
-                    thumbnailDiv.onclick = function() { 
-                        cambiarImagenPrincipal(idx); 
-                    };
-                })(index);
+                // Agregar atributo data-image-index para que inicializarThumbnailsCompactos() pueda usarlo
+                thumbnailDiv.setAttribute('data-image-index', index);
                 
                 const thumbnailImg = document.createElement('img');
                 thumbnailImg.src = imagen;
@@ -336,6 +382,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 thumbnailsContainer.appendChild(thumbnailDiv);
             });
         }
+        
+        // Inicializar listeners para los thumbnails dinámicos recién creados
+        // Esto asegura que los thumbnails tengan sus event listeners correctamente asignados
+        inicializarThumbnailsCompactos();
         
         // Actualizar variable global de imágenes para compatibilidad con cambiarImagenPrincipal
         // Esta variable se usa en la función global cambiarImagenPrincipal
@@ -769,6 +819,32 @@ function cambiarImagenPrincipal(index) {
 window.cambiarImagenPrincipal = cambiarImagenPrincipal;
 
 /**
+ * Navega a la siguiente imagen en el carrusel
+ * Función llamada directamente desde el onclick de la imagen
+ */
+function navegarSiguienteImagen() {
+    // Obtener imágenes actuales (pueden haber cambiado por color)
+    const imagenesActuales = window.imagenesProducto || [];
+    
+    // Solo procesar si hay más de una imagen
+    if (imagenesActuales.length <= 1) {
+        return;
+    }
+    
+    // Obtener índice actual
+    const indiceActual = window.indiceImagenActual !== undefined ? window.indiceImagenActual : 0;
+    
+    // Avanzar a la siguiente imagen (volver al inicio si estamos en la última)
+    const nuevoIndice = indiceActual < imagenesActuales.length - 1 ? indiceActual + 1 : 0;
+    
+    // Cambiar a la nueva imagen
+    cambiarImagenPrincipal(nuevoIndice);
+}
+
+// Hacer la función disponible globalmente
+window.navegarSiguienteImagen = navegarSiguienteImagen;
+
+/**
  * Función auxiliar para mostrar zoom
  */
 function mostrarZoom() {
@@ -873,16 +949,14 @@ function agregarAlCarrito(redirigirCheckout = false) {
     }
     
     // Validar que haya stock disponible (stock > 0)
-    // El backend se encargará de ajustar la cantidad si excede el stock disponible
-    // y mostrará el mensaje apropiado ("Has agregado la cantidad máxima disponible")
     if (stock <= 0) {
         // Mostrar mensaje claro de falta de stock usando la función de mensajes
         mostrarMensajeCarrito('No hay stock disponible para esta combinación de talle y color. Por favor, selecciona otra opción.', 'error');
         return false;
     }
     
-    // No validar aquí si la cantidad excede el stock, permitir que el backend lo maneje
-    // El backend ajustará automáticamente la cantidad al stock disponible si es necesario
+    // Permitir que el backend ajuste automáticamente la cantidad si excede el stock disponible
+    // El backend agregará todas las unidades disponibles y mostrará un mensaje informativo
     
     // Guardar estado original de los botones para restaurar correctamente
     const btnAgregarOriginalHTML = btnAgregar ? btnAgregar.innerHTML : '';

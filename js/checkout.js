@@ -116,6 +116,112 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Validación de dirección (calle)
+    const direccionCalleInput = document.getElementById('direccion_calle');
+    if (direccionCalleInput) {
+        const direccionCallePattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+$/;
+        
+        direccionCalleInput.addEventListener('blur', function() {
+            const valor = this.value.trim();
+            if (!valor) {
+                this.setCustomValidity('La dirección es requerida');
+                setFieldValidation(this, false);
+            } else if (valor.length < 2) {
+                this.setCustomValidity('La dirección debe tener al menos 2 caracteres');
+                setFieldValidation(this, false);
+            } else if (!direccionCallePattern.test(valor)) {
+                this.setCustomValidity('Solo se permiten letras (incluyendo acentos), números, espacios, guiones, apóstrofes y acentos graves');
+                setFieldValidation(this, false);
+            } else {
+                this.setCustomValidity('');
+                setFieldValidation(this, true);
+            }
+        });
+        
+        direccionCalleInput.addEventListener('input', function(e) {
+            // Filtrar caracteres no permitidos mientras se escribe
+            const value = e.target.value;
+            const validPattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]*$/;
+            if (!validPattern.test(value)) {
+                e.target.value = value.replace(/[^A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]/g, '');
+            }
+            
+            // Limpiar validación mientras se escribe
+            if (this.classList.contains('is-invalid')) {
+                this.classList.remove('is-invalid');
+                this.setCustomValidity('');
+            }
+        });
+    }
+    
+    // Validación de número de dirección
+    const direccionNumeroInput = document.getElementById('direccion_numero');
+    if (direccionNumeroInput) {
+        const direccionNumeroPattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+$/;
+        
+        direccionNumeroInput.addEventListener('blur', function() {
+            const valor = this.value.trim();
+            if (!valor) {
+                this.setCustomValidity('El número es requerido');
+                setFieldValidation(this, false);
+            } else if (!direccionNumeroPattern.test(valor)) {
+                this.setCustomValidity('Solo se permiten letras (incluyendo acentos), números, espacios, guiones, apóstrofes y acentos graves');
+                setFieldValidation(this, false);
+            } else {
+                this.setCustomValidity('');
+                setFieldValidation(this, true);
+            }
+        });
+        
+        direccionNumeroInput.addEventListener('input', function(e) {
+            // Filtrar caracteres no permitidos mientras se escribe
+            const value = e.target.value;
+            const validPattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]*$/;
+            if (!validPattern.test(value)) {
+                e.target.value = value.replace(/[^A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]/g, '');
+            }
+            
+            // Limpiar validación mientras se escribe
+            if (this.classList.contains('is-invalid')) {
+                this.classList.remove('is-invalid');
+                this.setCustomValidity('');
+            }
+        });
+    }
+    
+    // Validación de piso/departamento (opcional)
+    const direccionPisoInput = document.getElementById('direccion_piso');
+    if (direccionPisoInput) {
+        const direccionPisoPattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+$/;
+        
+        direccionPisoInput.addEventListener('blur', function() {
+            const valor = this.value.trim();
+            // Piso/Depto es opcional, solo validar si tiene valor
+            if (valor && !direccionPisoPattern.test(valor)) {
+                this.setCustomValidity('Solo se permiten letras (incluyendo acentos), números, espacios, guiones, apóstrofes y acentos graves');
+                setFieldValidation(this, false);
+            } else {
+                this.setCustomValidity('');
+                setFieldValidation(this, true);
+            }
+        });
+        
+        direccionPisoInput.addEventListener('input', function(e) {
+            // Filtrar caracteres no permitidos mientras se escribe
+            const value = e.target.value;
+            const validPattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]*$/;
+            if (!validPattern.test(value)) {
+                e.target.value = value.replace(/[^A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]/g, '');
+            }
+            
+            // Limpiar validación mientras se escribe
+            if (this.classList.contains('is-invalid')) {
+                this.classList.remove('is-invalid');
+                this.setCustomValidity('');
+            }
+        });
+    }
+    
     // Actualizar costo de envío cuando cambia la provincia
     const provinciaSelect = document.getElementById('provincia');
     const cardBody = document.querySelector('.card-body[data-subtotal]');

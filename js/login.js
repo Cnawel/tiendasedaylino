@@ -2,17 +2,26 @@
 // LOGIN - JavaScript para mejorar UX
 // ============================================================================
 
+// Prevenir ejecución múltiple
+if (window.loginScriptLoaded) {
+    // Script ya cargado, no hacer nada
+} else {
+    window.loginScriptLoaded = true;
+
 document.addEventListener('DOMContentLoaded', function() {
     const loginForm = document.getElementById('loginForm');
+    if (!loginForm) return;
+    
     const emailInput = document.getElementById('email');
     const passwordInput = document.getElementById('password');
-    const togglePasswordBtn = document.getElementById('togglePassword');
+    const togglePasswordBtn = loginForm.querySelector('#togglePassword') || document.getElementById('togglePassword');
     const loginBtn = document.getElementById('loginBtn');
     
     // ========================================================================
     // Validación en tiempo real del email
     // Usa la función validateEmailInput de common_js_functions.php
     // ========================================================================
+    if (emailInput) {
     emailInput.addEventListener('input', function() {
         // Usar función consolidada de common_js_functions.php
         if (typeof validateEmailInput === 'function') {
@@ -50,19 +59,44 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+    }
     
     // ========================================================================
     // Toggle mostrar/ocultar contraseña
-    // Usa la función togglePassword de common_js_functions.php
     // ========================================================================
-    togglePasswordBtn.addEventListener('click', function() {
-        // Usar función consolidada de common_js_functions.php
-        togglePassword(passwordInput);
-    });
+    if (togglePasswordBtn && passwordInput) {
+        // Remover listeners previos si existen
+        const newToggleBtn = togglePasswordBtn.cloneNode(true);
+        togglePasswordBtn.parentNode.replaceChild(newToggleBtn, togglePasswordBtn);
+        
+        newToggleBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const icon = this.querySelector('i');
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                if (icon) {
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                    this.setAttribute('aria-label', 'Ocultar contraseña');
+                }
+            } else {
+                passwordInput.type = 'password';
+                if (icon) {
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                    this.setAttribute('aria-label', 'Mostrar contraseña');
+                }
+            }
+            return false;
+        });
+    }
     
     // ========================================================================
     // Validación del formulario al enviar
     // ========================================================================
+    if (loginForm) {
     loginForm.addEventListener('submit', function(e) {
         let isValid = true;
         
@@ -84,7 +118,13 @@ document.addEventListener('DOMContentLoaded', function() {
         // Si no es válido, prevenir envío
         if (!isValid) {
             e.preventDefault();
-            scrollToFirstError(loginForm);
+            
+            // Scroll al primer error
+            const firstError = loginForm.querySelector('.is-invalid');
+            if (firstError) {
+                firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                firstError.focus();
+            }
             return;
         }
         
@@ -95,22 +135,26 @@ document.addEventListener('DOMContentLoaded', function() {
         btnLoading.classList.remove('d-none');
         loginBtn.disabled = true;
     });
+    }
     
     // ========================================================================
     // Limpiar errores al interactuar
     // NOTA: El listener de 'input' en emailInput ya está manejado arriba con validateEmailInput
     // que automáticamente limpia los errores, por lo que este listener duplicado se elimina
     // ========================================================================
+    if (passwordInput) {
     passwordInput.addEventListener('input', function() {
         if (this.value) {
             this.classList.remove('is-invalid');
         }
     });
+    }
     
     // ========================================================================
     // Animación suave de entrada (reducida para mejor rendimiento)
     // ========================================================================
     const authCard = document.querySelector('.auth-card');
+    if (authCard) {
     authCard.style.opacity = '0';
     authCard.style.transform = 'translateY(20px)';
     
@@ -120,5 +164,6 @@ document.addEventListener('DOMContentLoaded', function() {
         authCard.style.opacity = '1';
         authCard.style.transform = 'translateY(0)';
     }, 1);
+    }
 });
-
+} // Cerrar el bloque else de prevención de ejecución múltiple

@@ -313,19 +313,62 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ========================================================================
     // Toggle mostrar/ocultar contraseñas
-    // Usa la función togglePassword de common_js_functions.php
     // ========================================================================
     if (togglePasswordBtn && passwordInput) {
-        togglePasswordBtn.addEventListener('click', function() {
-            // Usar función consolidada de common_js_functions.php
-            togglePassword(passwordInput);
+        // Remover listeners previos si existen
+        const newToggleBtn = togglePasswordBtn.cloneNode(true);
+        togglePasswordBtn.parentNode.replaceChild(newToggleBtn, togglePasswordBtn);
+        
+        newToggleBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const icon = this.querySelector('i');
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                if (icon) {
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                    this.setAttribute('aria-label', 'Ocultar contraseña');
+                }
+            } else {
+                passwordInput.type = 'password';
+                if (icon) {
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                    this.setAttribute('aria-label', 'Mostrar contraseña');
+                }
+            }
+            return false;
         });
     }
     
     if (togglePasswordConfirmBtn && passwordConfirmInput) {
-        togglePasswordConfirmBtn.addEventListener('click', function() {
-            // Usar función consolidada de common_js_functions.php
-            togglePassword(passwordConfirmInput);
+        // Remover listeners previos si existen
+        const newToggleConfirmBtn = togglePasswordConfirmBtn.cloneNode(true);
+        togglePasswordConfirmBtn.parentNode.replaceChild(newToggleConfirmBtn, togglePasswordConfirmBtn);
+        
+        newToggleConfirmBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const icon = this.querySelector('i');
+            if (passwordConfirmInput.type === 'password') {
+                passwordConfirmInput.type = 'text';
+                if (icon) {
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                    this.setAttribute('aria-label', 'Ocultar contraseña');
+                }
+            } else {
+                passwordConfirmInput.type = 'password';
+                if (icon) {
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                    this.setAttribute('aria-label', 'Mostrar contraseña');
+                }
+            }
+            return false;
         });
     }
     

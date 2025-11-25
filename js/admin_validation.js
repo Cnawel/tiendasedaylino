@@ -344,5 +344,160 @@ document.addEventListener('DOMContentLoaded', function() {
     modales.forEach(function(modal) {
         inicializarValidacionEdicion(modal.id);
     });
+    
+    // ========================================================================
+    // CONFIRMACIONES PARA CAMBIOS DE ROL Y DESACTIVACIÓN (Mejora Crítica)
+    // ========================================================================
+    
+    /**
+     * Intercepta el envío del formulario de cambio de rol
+     * Muestra confirmación antes de cambiar el rol de un usuario
+     */
+    function inicializarConfirmacionesCambioRol() {
+        const formulariosCambioRol = document.querySelectorAll('form button[name="cambiar_rol"]');
+        
+        formulariosCambioRol.forEach(function(boton) {
+            const formulario = boton.closest('form');
+            if (!formulario) return;
+            
+            // Evitar agregar listeners múltiples
+            if (formulario.dataset.confirmacionRolInicializada === 'true') {
+                return;
+            }
+            formulario.dataset.confirmacionRolInicializada = 'true';
+            
+            formulario.addEventListener('submit', function(e) {
+                // Solo interceptar si se está cambiando el rol (no otros campos)
+                const esCambioRol = e.submitter && e.submitter.name === 'cambiar_rol';
+                if (!esCambioRol) {
+                    return;
+                }
+                
+                e.preventDefault();
+                
+                // Obtener datos del formulario
+                const idUsuario = formulario.querySelector('[name="user_id"]')?.value;
+                const rolNuevo = formulario.querySelector('[name="nuevo_rol"]')?.value;
+                
+                // Obtener información del usuario del modal
+                const modal = formulario.closest('.modal');
+                let nombreUsuario = 'Usuario';
+                let rolActual = '';
+                let esUsuarioActual = false;
+                let esUltimoAdmin = false;
+                
+                if (modal) {
+                    const titleElement = modal.querySelector('.modal-title');
+                    if (titleElement) {
+                        nombreUsuario = titleElement.textContent.trim().replace('Modificar Usuario', '').trim() || 'Usuario';
+                    }
+                    
+                    // Obtener rol actual del badge
+                    const badgeRol = modal.querySelector('.badge');
+                    if (badgeRol) {
+                        rolActual = badgeRol.textContent.trim().toLowerCase();
+                    }
+                    
+                    // Verificar si es el usuario actual (el botón estará deshabilitado pero por si acaso)
+                    const botonModificar = modal.previousElementSibling;
+                    if (botonModificar && botonModificar.hasAttribute('disabled')) {
+                        esUsuarioActual = true;
+                    }
+                    
+                    // Verificar si es el último admin (buscar en el HTML si hay advertencia)
+                    const advertenciaAdmin = modal.querySelector('.alert-danger');
+                    if (advertenciaAdmin && advertenciaAdmin.textContent.includes('último administrador')) {
+                        esUltimoAdmin = true;
+                    }
+                }
+                
+                // Enviar formulario con bloqueo de botón
+                procesarOperacionCritica(boton, function() {
+                    formulario.submit();
+                }, {
+                    textoProcesando: 'Cambiando rol...',
+                    tiempoBloqueo: 2000
+                });
+            });
+        });
+    }
+    
+    /**
+     * Intercepta el envío del formulario de desactivación de usuario
+     * Muestra confirmación antes de desactivar un usuario
+     */
+    function inicializarConfirmacionesDesactivacion() {
+        const botonesDesactivar = document.querySelectorAll('button[name="desactivar_usuario"]');
+        
+        botonesDesactivar.forEach(function(boton) {
+            const formulario = boton.closest('form');
+            if (!formulario) return;
+            
+            // Remover el onsubmit inline (reemplazar con nuestra confirmación)
+            formulario.removeAttribute('onsubmit');
+            
+            // Evitar agregar listeners múltiples
+            if (formulario.dataset.confirmacionDesactivacionInicializada === 'true') {
+                return;
+            }
+            formulario.dataset.confirmacionDesactivacionInicializada = 'true';
+            
+            formulario.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Obtener datos del formulario
+                const idUsuario = formulario.querySelector('[name="del_user_id"]')?.value;
+                
+                // Obtener información del usuario del modal padre
+                const modal = formulario.closest('.modal');
+                let nombreUsuario = 'Usuario';
+                let rol = 'cliente';
+                let esUsuarioActual = false;
+                let esUltimoAdmin = false;
+                
+                if (modal) {
+                    // Obtener nombre del título del modal
+                    const titleElement = modal.querySelector('.modal-title');
+                    if (titleElement) {
+                        nombreUsuario = titleElement.textContent.trim().replace('Modificar Usuario', '').trim() || 'Usuario';
+                    }
+                    
+                    // Obtener rol del badge
+                    const badgeRol = modal.querySelector('.badge');
+                    if (badgeRol) {
+                        rol = badgeRol.textContent.trim().toLowerCase();
+                    }
+                    
+                    // Verificar si es el último admin
+                    const advertenciaAdmin = modal.querySelector('.alert-danger');
+                    if (advertenciaAdmin && advertenciaAdmin.textContent.includes('último administrador')) {
+                        esUltimoAdmin = true;
+                    }
+                }
+                
+                // Enviar formulario con bloqueo de botón
+                procesarOperacionCritica(boton, function() {
+                    formulario.submit();
+                        }, {
+                            textoProcesando: 'Desactivando...',
+                            tiempoBloqueo: 2000
+                        });
+                    }
+                );
+            });
+        });
+    }
+    
+    // Inicializar confirmaciones al cargar la página
+    inicializarConfirmacionesCambioRol();
+    inicializarConfirmacionesDesactivacion();
+    
+    // Reinicializar cuando se abren modales
+    modales.forEach(function(modal) {
+        modal.addEventListener('shown.bs.modal', function() {
+            inicializarConfirmacionesCambioRol();
+            inicializarConfirmacionesDesactivacion();
+        });
+    });
 });
 

@@ -264,7 +264,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Validar nombre (obligatorio)
             if (nombreInput) {
                 const nombreValor = nombreInput.value.trim();
-                const nombrePattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
+                const nombrePattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+$/;
                 
                 if (!nombreValor) {
                     nombreInput.classList.add('is-invalid');
@@ -287,7 +287,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Validar apellido (obligatorio)
             if (apellidoInput) {
                 const apellidoValor = apellidoInput.value.trim();
-                const apellidoPattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
+                const apellidoPattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+$/;
                 
                 if (!apellidoValor) {
                     apellidoInput.classList.add('is-invalid');
@@ -556,14 +556,14 @@ document.addEventListener('DOMContentLoaded', function() {
             
             envioDireccionCalle.addEventListener('blur', function() {
                 const valor = this.value.trim();
-                const pattern = /^[A-Za-z0-9 ]+$/;
+                const pattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+$/;
                 
                 if (!valor) {
                     mostrarFeedbackValidacion(this, false, 'La dirección es requerida');
                 } else if (valor.length < 2) {
                     mostrarFeedbackValidacion(this, false, 'La dirección debe tener al menos 2 caracteres');
                 } else if (!pattern.test(valor)) {
-                    mostrarFeedbackValidacion(this, false, 'Solo se permiten letras, números y espacios');
+                    mostrarFeedbackValidacion(this, false, 'Solo se permiten letras (incluyendo acentos), números, espacios, guiones, apóstrofes y acentos graves');
                 } else {
                     mostrarFeedbackValidacion(this, true, '');
                 }
@@ -572,9 +572,9 @@ document.addEventListener('DOMContentLoaded', function() {
             envioDireccionCalle.addEventListener('input', function(e) {
                 // Filtrar caracteres no permitidos mientras se escribe
                 const value = e.target.value;
-                const validPattern = /^[A-Za-z0-9 ]*$/;
+                const validPattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]*$/;
                 if (!validPattern.test(value)) {
-                    e.target.value = value.replace(/[^A-Za-z0-9 ]/g, '');
+                    e.target.value = value.replace(/[^A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]/g, '');
                 }
                 
                 // Limpiar validación mientras se escribe
@@ -596,12 +596,12 @@ document.addEventListener('DOMContentLoaded', function() {
             
             envioDireccionNumero.addEventListener('blur', function() {
                 const valor = this.value.trim();
-                const pattern = /^[A-Za-z0-9 ]+$/;
+                const pattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+$/;
                 
                 if (!valor) {
                     mostrarFeedbackValidacion(this, false, 'El número es requerido');
                 } else if (!pattern.test(valor)) {
-                    mostrarFeedbackValidacion(this, false, 'Solo se permiten letras, números y espacios');
+                    mostrarFeedbackValidacion(this, false, 'Solo se permiten letras (incluyendo acentos), números, espacios, guiones, apóstrofes y acentos graves');
                 } else {
                     mostrarFeedbackValidacion(this, true, '');
                 }
@@ -610,9 +610,9 @@ document.addEventListener('DOMContentLoaded', function() {
             envioDireccionNumero.addEventListener('input', function(e) {
                 // Filtrar caracteres no permitidos mientras se escribe
                 const value = e.target.value;
-                const validPattern = /^[A-Za-z0-9 ]*$/;
+                const validPattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]*$/;
                 if (!validPattern.test(value)) {
-                    e.target.value = value.replace(/[^A-Za-z0-9 ]/g, '');
+                    e.target.value = value.replace(/[^A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]/g, '');
                 }
                 
                 // Limpiar validación mientras se escribe
@@ -634,11 +634,11 @@ document.addEventListener('DOMContentLoaded', function() {
             
             envioDireccionPiso.addEventListener('blur', function() {
                 const valor = this.value.trim();
-                const pattern = /^[A-Za-z0-9 ]+$/;
+                const pattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+$/;
                 
                 // Piso/Depto es opcional, solo validar si tiene valor
                 if (valor && !pattern.test(valor)) {
-                    mostrarFeedbackValidacion(this, false, 'Solo se permiten letras, números y espacios');
+                    mostrarFeedbackValidacion(this, false, 'Solo se permiten letras (incluyendo acentos), números, espacios, guiones, apóstrofes y acentos graves');
                 } else {
                     mostrarFeedbackValidacion(this, true, '');
                 }
@@ -647,9 +647,9 @@ document.addEventListener('DOMContentLoaded', function() {
             envioDireccionPiso.addEventListener('input', function(e) {
                 // Filtrar caracteres no permitidos mientras se escribe
                 const value = e.target.value;
-                const validPattern = /^[A-Za-z0-9 ]*$/;
+                const validPattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]*$/;
                 if (!validPattern.test(value)) {
-                    e.target.value = value.replace(/[^A-Za-z0-9 ]/g, '');
+                    e.target.value = value.replace(/[^A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]/g, '');
                 }
                 
                 // Limpiar validación mientras se escribe
@@ -947,6 +947,67 @@ document.addEventListener('DOMContentLoaded', function() {
             subtree: true
         });
     }
+    
+    // ========================================================================
+    // CONFIRMACIONES PARA CANCELACIÓN DE PEDIDOS (Mejora Crítica)
+    // ========================================================================
+    
+    /**
+     * Intercepta el envío del formulario de cancelar pedido
+     * Muestra confirmación mejorada antes de cancelar
+     */
+    function inicializarConfirmacionesCancelacionPedido() {
+        const formulariosCancelar = document.querySelectorAll('button[name="cancelar_pedido_cliente"]');
+        
+        formulariosCancelar.forEach(function(boton) {
+            const formulario = boton.closest('form');
+            if (!formulario) return;
+            
+            // Evitar agregar listeners múltiples
+            if (formulario.dataset.confirmacionCancelacionInicializada === 'true') {
+                return;
+            }
+            formulario.dataset.confirmacionCancelacionInicializada = 'true';
+            
+            formulario.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Obtener datos del pedido
+                const idPedido = formulario.querySelector('[name="id_pedido"]')?.value;
+                
+                // Obtener información del pedido del modal
+                const modal = formulario.closest('.modal');
+                let estadoPedido = 'pendiente';
+                let estadoPago = '';
+                
+                if (modal) {
+                    // Obtener estado del pedido del badge
+                    const badgeEstado = modal.querySelector('.badge');
+                    if (badgeEstado) {
+                        estadoPedido = badgeEstado.textContent.trim().toLowerCase();
+                    }
+                    
+                    // Intentar obtener información del pago si está disponible
+                    // (Esto puede variar según la estructura del modal)
+                    const alertInfo = modal.querySelector('.alert-info');
+                    if (alertInfo && alertInfo.textContent.includes('pago estaba aprobado')) {
+                        estadoPago = 'aprobado';
+                    }
+                }
+                
+                // Enviar formulario con bloqueo de botón
+                procesarOperacionCritica(boton, function() {
+                    formulario.submit();
+                }, {
+                    textoProcesando: 'Cancelando pedido...',
+                    tiempoBloqueo: 2000
+                });
+            });
+        });
+    }
+    
+    // Inicializar confirmaciones al cargar la página
+    inicializarConfirmacionesCancelacionPedido();
     
 });
 
