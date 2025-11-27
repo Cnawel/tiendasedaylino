@@ -107,49 +107,23 @@ if (isset($_SESSION['mensaje'])) {
 }
 
 // ============================================================================
-// PROCESAR CREACIÓN DE USUARIOS STAFF (Ventas/Marketing)
+// PROCESAR FORMULARIOS POST
 // ============================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $resultado = procesarCreacionUsuarioStaff($mysqli, $_POST);
-    if ($resultado !== false) {
-        $_SESSION['mensaje'] = $resultado['mensaje'];
-        $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
-        header('Location: admin.php');
-        exit;
+    $resultado = false;
+    
+    // Determinar acción basada en parámetros POST
+    if (isset($_POST['crear_usuario_staff'])) {
+        $resultado = procesarCreacionUsuarioStaff($mysqli, $_POST);
+    } elseif (isset($_POST['cambiar_rol'])) {
+        $resultado = procesarCambioRol($mysqli, $_POST, $id_usuario);
+    } elseif (isset($_POST['actualizar_usuario'])) {
+        $resultado = procesarActualizacionUsuario($mysqli, $_POST, $id_usuario);
+    } elseif (isset($_POST['eliminar_usuario_fisico']) || isset($_POST['desactivar_usuario']) || isset($_POST['reactivar_usuario'])) {
+        $resultado = procesarEliminacionUsuario($mysqli, $_POST, $id_usuario);
     }
-}
-
-// ============================================================================
-// PROCESAR CAMBIOS DE ROL
-// ============================================================================
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $resultado = procesarCambioRol($mysqli, $_POST, $id_usuario);
-    if ($resultado !== false) {
-        $_SESSION['mensaje'] = $resultado['mensaje'];
-        $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
-        header('Location: admin.php');
-        exit;
-    }
-}
-
-// ============================================================================
-// ACTUALIZAR USUARIO (nombre, apellido, email, rol, contraseña)
-// ============================================================================
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $resultado = procesarActualizacionUsuario($mysqli, $_POST, $id_usuario);
-    if ($resultado !== false) {
-        $_SESSION['mensaje'] = $resultado['mensaje'];
-        $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
-        header('Location: admin.php');
-        exit;
-    }
-}
-
-// ============================================================================
-// ELIMINAR USUARIO (con validaciones de referencias)
-// ============================================================================
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $resultado = procesarEliminacionUsuario($mysqli, $_POST, $id_usuario);
+    
+    // Si hay resultado, procesar redirección
     if ($resultado !== false) {
         $_SESSION['mensaje'] = $resultado['mensaje'];
         $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
@@ -172,8 +146,22 @@ if ($filtro_rol !== null && !in_array($filtro_rol, $roles_validos, true)) {
     $filtro_rol = null;
 }
 
+// Obtener parámetro para mostrar usuarios inactivos
+$mostrar_inactivos = isset($_GET['mostrar_inactivos']) && $_GET['mostrar_inactivos'] == '1';
+
 // Obtener usuarios usando función centralizada (con filtro opcional)
 $usuarios = obtenerTodosUsuarios($mysqli, $filtro_rol);
+
+// Filtrar usuarios inactivos si el toggle está desactivado
+// Por defecto solo mostrar usuarios activos (activo = 1)
+if (!$mostrar_inactivos) {
+    $usuarios = array_filter($usuarios, function($usuario) {
+        $activo = isset($usuario['activo']) ? intval($usuario['activo']) : 1;
+        return $activo === 1;
+    });
+    // Reindexar el array después del filtro
+    $usuarios = array_values($usuarios);
+}
 
 // Obtener estadísticas de usuarios usando función centralizada
 $stats = obtenerEstadisticasUsuarios($mysqli);
@@ -207,18 +195,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                         <a href="perfil.php" class="btn btn-outline-primary me-2">
                             <i class="fas fa-user"></i> Mi Perfil
                         </a>
-                        <a href="logout.php" class="btn btn-outline-secondary" onclick="return confirmLogout()">
+                        <a href="logout.php" class="btn btn-outline-secondary btn-logout">
                             <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
                         </a>
                     </div>
                 </div>
-            </div>
-            
-            <!-- Accesos rápidos -->
-            <div class="mb-4">
-                <a href="https://php-myadmin.net/db_structure.php?db=if0_40082852_tiendasedaylino" target="_blank" rel="noopener noreferrer" class="btn btn-warning me-2">
-                    <i class="fas fa-database me-2"></i>phpMyAdmin (BD)
-                </a>
             </div>
             
             <!-- Estadísticas -->
@@ -297,6 +278,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                         <i class="fas fa-history me-2"></i>Historial de Usuarios
                     </button>
                 </li>
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link" href="db-tablas.php" role="tab">
+                        <i class="fas fa-database me-2"></i>DB-TABLAS
+                    </a>
+                </li>
             </ul>
 
             <div class="tab-content" id="adminTabsContent">
@@ -321,11 +307,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                     <div class="card mb-3">
                         <div class="card-body">
                             <form method="GET" action="admin.php" class="row g-3 align-items-end">
+                                <?php if ($mostrar_inactivos): ?>
+                                <input type="hidden" name="mostrar_inactivos" value="1">
+                                <?php endif; ?>
                                 <div class="col-md-4">
                                     <label for="filtro_rol" class="form-label">
                                         <i class="fas fa-filter me-2"></i>Filtrar por Rol
                                     </label>
-                                    <select class="form-select" name="filtro_rol" id="filtro_rol" onchange="this.form.submit()">
+                                    <select class="form-select" name="filtro_rol" id="filtro_rol">
                                         <option value="">Todos los usuarios</option>
                                         <option value="cliente" <?= $filtro_rol === 'cliente' ? 'selected' : '' ?>>Solo Clientes</option>
                                         <option value="ventas" <?= $filtro_rol === 'ventas' ? 'selected' : '' ?>>Solo Ventas</option>
@@ -335,7 +324,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                 </div>
                                 <div class="col-md-2">
                                     <?php if ($filtro_rol !== null): ?>
-                                    <a href="admin.php" class="btn btn-outline-secondary">
+                                    <a href="admin.php<?= $mostrar_inactivos ? '?mostrar_inactivos=1' : '' ?>" class="btn btn-outline-secondary">
                                         <i class="fas fa-times me-1"></i>Limpiar Filtro
                                     </a>
                                     <?php endif; ?>
@@ -355,9 +344,18 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                     
                     <!-- Tabla de Usuarios -->
                     <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h3 class="mb-0"><i class="fas fa-list me-2"></i>Gestión de Usuarios</h3>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="mostrarInactivos" 
+                                       <?= $mostrar_inactivos ? 'checked' : '' ?>
+                                       data-toggle-usuarios-inactivos>
+                                <label class="form-check-label" for="mostrarInactivos">
+                                    <small>Mostrar usuarios inactivos</small>
+                                </label>
+                            </div>
+                        </div>
                         <div class="card-body">
-                            <h3 class="mb-4"><i class="fas fa-list me-2"></i>Gestión de Usuarios</h3>
-                        
                         <div class="table-responsive">
                             <table class="table sortable-table">
                                 <thead class="table-dark">
@@ -736,7 +734,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                            maxlength="255"
                                            placeholder="Mínimo 6 caracteres"
                                            autocomplete="new-password">
-                                    <button type="button" class="btn-toggle-password" onclick="togglePasswordStaff('password_temporal')" aria-label="Mostrar contraseña">
+                                    <button type="button" class="btn-toggle-password" data-toggle-password="password_temporal" aria-label="Mostrar contraseña">
                                         <i class="fas fa-eye"></i>
                                     </button>
                                 </div>
@@ -759,7 +757,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                            maxlength="255"
                                            placeholder="Repite la contraseña temporal"
                                            autocomplete="new-password">
-                                    <button type="button" class="btn-toggle-password" onclick="togglePasswordStaff('confirmar_password_temporal')" aria-label="Mostrar contraseña">
+                                    <button type="button" class="btn-toggle-password" data-toggle-password="confirmar_password_temporal" aria-label="Mostrar contraseña">
                                         <i class="fas fa-eye"></i>
                                     </button>
                                 </div>
@@ -771,7 +769,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                 </div>
                             </div>
                             <div class="col-12">
-                                <button type="submit" class="btn btn-success">
+                                <button type="submit" class="btn btn-success" data-auto-lock="true" data-lock-time="2000" data-lock-text="Creando usuario...">
                                     <i class="fas fa-save me-2"></i>Crear usuario
                                 </button>
                                 <small class="text-muted ms-2">La contraseña temporal se mostrará una vez creado el usuario.</small>
@@ -875,15 +873,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                 <a href="index.php" class="btn btn-outline-secondary me-2">
                     <i class="fas fa-home me-2"></i>Volver al Inicio
                 </a>
-                <a href="logout.php" class="btn btn-outline-danger" onclick="return confirmLogout()">
+                <a href="logout.php" class="btn btn-outline-danger btn-logout">
                     <i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión
                 </a>
             </div>
         </div>
     </main>
-
-    <script src="includes/admin_validation.js"></script>
-    <script src="js/table-sort.js"></script>
 
 <?php include 'includes/footer.php'; render_footer(); ?>
 

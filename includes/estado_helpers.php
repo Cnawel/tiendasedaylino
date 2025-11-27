@@ -28,8 +28,7 @@
  */
 function obtenerMapeoEstadosPedido() {
     return [
-        'pendiente' => ['color' => 'warning', 'nombre' => 'Pendiente'],
-        'pendiente_validado_stock' => ['color' => 'warning', 'nombre' => 'Pendiente (Stock Validado)'],
+        'pendiente' => ['color' => 'warning', 'nombre' => 'Pendiente'], // Todo pedido en 'pendiente' ya tiene stock validado
         'preparacion' => ['color' => 'info', 'nombre' => 'Preparación'],
         'en_viaje' => ['color' => 'primary', 'nombre' => 'En Viaje'],
         'completado' => ['color' => 'success', 'nombre' => 'Completado'],
@@ -129,115 +128,6 @@ function obtenerInfoEstadoPago($estado) {
 }
 
 /**
- * Obtiene el warning específico para una combinación de estados según la matriz completa
- * 
- * Esta función implementa la matriz completa de 35 combinaciones (7 estados pedido × 5 estados pago)
- * y retorna el warning correspondiente según la documentación en matriz-estados-pedido-pago-warnings.md
- * 
- * @param string $estado_pedido_norm Estado del pedido normalizado
- * @param string $estado_pago_norm Estado del pago normalizado
- * @param string|null $estado_pedido_anterior Estado anterior del pedido (opcional, para mostrar transición)
- * @param string|null $estado_pago_anterior Estado anterior del pago (opcional, para mostrar transición)
- * @return array|null Array con información del warning o null si no hay warning
- */
-function obtenerWarningPorCombinacionEstado($estado_pedido_norm, $estado_pago_norm, $estado_pedido_anterior = null, $estado_pago_anterior = null) {
-    // Obtener información de estados para mensajes
-    $info_pedido = obtenerInfoEstadoPedido($estado_pedido_norm);
-    $info_pago = obtenerInfoEstadoPago($estado_pago_norm);
-    
-    // Construir texto de transición si hay estados anteriores Y hubo cambio real
-    $transicion_texto = '';
-    if ($estado_pedido_anterior || $estado_pago_anterior) {
-        $partes_transicion = [];
-        // Solo mostrar transición de pedido si hubo cambio
-        if ($estado_pedido_anterior && $estado_pedido_anterior !== $estado_pedido_norm) {
-            $info_pedido_anterior = obtenerInfoEstadoPedido($estado_pedido_anterior);
-            $partes_transicion[] = "Pedido: {$info_pedido_anterior['nombre']} → {$info_pedido['nombre']}";
-        }
-        // Solo mostrar transición de pago si hubo cambio
-        if ($estado_pago_anterior && $estado_pago_anterior !== $estado_pago_norm) {
-            $info_pago_anterior = obtenerInfoEstadoPago($estado_pago_anterior);
-            $partes_transicion[] = "Pago: {$info_pago_anterior['nombre']} → {$info_pago['nombre']}";
-        }
-        if (!empty($partes_transicion)) {
-            $transicion_texto = ' (' . implode(', ', $partes_transicion) . ')';
-        }
-    }
-    
-    // GRUPO 1: INCONSISTENCIAS CRÍTICAS (danger) - 4 casos
-    // en_viaje/completado + rechazado/cancelado
-    if (in_array($estado_pedido_norm, ['en_viaje', 'completado']) 
-        && in_array($estado_pago_norm, ['rechazado', 'cancelado'])) {
-        return [
-            'hay_inconsistencia' => true,
-            'tipo' => 'danger',
-            'mensaje' => "INCONSISTENCIA CRÍTICA: Pedido en estado '{$info_pedido['nombre']}' con pago '{$info_pago['nombre']}'{$transicion_texto}",
-            'severidad' => 'CRÍTICA',
-            'grupo' => 'inconsistencias_criticas',
-            'accion_sugerida' => 'Revisar inmediatamente, contactar al cliente, verificar stock'
-        ];
-    }
-    
-    // GRUPO 2: Estados avanzados sin pago aprobado (warning) - 8 casos
-    // preparacion, en_viaje, completado, devolucion + pendiente/pendiente_aprobacion
-    if (in_array($estado_pedido_norm, ['preparacion', 'en_viaje', 'completado', 'devolucion']) 
-        && in_array($estado_pago_norm, ['pendiente', 'pendiente_aprobacion'])) {
-        return [
-            'hay_inconsistencia' => true,
-            'tipo' => 'warning',
-            'mensaje' => "Pedido en '{$info_pedido['nombre']}' debería tener pago aprobado, pero está en '{$info_pago['nombre']}'{$transicion_texto}",
-            'severidad' => 'ADVERTENCIA',
-            'grupo' => 'estados_avanzados_sin_pago_aprobado',
-            'accion_sugerida' => 'Revisar estado del pago y aprobar si corresponde'
-        ];
-    }
-    
-    // GRUPO 3: Estados con pago rechazado/cancelado (warning) - 2 casos
-    // preparacion + rechazado/cancelado
-    if ($estado_pedido_norm === 'preparacion' 
-        && in_array($estado_pago_norm, ['rechazado', 'cancelado'])) {
-        return [
-            'hay_inconsistencia' => true,
-            'tipo' => 'warning',
-            'mensaje' => "Pedido en '{$info_pedido['nombre']}' con pago '{$info_pago['nombre']}' (debería estar cancelado){$transicion_texto}",
-            'severidad' => 'ADVERTENCIA',
-            'grupo' => 'estados_con_pago_rechazado',
-            'accion_sugerida' => 'Cancelar el pedido y restaurar stock si corresponde'
-        ];
-    }
-    
-    // GRUPO 4: Devolución con pago rechazado/cancelado (warning) - 2 casos
-    // devolucion + rechazado/cancelado
-    if ($estado_pedido_norm === 'devolucion' 
-        && in_array($estado_pago_norm, ['rechazado', 'cancelado'])) {
-        return [
-            'hay_inconsistencia' => true,
-            'tipo' => 'warning',
-            'mensaje' => "Pedido en '{$info_pedido['nombre']}' con pago '{$info_pago['nombre']}' (inconsistente){$transicion_texto}",
-            'severidad' => 'ADVERTENCIA',
-            'grupo' => 'devolucion_con_pago_rechazado',
-            'accion_sugerida' => 'Revisar estado del pedido y pago, verificar consistencia'
-        ];
-    }
-    
-    // GRUPO 5: Pedido cancelado con pago aprobado (warning) - 1 caso
-    // cancelado + aprobado
-    if ($estado_pedido_norm === 'cancelado' && $estado_pago_norm === 'aprobado') {
-        return [
-            'hay_inconsistencia' => true,
-            'tipo' => 'warning',
-            'mensaje' => "Pedido cancelado con pago '{$info_pago['nombre']}' (inconsistente - debería restaurar stock){$transicion_texto}",
-            'severidad' => 'ADVERTENCIA',
-            'grupo' => 'cancelado_con_pago_aprobado',
-            'accion_sugerida' => 'Verificar si el stock fue restaurado, cancelar pago si es necesario'
-        ];
-    }
-    
-    // No hay warning para esta combinación (es válida)
-    return null;
-}
-
-/**
  * Detecta inconsistencias entre estados de pedido y pago
  * 
  * Retorna información completa sobre inconsistencias detectadas según la matriz
@@ -249,7 +139,7 @@ function obtenerWarningPorCombinacionEstado($estado_pedido_norm, $estado_pago_no
  * para compatibilidad.
  * 
  * CASOS VÁLIDOS (NO muestran warning): 20 combinaciones
- * - pendiente/pendiente_validado_stock + cualquier estado de pago (10 casos)
+ * - pendiente + cualquier estado de pago (5 casos)
  * - preparacion/en_viaje/completado/devolucion + aprobado (4 casos)
  * - cancelado + pendiente/pendiente_aprobacion/rechazado/cancelado (4 casos)
  * - preparacion + pendiente (1 caso - aunque técnicamente debería tener aprobado, no es crítico)
@@ -275,14 +165,21 @@ function detectarInconsistenciasEstado($estado_pedido, $estado_pago, $estado_ped
     // Cargar StateValidator si no está cargado
     require_once __DIR__ . '/state_validator.php';
     
-    // Normalizar estados
+    // Normalizar estado del pedido
     $estado_pedido_norm = normalizarEstado($estado_pedido);
+    
+    // Pasar null explícitamente si no hay pago, para que validateOrderPaymentState() lo maneje correctamente
+    // Si normalizamos null a 'pendiente' aquí, perdemos la distinción entre "sin pago" y "pago pendiente"
+    $estado_pago_para_validacion = ($estado_pago === null || $estado_pago === '') ? null : normalizarEstado($estado_pago);
+    
+    // Normalizar para uso en mensajes (después de la validación)
     $estado_pago_norm = normalizarEstado($estado_pago);
+    
     $estado_pedido_anterior_norm = $estado_pedido_anterior ? normalizarEstado($estado_pedido_anterior) : null;
     $estado_pago_anterior_norm = $estado_pago_anterior ? normalizarEstado($estado_pago_anterior) : null;
     
-    // Usar StateValidator para validar combinación
-    $validation = StateValidator::validateOrderPaymentState($estado_pedido_norm, $estado_pago_norm);
+    // Usar StateValidator para validar combinación (pasar null explícitamente)
+    $validation = StateValidator::validateOrderPaymentState($estado_pedido_norm, $estado_pago_para_validacion);
     
     // Si no hay warning, retornar formato compatible
     if ($validation['warning'] === null) {
@@ -322,8 +219,12 @@ function detectarInconsistenciasEstado($estado_pedido, $estado_pago, $estado_ped
         }
     }
     
-    // Mejorar mensaje con información de estados y transiciones
-    $mensaje_mejorado = $warning['message'] . $transicion_texto;
+    // Mejorar mensaje usando nombres de estados en lugar de valores normalizados
+    $mensaje_base = $warning['message'];
+    // Reemplazar valores normalizados por nombres legibles en el mensaje
+    $mensaje_base = str_replace("'{$estado_pedido_norm}'", "'{$info_pedido['nombre']}'", $mensaje_base);
+    $mensaje_base = str_replace("'{$estado_pago_norm}'", "'{$info_pago['nombre']}'", $mensaje_base);
+    $mensaje_mejorado = $mensaje_base . $transicion_texto;
     
     // Determinar grupo según el tipo de warning
     $grupo = null;
@@ -388,19 +289,19 @@ function formatearMensajeExito($estado_anterior, $estado_actual, $tipo = 'pedido
         $mensaje = "Estado actual: {$info_actual['nombre']}";
     }
     
-    // Agregar información adicional
+    // Agregar información adicional con contexto más claro
     $partes_adicionales = [];
     
     if (!empty($info_adicional['stock_descontado']) && $info_adicional['stock_descontado']) {
-        $partes_adicionales[] = 'Stock descontado automáticamente';
+        $partes_adicionales[] = 'Stock descontado automáticamente del inventario';
     }
     
     if (!empty($info_adicional['stock_restaurado']) && $info_adicional['stock_restaurado']) {
-        $partes_adicionales[] = 'Stock restaurado automáticamente';
+        $partes_adicionales[] = 'Stock restaurado automáticamente al inventario';
     }
     
     if (!empty($info_adicional['pago_aprobado']) && $info_adicional['pago_aprobado']) {
-        $partes_adicionales[] = 'Pago aprobado';
+        $partes_adicionales[] = 'Pago aprobado correctamente';
     }
     
     if (!empty($info_adicional['pago_rechazado']) && $info_adicional['pago_rechazado']) {
@@ -411,7 +312,7 @@ function formatearMensajeExito($estado_anterior, $estado_actual, $tipo = 'pedido
         $partes_adicionales[] = $info_adicional['mensaje_extra'];
     }
     
-    // Combinar mensaje base con información adicional
+    // Combinar mensaje base con información adicional de forma más clara
     if (!empty($partes_adicionales)) {
         $mensaje .= '. ' . implode(', ', $partes_adicionales) . '.';
     }
@@ -425,7 +326,7 @@ function formatearMensajeExito($estado_anterior, $estado_actual, $tipo = 'pedido
  * Retorna un mensaje agrupado que puede ser usado para mostrar múltiples
  * warnings del mismo tipo de manera más compacta
  * 
- * @param string $grupo Grupo de warnings (ver obtenerWarningPorCombinacionEstado)
+ * @param string $grupo Grupo de warnings (ver StateValidator::validateOrderPaymentState)
  * @param array $warnings Array de warnings del mismo grupo
  * @return string Mensaje agrupado
  */

@@ -488,6 +488,36 @@ $pedido = $_SESSION['pedido_exitoso'];
                                 <div class="info-value payment-details-text"><?php echo htmlspecialchars($pedido['metodo_pago_descripcion']); ?></div>
                             </div>
                             <?php endif; ?>
+                            
+                            <!-- Warnings informativos según método de pago -->
+                            <?php
+                            $nombre_metodo_lower = strtolower($pedido['metodo_pago'] ?? '');
+                            $mostrar_warning_aprobacion = false;
+                            $mostrar_warning_tiempo = false;
+                            $mensaje_warning = '';
+                            
+                            // Detectar métodos que requieren aprobación manual
+                            if (strpos($nombre_metodo_lower, 'transferencia') !== false || 
+                                strpos($nombre_metodo_lower, 'depósito') !== false || 
+                                strpos($nombre_metodo_lower, 'efectivo') !== false ||
+                                strpos($nombre_metodo_lower, 'manual') !== false) {
+                                $mostrar_warning_aprobacion = true;
+                                $mensaje_warning = 'Tu pago será revisado manualmente. Recibirás confirmación por email en 24-48 horas una vez que se procese el pago.';
+                            } elseif (strpos($nombre_metodo_lower, 'transferencia') !== false || 
+                                      strpos($nombre_metodo_lower, 'depósito') !== false) {
+                                $mostrar_warning_tiempo = true;
+                                $mensaje_warning = 'Los pagos por transferencia pueden tardar 24-48hs en procesarse. Te notificaremos por email cuando se confirme el pago.';
+                            }
+                            ?>
+                            
+                            <?php if ($mostrar_warning_aprobacion || $mostrar_warning_tiempo): ?>
+                            <div class="alert alert-info alert-dismissible fade show mt-3" role="alert" style="border-left: 4px solid #0dcaf0;">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Próximos pasos:</strong><br>
+                                <small><?php echo htmlspecialchars($mensaje_warning); ?></small>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                            <?php endif; ?>
                         </div>
                         
                         <div class="info-item">
@@ -503,8 +533,27 @@ $pedido = $_SESSION['pedido_exitoso'];
                             </div>
                             <div class="info-value">
                                 <?php 
+                                // Mostrar dirección completa con todos los datos
+                                $direccion_parts = [];
+                                
                                 if (!empty($pedido['direccion'])) {
-                                    echo htmlspecialchars($pedido['direccion']);
+                                    $direccion_parts[] = htmlspecialchars($pedido['direccion']);
+                                }
+                                
+                                if (!empty($pedido['localidad'])) {
+                                    $direccion_parts[] = htmlspecialchars($pedido['localidad']);
+                                }
+                                
+                                if (!empty($pedido['provincia'])) {
+                                    $direccion_parts[] = htmlspecialchars($pedido['provincia']);
+                                }
+                                
+                                if (!empty($pedido['codigo_postal'])) {
+                                    $direccion_parts[] = 'CP: ' . htmlspecialchars($pedido['codigo_postal']);
+                                }
+                                
+                                if (!empty($direccion_parts)) {
+                                    echo implode(', ', $direccion_parts);
                                 } else {
                                     echo 'N/A';
                                 }
@@ -597,7 +646,14 @@ $pedido = $_SESSION['pedido_exitoso'];
                         <!-- Mensaje informativo movido a la columna derecha -->
                         <div class="alert alert-sepia-info mt-4 mb-0" style="border-radius: 8px; padding: 1rem;">
                             <i class="fas fa-info-circle me-2"></i>
-                            <small style="line-height: 1.6; font-size: 0.9rem;">Guarda tu número de pedido para realizar el seguimiento de tu compra. Tu pedido será enviado en 3-5 días hábiles.</small>
+                            <small style="line-height: 1.6; font-size: 0.9rem;">
+                                <strong>Importante:</strong> Guarda tu número de pedido para realizar el seguimiento de tu compra. 
+                                <?php if ($mostrar_warning_aprobacion): ?>
+                                Revisa tu email para instrucciones de pago. Una vez confirmado el pago, tu pedido será enviado en 3-5 días hábiles.
+                                <?php else: ?>
+                                Tu pedido será enviado en 3-5 días hábiles una vez confirmado el pago.
+                                <?php endif; ?>
+                            </small>
                         </div>
                     </div>
                 </div>

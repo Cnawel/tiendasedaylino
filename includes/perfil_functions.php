@@ -30,6 +30,14 @@ if (!file_exists($admin_functions_path)) {
 }
 require_once $admin_functions_path;
 
+// Cargar funciones de validación centralizadas adicionales
+$validation_functions_path = __DIR__ . '/validation_functions.php';
+if (!file_exists($validation_functions_path)) {
+    error_log("ERROR: No se pudo encontrar validation_functions.php en " . $validation_functions_path);
+    die("Error crítico: Archivo de funciones de validación no encontrado. Por favor, contacta al administrador.");
+}
+require_once $validation_functions_path;
+
 /**
  * Procesa la actualización de pregunta y respuesta de recupero
  * 
@@ -173,142 +181,123 @@ function procesarActualizacionDatos($mysqli, $id_usuario, $post) {
     
     // Validación de apellido: solo si se están actualizando datos personales
     if ($actualizando_personales) {
-        if (empty($apellido)) {
-            $mensaje = 'El apellido es obligatorio.';
+        $validacion_apellido = validarNombreApellido($apellido, 'apellido');
+        if (!$validacion_apellido['valido']) {
+            $mensaje = $validacion_apellido['error'];
             $mensaje_tipo = 'danger';
-        } elseif (strlen($apellido) < 2) {
-            $mensaje = 'El apellido debe tener al menos 2 caracteres.';
-            $mensaje_tipo = 'danger';
-        } elseif (strlen($apellido) > 100) {
-            $mensaje = 'El apellido no puede exceder 100 caracteres.';
-            $mensaje_tipo = 'danger';
-        } elseif (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s\'´]+$/', $apellido)) {
-            $mensaje = 'El apellido solo puede contener letras, espacios, apóstrofe (\') y acento agudo (´).';
-            $mensaje_tipo = 'danger';
+        } else {
+            $apellido = $validacion_apellido['valor'];
         }
     }
     
+    // Validar teléfono usando función centralizada (opcional)
     $telefono = trim($post['telefono'] ?? '');
-    // Telefono puede estar vacío, pero si se proporciona debe ser válido
     if (!empty($telefono)) {
-        // Validar longitud según diccionario: 6-20 caracteres
-        if (strlen($telefono) < 6) {
+        $validacion_telefono = validarTelefono($telefono, true);
+        if (!$validacion_telefono['valido']) {
             if (empty($mensaje)) {
-                $mensaje = 'El teléfono debe tener al menos 6 caracteres.';
+                $mensaje = $validacion_telefono['error'];
                 $mensaje_tipo = 'danger';
             }
-        } elseif (strlen($telefono) > 20) {
-            if (empty($mensaje)) {
-                $mensaje = 'El teléfono no puede exceder 20 caracteres.';
-                $mensaje_tipo = 'danger';
-            }
-        } elseif (!preg_match('/^[0-9+\-() ]+$/', $telefono)) {
-            // Validar caracteres permitidos según diccionario: [0-9, +, (, ), -]
-            if (empty($mensaje)) {
-                $mensaje = 'El teléfono solo puede contener números y símbolos (+, -, paréntesis, espacios).';
-                $mensaje_tipo = 'danger';
-            }
+        } else {
+            $telefono = $validacion_telefono['valor'];
         }
     }
     
     // Validar campos de dirección solo si se están actualizando
     if ($actualizando_envio) {
-        if (empty($direccion_calle)) {
-            $mensaje = 'La dirección (calle) es requerida';
+        // Validar componentes de dirección usando funciones centralizadas
+        $validacion_calle = validarDireccion($direccion_calle, true, 2, 'calle');
+        if (!$validacion_calle['valido']) {
+            $mensaje = $validacion_calle['error'];
             $mensaje_tipo = 'danger';
-        } elseif (empty($direccion_numero)) {
-            $mensaje = 'El número de dirección es requerido';
+        }
+        
+        $validacion_numero = validarDireccion($direccion_numero, true, 1, 'numero');
+        if (!$validacion_numero['valido'] && empty($mensaje)) {
+            $mensaje = $validacion_numero['error'];
             $mensaje_tipo = 'danger';
         }
         
-        // Validar provincia
-        if (empty($provincia)) {
-            if (empty($mensaje)) {
-                $mensaje = 'La provincia es requerida';
-                $mensaje_tipo = 'danger';
-            }
-        } else {
-            // Validar longitud según diccionario: 3-100 caracteres
-            if (strlen($provincia) < 3) {
-                if (empty($mensaje)) {
-                    $mensaje = 'La provincia debe tener al menos 3 caracteres.';
-                    $mensaje_tipo = 'danger';
-                }
-            } elseif (strlen($provincia) > 100) {
-                if (empty($mensaje)) {
-                    $mensaje = 'La provincia no puede exceder 100 caracteres.';
-                    $mensaje_tipo = 'danger';
-                }
-            } elseif (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/', $provincia)) {
-                // Validar caracteres permitidos según diccionario: [A-Z, a-z, ] (solo letras y espacios)
-                if (empty($mensaje)) {
-                    $mensaje = 'La provincia solo puede contener letras y espacios.';
-                    $mensaje_tipo = 'danger';
-                }
-            }
-        }
-        
-        // Validar localidad
-        if (empty($localidad)) {
-            if (empty($mensaje)) {
-                $mensaje = 'La localidad es requerida';
-                $mensaje_tipo = 'danger';
-            }
-        } else {
-            // Validar longitud según diccionario: 3-100 caracteres
-            if (strlen($localidad) < 3) {
-                if (empty($mensaje)) {
-                    $mensaje = 'La localidad debe tener al menos 3 caracteres.';
-                    $mensaje_tipo = 'danger';
-                }
-            } elseif (strlen($localidad) > 100) {
-                if (empty($mensaje)) {
-                    $mensaje = 'La localidad no puede exceder 100 caracteres.';
-                    $mensaje_tipo = 'danger';
-                }
-            } elseif (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/', $localidad)) {
-                // Validar caracteres permitidos según diccionario: [A-Z, a-z, ] (solo letras y espacios)
-                if (empty($mensaje)) {
-                    $mensaje = 'La localidad solo puede contener letras y espacios.';
-                    $mensaje_tipo = 'danger';
-                }
-            }
-        }
-        
-        // Validar código postal
-        if (empty($codigo_postal)) {
-            if (empty($mensaje)) {
-                $mensaje = 'El código postal es requerido';
-                $mensaje_tipo = 'danger';
-            }
-        } elseif (!preg_match('/^[A-Za-z0-9 ]+$/', $codigo_postal)) {
-            if (empty($mensaje)) {
-                $mensaje = 'El código postal solo puede contener letras, números y espacios';
-                $mensaje_tipo = 'danger';
-            }
-        }
-    }
-    
-    // Combinar dirección para guardar en BD (solo si no hay errores y se está actualizando)
-    $direccion = '';
-    if ($actualizando_envio && empty($mensaje)) {
-        $direccion = trim($direccion_calle) . ' ' . trim($direccion_numero);
+        // Validar piso (opcional)
         if (!empty($direccion_piso)) {
-            $direccion .= ' ' . trim($direccion_piso);
+            $validacion_piso = validarDireccion($direccion_piso, false, 1, 'piso');
+            if (!$validacion_piso['valido'] && empty($mensaje)) {
+                $mensaje = $validacion_piso['error'];
+                $mensaje_tipo = 'danger';
+            }
         }
-        $direccion = trim($direccion);
         
-        // Validar dirección combinada según diccionario: longitud 5-100, caracteres [A-Z, a-z, 0-9, , .,-,']
-        if (strlen($direccion) < 5) {
-            $mensaje = 'La dirección debe tener al menos 5 caracteres.';
+        // Validar provincia (longitud 3-100, solo letras y espacios)
+        $provincia_trimmed = trim($provincia);
+        if (empty($provincia_trimmed)) {
+            if (empty($mensaje)) {
+                $mensaje = 'La provincia es requerida.';
+                $mensaje_tipo = 'danger';
+            }
+        } elseif (strlen($provincia_trimmed) < 3) {
+            if (empty($mensaje)) {
+                $mensaje = 'La provincia debe tener al menos 3 caracteres.';
+                $mensaje_tipo = 'danger';
+            }
+        } elseif (strlen($provincia_trimmed) > 100) {
+            if (empty($mensaje)) {
+                $mensaje = 'La provincia no puede exceder 100 caracteres.';
+                $mensaje_tipo = 'danger';
+            }
+        } elseif (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/', $provincia_trimmed)) {
+            if (empty($mensaje)) {
+                $mensaje = 'La provincia solo puede contener letras y espacios.';
+                $mensaje_tipo = 'danger';
+            }
+        } else {
+            $provincia = $provincia_trimmed;
+        }
+        
+        // Validar localidad (longitud 3-100, solo letras y espacios)
+        $localidad_trimmed = trim($localidad);
+        if (empty($localidad_trimmed)) {
+            if (empty($mensaje)) {
+                $mensaje = 'La localidad es requerida.';
+                $mensaje_tipo = 'danger';
+            }
+        } elseif (strlen($localidad_trimmed) < 3) {
+            if (empty($mensaje)) {
+                $mensaje = 'La localidad debe tener al menos 3 caracteres.';
+                $mensaje_tipo = 'danger';
+            }
+        } elseif (strlen($localidad_trimmed) > 100) {
+            if (empty($mensaje)) {
+                $mensaje = 'La localidad no puede exceder 100 caracteres.';
+                $mensaje_tipo = 'danger';
+            }
+        } elseif (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/', $localidad_trimmed)) {
+            if (empty($mensaje)) {
+                $mensaje = 'La localidad solo puede contener letras y espacios.';
+                $mensaje_tipo = 'danger';
+            }
+        } else {
+            $localidad = $localidad_trimmed;
+        }
+        
+        // Validar código postal usando función centralizada
+        $validacion_codigo_postal = validarCodigoPostal($codigo_postal);
+        if (!$validacion_codigo_postal['valido'] && empty($mensaje)) {
+            $mensaje = $validacion_codigo_postal['error'];
             $mensaje_tipo = 'danger';
-        } elseif (strlen($direccion) > 100) {
-            $mensaje = 'La dirección no puede exceder 100 caracteres.';
-            $mensaje_tipo = 'danger';
-        } elseif (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\.,\-\'`]+$/', $direccion)) {
-            // Validar caracteres permitidos según diccionario: [A-Z, a-z, 0-9, , .,-,'`]
-            $mensaje = 'La dirección contiene caracteres no permitidos. Solo se permiten letras, números, espacios, puntos, comas, guiones, apóstrofes y acentos graves.';
-            $mensaje_tipo = 'danger';
+        } else {
+            $codigo_postal = $validacion_codigo_postal['valor'];
+        }
+        
+        // Validar dirección completa combinada
+        if (empty($mensaje)) {
+            $validacion_direccion_completa = validarDireccionCompleta($direccion_calle, $direccion_numero, $direccion_piso);
+            if (!$validacion_direccion_completa['valido']) {
+                $mensaje = $validacion_direccion_completa['error'];
+                $mensaje_tipo = 'danger';
+            } else {
+                $direccion = $validacion_direccion_completa['direccion_completa'];
+            }
         }
     } elseif (!$actualizando_envio) {
         // Si no se están actualizando datos de envío, mantener los valores actuales
@@ -318,63 +307,22 @@ function procesarActualizacionDatos($mysqli, $id_usuario, $post) {
         $codigo_postal = $usuario_actual['codigo_postal'] ?? '';
     }
     
-    // Validar y procesar fecha de nacimiento (opcional)
+    // Validar y procesar fecha de nacimiento (opcional) usando función centralizada
     // Si el campo está vacío, preservar el valor existente de la BD
     $fecha_nacimiento = trim($post['fecha_nacimiento'] ?? '');
     // Inicializar con el valor existente para preservarlo si no se proporciona uno nuevo
     $fecha_nacimiento_final = $usuario_actual['fecha_nacimiento'] ?? null;
     
     if (!empty($fecha_nacimiento)) {
-        // Flatpickr puede enviar en formato dd/mm/yyyy, convertir a YYYY-MM-DD
-        $fecha_procesada = null;
+        // Usar función centralizada de validación que incluye: formato, rango de años, edad mínima
+        $validacion_fecha = validarFechaNacimiento($fecha_nacimiento);
         
-        // Intentar parsear formato dd/mm/yyyy
-        if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $fecha_nacimiento, $matches)) {
-            $dia = intval($matches[1]);
-            $mes = intval($matches[2]);
-            $ano = intval($matches[3]);
-            if (checkdate($mes, $dia, $ano)) {
-                $fecha_procesada = sprintf('%04d-%02d-%02d', $ano, $mes, $dia);
-            }
-        }
-        // Si no es dd/mm/yyyy, intentar formato YYYY-MM-DD
-        elseif (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_nacimiento)) {
-            $fecha_parts = explode('-', $fecha_nacimiento);
-            if (count($fecha_parts) === 3 && checkdate(intval($fecha_parts[1]), intval($fecha_parts[2]), intval($fecha_parts[0]))) {
-                $fecha_procesada = $fecha_nacimiento;
-            }
-        }
-        
-        if ($fecha_procesada) {
-            try {
-                $fecha_nac = new DateTime($fecha_procesada);
-                $hoy = new DateTime();
-                $hoy->setTime(0, 0, 0);
-                $fecha_nac->setTime(0, 0, 0);
-                
-                // Extraer año de la fecha procesada
-                $año = intval($fecha_nac->format('Y'));
-                
-                // Validar rango de año permitido (1925-2012)
-                if ($año < 1925 || $año > 2012) {
-                    $mensaje = 'La fecha de nacimiento debe estar entre 1925 y 2012.';
-                    $mensaje_tipo = 'danger';
-                }
-                // Validar que no sea futura
-                elseif ($fecha_nac > $hoy) {
-                    $mensaje = 'La fecha de nacimiento no puede ser futura.';
-                    $mensaje_tipo = 'danger';
-                } else {
-                    // Guardar en formato YYYY-MM-DD para MySQL DATE
-                    $fecha_nacimiento_final = $fecha_nac->format('Y-m-d');
-                }
-            } catch (Exception $e) {
-                $mensaje = 'La fecha de nacimiento no es válida.';
-                $mensaje_tipo = 'danger';
-            }
-        } else {
-            $mensaje = 'El formato de fecha de nacimiento no es válido. Use formato dd/mm/aaaa.';
+        if (!$validacion_fecha['valido']) {
+            $mensaje = $validacion_fecha['error'];
             $mensaje_tipo = 'danger';
+        } else {
+            // Guardar fecha validada (puede ser null si estaba vacía)
+            $fecha_nacimiento_final = $validacion_fecha['valor'];
         }
     }
     // Si fecha_nacimiento está vacío, $fecha_nacimiento_final ya tiene el valor existente (o null si no existe)

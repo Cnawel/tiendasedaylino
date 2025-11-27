@@ -30,10 +30,10 @@ if (!isset($_SESSION['carrito'])) {
 // ========================================================================
 // Cargar funciones necesarias (usar rutas absolutas con __DIR__)
 require_once __DIR__ . '/includes/password_functions.php';
-require_once __DIR__ . '/includes/queries/usuario_queries.php';
+// NOTA: usuario_queries.php ya está incluido por admin_functions.php
 require_once __DIR__ . '/includes/queries/perfil_queries.php';
 require_once __DIR__ . '/includes/security_functions.php';
-require_once __DIR__ . '/includes/admin_functions.php';
+require_once __DIR__ . '/includes/admin_functions.php'; // Incluye usuario_queries.php
 require_once __DIR__ . '/includes/auth_check.php';
 
 // Configurar título de la página
@@ -43,11 +43,17 @@ $titulo_pagina = 'Iniciar Sesión';
 $errores = [];
 $mensaje = '';
 $mensaje_tipo = '';
+$mostrar_modal_reactivacion = false;
 
 // Verificar si el usuario ya está logueado, redirigir según su rol
 if (!empty($_SESSION['id_usuario'])) {
     $rol_sesion = $_SESSION['rol'] ?? 'cliente';
     redirigirSegunRol($rol_sesion);
+}
+
+// Verificar si hay datos de reactivación pendiente (para mostrar modal)
+if (isset($_SESSION['usuario_reactivacion']) && !empty($_SESSION['usuario_reactivacion'])) {
+    $mostrar_modal_reactivacion = true;
 }
 
 // Verificar mensaje de registro exitoso desde sesión
@@ -60,9 +66,57 @@ if (isset($_SESSION['mensaje_registro'])) {
 }
 
 // ========================================================================
+// PROCESAR REACTIVACIÓN DE CUENTA (antes del login normal)
+// ========================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reactivar_cuenta'])) {
+    // Validar que hay datos de usuario temporal en sesión
+    if (!isset($_SESSION['usuario_reactivacion']) || empty($_SESSION['usuario_reactivacion'])) {
+        $errores['general'] = 'Sesión de reactivación no válida. Por favor, intenta iniciar sesión nuevamente.';
+    } else {
+        $usuario_reactivacion = $_SESSION['usuario_reactivacion'];
+        $id_usuario = intval($usuario_reactivacion['id_usuario'] ?? 0);
+        
+        if ($id_usuario <= 0) {
+            $errores['general'] = 'ID de usuario inválido para reactivación.';
+        } else {
+            // Conectar a la base de datos
+            require_once __DIR__ . '/config/database.php';
+            configurarConexionBD($mysqli);
+            
+            // Reactivar usuario
+            if (reactivarUsuario($mysqli, $id_usuario)) {
+                // Limpiar datos temporales de reactivación
+                unset($_SESSION['usuario_reactivacion']);
+                
+                // Establecer variables de sesión
+                $_SESSION['id_usuario'] = $usuario_reactivacion['id_usuario'];
+                $_SESSION['nombre'] = $usuario_reactivacion['nombre'];
+                $_SESSION['apellido'] = $usuario_reactivacion['apellido'];
+                $_SESSION['email'] = $usuario_reactivacion['email'];
+                $_SESSION['rol'] = strtolower($usuario_reactivacion['rol']);
+                
+                // Regenerar ID de sesión después de autenticación
+                session_regenerate_id(true);
+                
+                // Redirigir a perfil.php (no usar redirigirSegunRol)
+                header('Location: perfil.php', true, 302);
+                exit;
+            } else {
+                $errores['general'] = 'Error al reactivar la cuenta. Por favor, intenta nuevamente.';
+            }
+        }
+    }
+}
+
+// ========================================================================
 // PROCESAR FORMULARIO DE LOGIN
 // ========================================================================
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['reactivar_cuenta'])) {
+    
+    // Limpiar datos de reactivación previos si existen (nuevo intento de login)
+    if (isset($_SESSION['usuario_reactivacion'])) {
+        unset($_SESSION['usuario_reactivacion']);
+    }
     
     // Validar EMAIL usando función centralizada
     $email_raw = $_POST['email'] ?? '';
@@ -109,8 +163,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Configurar charset antes de cualquier operación con BD
             configurarConexionBD($mysqli);
             
-            // Buscar usuario por email (usar email normalizado en minúsculas)
-            $usuario = buscarUsuarioPorEmail($mysqli, $email_busqueda);
+            // Buscar usuario por email incluyendo usuarios inactivos (para detectar cuentas desactivadas)
+            $usuario = buscarUsuarioPorEmailIncluyendoInactivos($mysqli, $email_busqueda);
             
             if ($usuario) {
                 // Verificar que el hash no esté vacío
@@ -128,48 +182,78 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $verificacion_resultado = verificarPassword($password_para_verificar, $hash_password);
                     
                     if ($verificacion_resultado) {
-                        // PRESERVAR intentos de otras cuentas antes de limpiar y regenerar sesión
-                        // Esto previene que se pierdan los bloqueos de otras cuentas cuando se regenera el ID de sesión
-                        $email_normalizado = strtolower(trim($email_busqueda));
-                        $intentos_backup = isset($_SESSION['intentos_login']) ? $_SESSION['intentos_login'] : [];
+                        // Verificar si la cuenta está inactiva
+                        $activo = intval($usuario['activo'] ?? 1);
                         
-                        // Login exitoso - limpiar intentos fallidos solo del email actual
-                        limpiarIntentosFormulario($email_busqueda, 'login');
-                        
-                        // Login exitoso - establecer variables de sesión
-                        $_SESSION['id_usuario'] = $usuario['id_usuario'];
-                        $_SESSION['nombre'] = $usuario['nombre'];
-                        $_SESSION['apellido'] = $usuario['apellido'];
-                        $_SESSION['email'] = $usuario['email'];
-                        $_SESSION['rol'] = strtolower($usuario['rol']);
-                        
-                        // Regenerar ID de sesión después de autenticación para prevenir session fixation
-                        // El parámetro true elimina la sesión antigua del servidor
-                        session_regenerate_id(true);
-                        
-                        // RESTAURAR intentos de otras cuentas después de regenerar sesión
-                        // Esto asegura que los bloqueos de otras cuentas persistan
-                        if (!isset($_SESSION['intentos_login'])) {
-                            $_SESSION['intentos_login'] = [];
-                        }
-                        // Restaurar solo los intentos de otras cuentas (excluir el email que se logueó exitosamente)
-                        foreach ($intentos_backup as $email_key => $datos_intentos) {
-                            if ($email_key !== $email_normalizado) {
-                                $_SESSION['intentos_login'][$email_key] = $datos_intentos;
+                        if ($activo === 0) {
+                            // Cuenta inactiva - guardar datos temporalmente en sesión para reactivación
+                            // NO establecer sesión de usuario aún, solo datos temporales
+                            $_SESSION['usuario_reactivacion'] = [
+                                'id_usuario' => $usuario['id_usuario'],
+                                'nombre' => $usuario['nombre'],
+                                'apellido' => $usuario['apellido'],
+                                'email' => $usuario['email'],
+                                'rol' => $usuario['rol']
+                            ];
+                            
+                            // Limpiar intentos fallidos del email actual (credenciales válidas)
+                            limpiarIntentosFormulario($email_busqueda, 'login');
+                            
+                            // Limpiar contraseña de memoria
+                            $password = null;
+                            $password_original = null;
+                            $password_para_verificar = null;
+                            
+                            // Establecer flag para mostrar modal de reactivación en esta misma carga
+                            $mostrar_modal_reactivacion = true;
+                            
+                            // No establecer errores - se mostrará modal de reactivación
+                            
+                        } else {
+                            // Cuenta activa - proceder con login normal
+                            // PRESERVAR intentos de otras cuentas antes de limpiar y regenerar sesión
+                            // Esto previene que se pierdan los bloqueos de otras cuentas cuando se regenera el ID de sesión
+                            $email_normalizado = strtolower(trim($email_busqueda));
+                            $intentos_backup = isset($_SESSION['intentos_login']) ? $_SESSION['intentos_login'] : [];
+                            
+                            // Login exitoso - limpiar intentos fallidos solo del email actual
+                            limpiarIntentosFormulario($email_busqueda, 'login');
+                            
+                            // Login exitoso - establecer variables de sesión
+                            $_SESSION['id_usuario'] = $usuario['id_usuario'];
+                            $_SESSION['nombre'] = $usuario['nombre'];
+                            $_SESSION['apellido'] = $usuario['apellido'];
+                            $_SESSION['email'] = $usuario['email'];
+                            $_SESSION['rol'] = strtolower($usuario['rol']);
+                            
+                            // Regenerar ID de sesión después de autenticación para prevenir session fixation
+                            // El parámetro true elimina la sesión antigua del servidor
+                            session_regenerate_id(true);
+                            
+                            // RESTAURAR intentos de otras cuentas después de regenerar sesión
+                            // Esto asegura que los bloqueos de otras cuentas persistan
+                            if (!isset($_SESSION['intentos_login'])) {
+                                $_SESSION['intentos_login'] = [];
                             }
+                            // Restaurar solo los intentos de otras cuentas (excluir el email que se logueó exitosamente)
+                            foreach ($intentos_backup as $email_key => $datos_intentos) {
+                                if ($email_key !== $email_normalizado) {
+                                    $_SESSION['intentos_login'][$email_key] = $datos_intentos;
+                                }
+                            }
+                            
+                            // Obtener ID de usuario para cookies
+                            $id_usuario = (int)$usuario['id_usuario'];
+                            
+                            // Limpiar contraseña de memoria
+                            $password = null;
+                            $password_original = null;
+                            $password_para_verificar = null;
+                            
+                            // Redirigir según rol usando función centralizada
+                            $rol = $usuario['rol'];
+                            redirigirSegunRol($rol);
                         }
-                        
-                        // Obtener ID de usuario para cookies
-                        $id_usuario = (int)$usuario['id_usuario'];
-                        
-                        // Limpiar contraseña de memoria
-                        $password = null;
-                        $password_original = null;
-                        $password_para_verificar = null;
-                        
-                        // Redirigir según rol usando función centralizada
-                        $rol = $usuario['rol'];
-                        redirigirSegunRol($rol);
                     } else {
                         // Contraseña incorrecta - incrementar intentos fallidos
                         $resultado_intentos = incrementarIntentosFormulario($email_busqueda, 'login');
@@ -302,7 +386,86 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </main>
 
+<!-- Modal de Reactivación de Cuenta -->
+<?php if ($mostrar_modal_reactivacion): ?>
+<div class="modal fade" id="modalReactivarCuenta" tabindex="-1" aria-labelledby="modalReactivarCuentaLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title" id="modalReactivarCuentaLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Cuenta Desactivada
+                </h5>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">
+                    Tu cuenta está desactivada. ¿Deseas reactivarla?
+                </p>
+                <p class="text-muted small mb-0">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Al reactivar tu cuenta, podrás acceder nuevamente a todos los servicios.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <form method="POST" action="" id="formReactivarCuenta" style="display: inline;">
+                    <input type="hidden" name="reactivar_cuenta" value="1">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="btnReactivarCuenta">
+                        <span class="btn-text">
+                            <i class="fas fa-check me-1"></i>Sí, reactivar cuenta
+                        </span>
+                        <span class="btn-loading d-none">
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            Reactivando...
+                        </span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <?php include __DIR__ . '/includes/footer.php'; render_footer(); ?>
 
-<script src="includes/login.js"></script>
+<script src="js/login.js"></script>
+<?php if ($mostrar_modal_reactivacion): ?>
+<script>
+    // Mostrar modal automáticamente cuando la página carga
+    document.addEventListener('DOMContentLoaded', function() {
+        const modalElement = document.getElementById('modalReactivarCuenta');
+        if (!modalElement) return;
+        
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+        
+        // Manejar envío del formulario de reactivación
+        const formReactivar = document.getElementById('formReactivarCuenta');
+        const btnReactivar = document.getElementById('btnReactivarCuenta');
+        
+        if (formReactivar && btnReactivar) {
+            formReactivar.addEventListener('submit', function(e) {
+                const btnText = btnReactivar.querySelector('.btn-text');
+                const btnLoading = btnReactivar.querySelector('.btn-loading');
+                
+                if (btnText && btnLoading) {
+                    btnText.classList.add('d-none');
+                    btnLoading.classList.remove('d-none');
+                    btnReactivar.disabled = true;
+                }
+            });
+        }
+        
+        // Limpiar datos de sesión si el usuario cierra el modal sin reactivar
+        modalElement.addEventListener('hidden.bs.modal', function() {
+            // Si el modal se cierra sin reactivar, limpiar datos temporales
+            // Esto se hace mediante una petición AJAX o simplemente dejando que el usuario
+            // intente iniciar sesión nuevamente (los datos se limpiarán en el próximo intento)
+            // Por ahora, no hacemos nada ya que los datos se limpiarán automáticamente
+            // cuando el usuario intente iniciar sesión nuevamente
+        });
+    });
+</script>
+<?php endif; ?>
 

@@ -103,6 +103,12 @@ require_once __DIR__ . '/includes/sales_functions.php';
 // Cargar funciones de perfil para parsear direcciones
 require_once __DIR__ . '/includes/perfil_functions.php';
 
+// Cargar helpers de estados (mapeos y normalización)
+require_once __DIR__ . '/includes/estado_helpers.php';
+
+// Cargar componentes de ventas (modales y secciones)
+require_once __DIR__ . '/includes/ventas_components.php';
+
 // Configurar título de la página
 $titulo_pagina = 'Panel de Ventas';
 
@@ -129,80 +135,36 @@ require_once __DIR__ . '/includes/queries/forma_pago_queries.php';
 require_once __DIR__ . '/includes/queries/cliente_queries.php';
 
 // ============================================================================
-// PROCESAR ACTUALIZACIÓN DE PEDIDO Y PAGO COMPLETO
+// PROCESAR FORMULARIOS POST
 // ============================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $resultado = procesarActualizacionPedidoPago($mysqli, $_POST, $id_usuario);
-    if ($resultado !== false) {
-        $_SESSION['mensaje'] = $resultado['mensaje'];
-        $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
-        $redirect_url = construirRedirectUrl('ventas.php');
-        header('Location: ' . $redirect_url);
-        exit;
+    $resultado = false;
+    
+    // Determinar acción basada en parámetros POST
+    if (isset($_POST['actualizar_estado_pedido'])) {
+        $resultado = procesarActualizacionPedidoPago($mysqli, $_POST, $id_usuario);
+    } elseif (isset($_POST['aprobar_pago'])) {
+        $resultado = procesarAprobacionPago($mysqli, $_POST, $id_usuario);
+    } elseif (isset($_POST['rechazar_pago'])) {
+        $resultado = procesarRechazoPago($mysqli, $_POST, $id_usuario);
+    } elseif (isset($_POST['agregar_metodo_pago'])) {
+        $resultado = procesarAgregarMetodoPago($mysqli, $_POST);
+    } elseif (isset($_POST['actualizar_metodo_pago'])) {
+        $resultado = procesarActualizarMetodoPago($mysqli, $_POST);
+    } elseif (isset($_POST['eliminar_metodo_pago'])) {
+        $resultado = procesarEliminarMetodoPago($mysqli, $_POST);
+    } elseif (isset($_POST['toggle_activo_metodo_pago'])) {
+        $resultado = procesarToggleActivoMetodoPago($mysqli, $_POST);
     }
-}
-
-// ============================================================================
-// PROCESAR APROBACIÓN DE PAGO
-// ============================================================================
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $resultado = procesarAprobacionPago($mysqli, $_POST, $id_usuario);
+    
+    // Si hay resultado, procesar redirección
     if ($resultado !== false) {
         $_SESSION['mensaje'] = $resultado['mensaje'];
         $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
         $redirect_url = construirRedirectUrl('ventas.php');
         header('Location: ' . $redirect_url);
         exit;
-    }
-}
-
-// ============================================================================
-// PROCESAR RECHAZO DE PAGO
-// ============================================================================
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $resultado = procesarRechazoPago($mysqli, $_POST, $id_usuario);
-    if ($resultado !== false) {
-        $_SESSION['mensaje'] = $resultado['mensaje'];
-        $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
-        $redirect_url = construirRedirectUrl('ventas.php');
-        header('Location: ' . $redirect_url);
-        exit;
-    }
-}
-
-// Procesar agregar método de pago
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $resultado = procesarAgregarMetodoPago($mysqli, $_POST);
-    if ($resultado !== false) {
-        $_SESSION['mensaje'] = $resultado['mensaje'];
-        $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
-        $redirect_url = construirRedirectUrl('ventas.php');
-        header('Location: ' . $redirect_url);
-        exit;
-    }
-}
-
-// Procesar actualización de método de pago
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $resultado = procesarActualizarMetodoPago($mysqli, $_POST);
-    if ($resultado !== false) {
-        $_SESSION['mensaje'] = $resultado['mensaje'];
-        $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
-        $redirect_url = construirRedirectUrl('ventas.php');
-        header('Location: ' . $redirect_url);
-        exit;
-    }
-}
-
-// Procesar eliminación de método de pago
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $resultado = procesarEliminarMetodoPago($mysqli, $_POST);
-    if ($resultado !== false) {
-        $_SESSION['mensaje'] = $resultado['mensaje'];
-        $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
-        $redirect_url = construirRedirectUrl('ventas.php');
-        header('Location: ' . $redirect_url);
-        exit;
+    } else {
     }
 }
 
@@ -216,6 +178,17 @@ if ($limite_pedidos !== '10' && $limite_pedidos !== '50') {
 
 // Obtener parámetro para mostrar pedidos de usuarios inactivos
 $mostrar_inactivos = isset($_GET['mostrar_inactivos']) && $_GET['mostrar_inactivos'] == '1';
+
+// Obtener parámetro para mostrar métodos de pago inactivos
+$mostrar_metodos_inactivos = isset($_GET['mostrar_metodos_inactivos']) && $_GET['mostrar_metodos_inactivos'] == '1';
+
+// Obtener parámetro para determinar pestaña activa
+$tab_activo = isset($_GET['tab']) ? $_GET['tab'] : 'pedidos';
+// Validar que el tab sea válido
+$tabs_validos = ['pedidos', 'clientes', 'metodos-pago', 'metricas'];
+if (!in_array($tab_activo, $tabs_validos)) {
+    $tab_activo = 'pedidos';
+}
 
 // Incluir queries de pedidos y formas de pago
 require_once __DIR__ . '/includes/queries/pedido_queries.php';
@@ -231,8 +204,17 @@ $pedidos_recientes = obtenerPedidos($mysqli, $limite_numero, $mostrar_inactivos)
 // Obtener lista de clientes usando función centralizada
 $lista_clientes = obtenerClientesConPedidos($mysqli);
 
-// Obtener lista de métodos de pago usando función centralizada
-$lista_metodos_pago = obtenerFormasPagoSelect($mysqli);
+// Obtener lista de métodos de pago usando función centralizada (incluye activos e inactivos para admin)
+$lista_metodos_pago = obtenerFormasPagoAdmin($mysqli);
+
+// Filtrar métodos de pago según el toggle (por defecto solo mostrar activos)
+if (!$mostrar_metodos_inactivos) {
+    $lista_metodos_pago = array_filter($lista_metodos_pago, function($metodo) {
+        return (int)($metodo['activo'] ?? 1) === 1;
+    });
+    // Reindexar el array después del filtro
+    $lista_metodos_pago = array_values($lista_metodos_pago);
+}
 
 // Obtener métricas analíticas
 $pedidos_tiempo_estado = obtenerPedidosTiempoEstado($mysqli, 10);
@@ -256,7 +238,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                         <a href="perfil.php" class="btn btn-outline-primary me-2">
                             <i class="fas fa-user"></i> Mi Perfil
                         </a>
-                        <a href="logout.php" class="btn btn-outline-secondary" onclick="return confirmLogout()">
+                        <a href="logout.php" class="btn btn-outline-secondary btn-logout">
                             <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
                         </a>
                     </div>
@@ -298,22 +280,22 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
         <!-- Navegación por pestañas -->
         <ul class="nav nav-tabs mb-4" id="ventasTabs" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="pedidos-tab" data-bs-toggle="tab" data-bs-target="#pedidos" type="button" role="tab">
+                <button class="nav-link <?= $tab_activo === 'pedidos' ? 'active' : '' ?>" id="pedidos-tab" data-bs-toggle="tab" data-bs-target="#pedidos" type="button" role="tab">
                     <i class="fas fa-shopping-cart me-2"></i>Pedidos
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="clientes-tab" data-bs-toggle="tab" data-bs-target="#clientes" type="button" role="tab">
+                <button class="nav-link <?= $tab_activo === 'clientes' ? 'active' : '' ?>" id="clientes-tab" data-bs-toggle="tab" data-bs-target="#clientes" type="button" role="tab">
                     <i class="fas fa-users me-2"></i>Clientes
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="metodos-pago-tab" data-bs-toggle="tab" data-bs-target="#metodos-pago" type="button" role="tab">
+                <button class="nav-link <?= $tab_activo === 'metodos-pago' ? 'active' : '' ?>" id="metodos-pago-tab" data-bs-toggle="tab" data-bs-target="#metodos-pago" type="button" role="tab">
                     <i class="fas fa-credit-card me-2"></i>Métodos de Pago
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="metricas-tab" data-bs-toggle="tab" data-bs-target="#metricas" type="button" role="tab">
+                <button class="nav-link <?= $tab_activo === 'metricas' ? 'active' : '' ?>" id="metricas-tab" data-bs-toggle="tab" data-bs-target="#metricas" type="button" role="tab">
                     <i class="fas fa-chart-line me-2"></i>Métricas
                 </button>
             </li>
@@ -321,7 +303,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
 
         <div class="tab-content" id="ventasTabsContent">
             <!-- Pestaña de Pedidos -->
-            <div class="tab-pane fade show active" id="pedidos" role="tabpanel">
+            <div class="tab-pane fade <?= $tab_activo === 'pedidos' ? 'show active' : '' ?>" id="pedidos" role="tabpanel">
                 <!-- Mensajes -->
                 <?php if ($mensaje): ?>
                 <div class="alert alert-<?= $mensaje_tipo ?> alert-dismissible fade show" role="alert">
@@ -339,13 +321,13 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="mostrarInactivos" 
                                        <?= $mostrar_inactivos ? 'checked' : '' ?>
-                                       onchange="togglePedidosInactivos(this.checked)">
+                                       data-toggle-inactivos>
                                 <label class="form-check-label" for="mostrarInactivos">
                                     <small>Mostrar pedidos de usuarios inactivos</small>
                                 </label>
                             </div>
                             <label class="mb-0"><small>Mostrar:</small></label>
-                            <select class="form-select form-select-sm" style="width: auto;" onchange="cambiarLimitePedidos(this.value)">
+                            <select class="form-select form-select-sm" style="width: auto;" id="selectLimitePedidos">
                                 <option value="10" <?= $limite_pedidos == '10' ? 'selected' : '' ?>>Últimos 10</option>
                                 <option value="50" <?= $limite_pedidos == '50' ? 'selected' : '' ?>>Últimos 50</option>
                                 <option value="TODOS" <?= $limite_pedidos == 'TODOS' ? 'selected' : '' ?>>Todos</option>
@@ -359,6 +341,11 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                             <p>No hay pedidos registrados</p>
                         </div>
                         <?php else: ?>
+                        <?php
+                        // Obtener todos los pagos en una sola query (optimización N+1)
+                        $pedidos_ids = array_column($pedidos_recientes, 'id_pedido');
+                        $pagos_por_pedido = obtenerPagosPorPedidos($mysqli, $pedidos_ids);
+                        ?>
                         <div class="table-responsive">
                             <table class="table sortable-table">
                                 <thead class="table-dark">
@@ -377,34 +364,20 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                 <tbody>
                                     <?php foreach ($pedidos_recientes as $pedido): ?>
                                     <?php
-                                    // Obtener información del pago para este pedido
-                                    $pago_pedido = obtenerPagoPorPedido($mysqli, $pedido['id_pedido']);
+                                    // Obtener pago del mapa precargado (optimización N+1)
+                                    $pago_pedido = $pagos_por_pedido[$pedido['id_pedido']] ?? null;
                                     
-                                    // Validar y limpiar el estado del pedido
-                                    $estado_pedido = trim($pedido['estado_pedido'] ?? '');
-                                    if (empty($estado_pedido)) {
-                                        $estado_pedido = 'pendiente'; // Valor por defecto si está vacío
+                                    // Normalizar estado del pedido usando función centralizada
+                                    $estado_pedido = normalizarEstado($pedido['estado_pedido'] ?? '');
+                                    
+                                    // Normalizar estado del pago si existe
+                                    $estado_pago_para_detectar = null;
+                                    if ($pago_pedido && isset($pago_pedido['estado_pago'])) {
+                                        $estado_pago_para_detectar = normalizarEstado($pago_pedido['estado_pago']);
                                     }
                                     
-                                    // Mapeo inline de estados de pedido
-                                    $estados_pedido_map = [
-                                        'pendiente' => ['color' => 'warning', 'nombre' => 'Pendiente'],
-                                        'preparacion' => ['color' => 'info', 'nombre' => 'Preparación'],
-                                        'en_viaje' => ['color' => 'primary', 'nombre' => 'En Viaje'],
-                                        'completado' => ['color' => 'success', 'nombre' => 'Completado'],
-                                        'devolucion' => ['color' => 'secondary', 'nombre' => 'Devolución'],
-                                        'cancelado' => ['color' => 'secondary', 'nombre' => 'Cancelado']
-                                    ];
-                                    $info_estado = $estados_pedido_map[$estado_pedido] ?? ['color' => 'secondary', 'nombre' => ucfirst(str_replace('_', ' ', $estado_pedido))];
-                                    
-                                    // Mapeo inline de estados de pago
-                                    $estados_pago_map = [
-                                        'pendiente' => ['color' => 'warning', 'nombre' => 'Pendiente'],
-                                        'pendiente_aprobacion' => ['color' => 'info', 'nombre' => 'Pendiente Aprobación'],
-                                        'aprobado' => ['color' => 'success', 'nombre' => 'Aprobado'],
-                                        'rechazado' => ['color' => 'danger', 'nombre' => 'Rechazado'],
-                                        'cancelado' => ['color' => 'secondary', 'nombre' => 'Cancelado']
-                                    ];
+                                    // Obtener información del estado usando función centralizada
+                                    $info_estado = obtenerInfoEstadoPedido($estado_pedido);
                                     ?>
                                     <tr>
                                         <td>#<?= $pedido['id_pedido'] ?></td>
@@ -423,45 +396,59 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                         <td>$<?= number_format($pedido['total_pedido'] ?? 0, 2, ',', '.') ?></td>
                                         <td>
                                             <?php
-                                            // Detectar inconsistencia: pedido completado/en_viaje con pago rechazado/cancelado
-                                            $estado_pago_actual = $pago_pedido ? strtolower(trim($pago_pedido['estado_pago'] ?? '')) : '';
-                                            $hay_inconsistencia = in_array($estado_pedido, ['completado', 'en_viaje']) 
-                                                                  && in_array($estado_pago_actual, ['rechazado', 'cancelado']);
+                                            // Detectar inconsistencias usando función centralizada
+                                            // Detecta todos los casos críticos y de advertencia según análisis completo
+                                            // Usar estado normalizado del pago
+                                            $inconsistencias = detectarInconsistenciasEstado(
+                                                $estado_pedido, 
+                                                $estado_pago_para_detectar
+                                            );
+                                            $hay_inconsistencia = $inconsistencias['hay_inconsistencia'];
+                                            $tipo_inconsistencia = $inconsistencias['tipo'] ?? null;
+                                            $mensaje_inconsistencia = $inconsistencias['mensaje'] ?? '';
+                                            $accion_sugerida = $inconsistencias['accion_sugerida'] ?? '';
+                                            $severidad = $inconsistencias['severidad'] ?? '';
                                             ?>
                                             <span class="badge bg-<?= htmlspecialchars($info_estado['color']) ?>">
                                                 <?= htmlspecialchars($info_estado['nombre']) ?>
                                             </span>
                                             <?php if ($hay_inconsistencia): ?>
-                                                <br><small class="text-danger">
-                                                    <i class="fas fa-exclamation-triangle"></i> Inconsistencia detectada
-                                                </small>
+                                                <br>
+                                                <div class="mt-1">
+                                                    <small class="text-<?= $tipo_inconsistencia ?> d-block">
+                                                        <i class="fas fa-<?= $tipo_inconsistencia === 'danger' ? 'exclamation-circle' : 'exclamation-triangle' ?>"></i> 
+                                                        <strong><?= htmlspecialchars($mensaje_inconsistencia) ?></strong>
+                                                    </small>
+                                                    <?php if (!empty($accion_sugerida)): ?>
+                                                    <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
+                                                        <i class="fas fa-lightbulb"></i> <?= htmlspecialchars($accion_sugerida) ?>
+                                                    </small>
+                                                    <?php endif; ?>
+                                                </div>
                                             <?php endif; ?>
                                         </td>
                                         <td>
                                             <?php if ($pago_pedido): ?>
                                                 <?php
-                                                // Normalizar estado de pago antes de buscar en el mapa
-                                                $estado_pago_raw = $pago_pedido['estado_pago'] ?? '';
-                                                $estado_pago_normalizado = strtolower(trim($estado_pago_raw));
-                                                // Asegurar que el estado normalizado no esté vacío
-                                                if (empty($estado_pago_normalizado)) {
-                                                    $estado_pago_normalizado = 'pendiente';
-                                                }
-                                                // Buscar en el mapa de estados
-                                                if (isset($estados_pago_map[$estado_pago_normalizado])) {
-                                                    $info_estado_pago = $estados_pago_map[$estado_pago_normalizado];
-                                                } else {
-                                                    // Fallback si no se encuentra en el mapa
-                                                    $info_estado_pago = ['color' => 'secondary', 'nombre' => ucfirst(str_replace('_', ' ', $estado_pago_normalizado))];
-                                                }
+                                                // Obtener información del estado de pago usando función centralizada
+                                                $info_estado_pago = obtenerInfoEstadoPago($pago_pedido['estado_pago'] ?? '');
                                                 ?>
                                                 <span class="badge bg-<?= htmlspecialchars($info_estado_pago['color']) ?>">
                                                     <?= htmlspecialchars($info_estado_pago['nombre']) ?>
                                                 </span>
                                                 <?php if ($hay_inconsistencia): ?>
-                                                    <br><small class="text-danger">
-                                                        <i class="fas fa-exclamation-triangle"></i> Revisar estado
+                                                    <br>
+                                                    <div class="mt-1">
+                                                        <small class="text-<?= $tipo_inconsistencia ?> d-block">
+                                                        <i class="fas fa-<?= $tipo_inconsistencia === 'danger' ? 'exclamation-circle' : 'exclamation-triangle' ?>"></i> 
+                                                            <strong><?= htmlspecialchars($mensaje_inconsistencia) ?></strong>
+                                                        </small>
+                                                        <?php if (!empty($accion_sugerida)): ?>
+                                                        <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
+                                                            <i class="fas fa-lightbulb"></i> <?= htmlspecialchars($accion_sugerida) ?>
                                                     </small>
+                                                        <?php endif; ?>
+                                                    </div>
                                                 <?php endif; ?>
                                             <?php else: ?>
                                                 <span class="badge bg-secondary">Sin pago</span>
@@ -489,423 +476,23 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                             <!-- Modales fuera de la tabla para evitar problemas al ordenar -->
                             <?php foreach ($pedidos_recientes as $pedido): ?>
                             <?php
-                            // Obtener información del pago para este pedido
-                            $pago_pedido = obtenerPagoPorPedido($mysqli, $pedido['id_pedido']);
+                            // Obtener pago del mapa precargado
+                            $pago_pedido = $pagos_por_pedido[$pedido['id_pedido']] ?? null;
                             
                             // Obtener información completa del pedido para los modales
                             $pedido_completo = obtenerPedidoPorId($mysqli, $pedido['id_pedido']);
                             $detalles_pedido = obtenerDetallesPedido($mysqli, $pedido['id_pedido']);
-                            $pago_detalle = obtenerPagoPorPedido($mysqli, $pedido['id_pedido']);
-                            $pedido_completo_modal = obtenerPedidoPorId($mysqli, $pedido['id_pedido']);
-                            $pago_modal = obtenerPagoPorPedido($mysqli, $pedido['id_pedido']);
+                            $pago_detalle = $pago_pedido;
+                            $pedido_completo_modal = $pedido_completo;
+                            $pago_modal = $pago_pedido;
                             
                             // Normalizar estado actual del pedido para el formulario
-                            $estado_actual_modal = trim(strtolower($pedido_completo_modal['estado_pedido'] ?? ''));
-                            if (empty($estado_actual_modal)) {
-                                $estado_actual_modal = 'pendiente';
-                            }
+                            $estado_actual_modal = normalizarEstado($pedido_completo_modal['estado_pedido'] ?? '');
+                            
+                            // Renderizar modales usando funciones helper (reduce anidación)
+                            renderModalVerPedido($pedido, $pedido_completo, $detalles_pedido, $pago_detalle);
+                            renderModalEditarEstado($pedido, $pedido_completo_modal, $pago_modal, $estado_actual_modal);
                             ?>
-                            
-                            <!-- Modal para ver detalles del pedido -->
-                            <div class="modal fade" id="verPedidoModal<?= $pedido['id_pedido'] ?>" tabindex="-1">
-                                <div class="modal-dialog modal-lg">
-                                    <div class="modal-content">
-                                        <div class="modal-header bg-info text-white">
-                                            <h5 class="modal-title">
-                                                <i class="fas fa-shopping-cart me-2"></i>Detalles del Pedido #<?= $pedido['id_pedido'] ?>
-                                            </h5>
-                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                                        </div>
-                                        <div class="modal-body">
-                                            <!-- Información del Cliente -->
-                                            <div class="card mb-3">
-                                                <div class="card-header bg-light">
-                                                    <h6 class="mb-0"><i class="fas fa-user me-2"></i>Información del Cliente</h6>
-                                                </div>
-                                                <div class="card-body">
-                                                    <div class="row">
-                                                        <div class="col-md-6">
-                                                            <p class="mb-1"><strong>Nombre:</strong> <?= htmlspecialchars($pedido_completo['nombre'] . ' ' . $pedido_completo['apellido']) ?></p>
-                                                            <p class="mb-1"><strong>Email:</strong> <?= htmlspecialchars($pedido_completo['email']) ?></p>
-                                                        </div>
-                                                        <div class="col-md-6">
-                                                            <p class="mb-1"><strong>Teléfono:</strong> <?= htmlspecialchars($pedido_completo['telefono'] ?: 'N/A') ?></p>
-                                                            <p class="mb-1"><strong>Dirección:</strong> 
-                                                                <?php 
-                                                                if (!empty($pedido_completo['direccion'])) {
-                                                                    echo htmlspecialchars($pedido_completo['direccion']);
-                                                                } else {
-                                                                    echo 'N/A';
-                                                                }
-                                                                ?>
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <!-- Información del Pedido -->
-                                            <div class="card mb-3">
-                                                <div class="card-header bg-light">
-                                                    <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Información del Pedido</h6>
-                                                </div>
-                                                <div class="card-body">
-                                                    <div class="row">
-                                                        <div class="col-md-6">
-                                                            <p class="mb-1"><strong>Fecha Pedido:</strong> <?= date('d/m/Y H:i', strtotime($pedido_completo['fecha_pedido'])) ?></p>
-                                                            <?php if (!empty($pedido_completo['fecha_actualizacion'])): ?>
-                                                            <p class="mb-1"><strong>Última Actualización:</strong> <?= date('d/m/Y H:i', strtotime($pedido_completo['fecha_actualizacion'])) ?></p>
-                                                            <?php endif; ?>
-                                                            <p class="mb-1">
-                                                                <strong>Estado:</strong> 
-                                                                <?php
-                                                                $estado_actual = trim($pedido_completo['estado_pedido'] ?? 'pendiente');
-                                                                $estados_pedido_map = [
-                                                                    'pendiente' => ['color' => 'warning', 'nombre' => 'Pendiente'],
-                                                                    'preparacion' => ['color' => 'info', 'nombre' => 'Preparación'],
-                                                                    'en_viaje' => ['color' => 'primary', 'nombre' => 'En Viaje'],
-                                                                    'completado' => ['color' => 'success', 'nombre' => 'Completado'],
-                                                                    'devolucion' => ['color' => 'secondary', 'nombre' => 'Devolución'],
-                                                                    'cancelado' => ['color' => 'secondary', 'nombre' => 'Cancelado']
-                                                                ];
-                                                                $info_estado_detalle = $estados_pedido_map[$estado_actual] ?? ['color' => 'secondary', 'nombre' => ucfirst(str_replace('_', ' ', $estado_actual))];
-                                                                ?>
-                                                                <span class="badge bg-<?= htmlspecialchars($info_estado_detalle['color']) ?>">
-                                                                    <?= htmlspecialchars($info_estado_detalle['nombre']) ?>
-                                                                </span>
-                                                            </p>
-                                                            <?php if (!empty($pedido_completo['direccion_entrega'])): ?>
-                                                            <p class="mb-1"><strong>Dirección de Entrega:</strong><br>
-                                                                <small><?= nl2br(htmlspecialchars($pedido_completo['direccion_entrega'])) ?></small>
-                                                            </p>
-                                                            <?php endif; ?>
-                                                            <?php if (!empty($pedido_completo['telefono_contacto'])): ?>
-                                                            <p class="mb-1"><strong>Teléfono de Contacto:</strong> <?= htmlspecialchars($pedido_completo['telefono_contacto']) ?></p>
-                                                            <?php endif; ?>
-                                                        </div>
-                                                        <div class="col-md-6">
-                                                            <?php if (!empty($pedido_completo['observaciones'])): ?>
-                                                            <p class="mb-1"><strong>Observaciones:</strong><br>
-                                                                <small><?= nl2br(htmlspecialchars($pedido_completo['observaciones'])) ?></small>
-                                                            </p>
-                                                            <?php endif; ?>
-                                                            <?php if ($pago_detalle): ?>
-                                                            <p class="mb-1">
-                                                                <strong>Estado Pago:</strong> 
-                                                                <?php
-                                                                $estados_pago_map = [
-                                                                    'pendiente' => ['color' => 'warning', 'nombre' => 'Pendiente'],
-                                                                    'pendiente_aprobacion' => ['color' => 'info', 'nombre' => 'Pendiente Aprobación'],
-                                                                    'aprobado' => ['color' => 'success', 'nombre' => 'Aprobado'],
-                                                                    'rechazado' => ['color' => 'danger', 'nombre' => 'Rechazado'],
-                                                                    'cancelado' => ['color' => 'secondary', 'nombre' => 'Cancelado']
-                                                                ];
-                                                                // Normalizar estado de pago antes de buscar en el mapa
-                                                                $estado_pago_raw = $pago_detalle['estado_pago'] ?? '';
-                                                                $estado_pago_normalizado = strtolower(trim($estado_pago_raw));
-                                                                // Asegurar que el estado normalizado no esté vacío
-                                                                if (empty($estado_pago_normalizado)) {
-                                                                    $estado_pago_normalizado = 'pendiente';
-                                                                }
-                                                                // Buscar en el mapa de estados
-                                                                if (isset($estados_pago_map[$estado_pago_normalizado])) {
-                                                                    $info_estado_pago_detalle = $estados_pago_map[$estado_pago_normalizado];
-                                                                } else {
-                                                                    // Fallback si no se encuentra en el mapa
-                                                                    $info_estado_pago_detalle = ['color' => 'secondary', 'nombre' => ucfirst(str_replace('_', ' ', $estado_pago_normalizado))];
-                                                                }
-                                                                ?>
-                                                                <span class="badge bg-<?= htmlspecialchars($info_estado_pago_detalle['color']) ?>">
-                                                                    <?= htmlspecialchars($info_estado_pago_detalle['nombre']) ?>
-                                                                </span>
-                                                            </p>
-                                                            <p class="mb-1"><strong>Monto:</strong> $<?= number_format($pago_detalle['monto'], 2, ',', '.') ?></p>
-                                                            <p class="mb-1"><strong>Método de Pago:</strong> <?= htmlspecialchars($pago_detalle['forma_pago_nombre']) ?></p>
-                                                            <?php if (!empty($pago_detalle['numero_transaccion'])): ?>
-                                                            <p class="mb-1"><strong>Número de Transacción:</strong> <?= htmlspecialchars($pago_detalle['numero_transaccion']) ?></p>
-                                                            <?php endif; ?>
-                                                            <?php if (!empty($pago_detalle['fecha_aprobacion'])): ?>
-                                                            <p class="mb-1"><strong>Fecha de Aprobación:</strong> <?= date('d/m/Y H:i', strtotime($pago_detalle['fecha_aprobacion'])) ?></p>
-                                                            <?php endif; ?>
-                                                            <?php if (!empty($pago_detalle['motivo_rechazo'])): ?>
-                                                            <p class="mb-1"><strong>Motivo de Rechazo:</strong><br>
-                                                                <small class="text-danger"><?= nl2br(htmlspecialchars($pago_detalle['motivo_rechazo'])) ?></small>
-                                                            </p>
-                                                            <?php endif; ?>
-                                                            <?php if (!empty($pago_detalle['fecha_actualizacion'])): ?>
-                                                            <p class="mb-1"><strong>Última Actualización Pago:</strong> <?= date('d/m/Y H:i', strtotime($pago_detalle['fecha_actualizacion'])) ?></p>
-                                                            <?php endif; ?>
-                                                            <?php endif; ?>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <!-- Productos del Pedido -->
-                                            <div class="card">
-                                                <div class="card-header bg-light">
-                                                    <h6 class="mb-0"><i class="fas fa-box me-2"></i>Productos del Pedido</h6>
-                                                </div>
-                                                <div class="card-body">
-                                                    <?php if (empty($detalles_pedido)): ?>
-                                                        <p class="text-muted text-center mb-0">No hay productos en este pedido</p>
-                                                    <?php else: ?>
-                                                    <div class="table-responsive">
-                                                        <table class="table table-sm">
-                                                            <thead>
-                                                                <tr>
-                                                                    <th>Producto</th>
-                                                                    <th>Talla</th>
-                                                                    <th>Color</th>
-                                                                    <th class="text-end">Cantidad</th>
-                                                                    <th class="text-end">Precio Unit.</th>
-                                                                    <th class="text-end">Subtotal</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody>
-                                                                <?php 
-                                                                $total_calculado = 0;
-                                                                foreach ($detalles_pedido as $detalle): 
-                                                                    $subtotal = $detalle['cantidad'] * $detalle['precio_unitario'];
-                                                                    $total_calculado += $subtotal;
-                                                                ?>
-                                                                <tr>
-                                                                    <td><?= htmlspecialchars($detalle['nombre_producto']) ?></td>
-                                                                    <td><?= htmlspecialchars($detalle['talle']) ?></td>
-                                                                    <td><?= htmlspecialchars($detalle['color']) ?></td>
-                                                                    <td class="text-end"><?= $detalle['cantidad'] ?></td>
-                                                                    <td class="text-end">$<?= number_format($detalle['precio_unitario'], 2, ',', '.') ?></td>
-                                                                    <td class="text-end"><strong>$<?= number_format($subtotal, 2, ',', '.') ?></strong></td>
-                                                                </tr>
-                                                                <?php endforeach; ?>
-                                                            </tbody>
-                                                            <tfoot>
-                                                                <tr class="table-info">
-                                                                    <th colspan="5" class="text-end">Total del Pedido:</th>
-                                                                    <th class="text-end">$<?= number_format($total_calculado, 2, ',', '.') ?></th>
-                                                                </tr>
-                                                            </tfoot>
-                                                        </table>
-                                                    </div>
-                                                    <?php endif; ?>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="modal-footer">
-                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Modal para editar estado -->
-                            <div class="modal fade" id="editarEstadoModal<?= $pedido['id_pedido'] ?>" tabindex="-1">
-                                <div class="modal-dialog modal-lg">
-                                    <div class="modal-content">
-                                        <div class="modal-header">
-                                            <h5 class="modal-title">Editar Estado - Pedido #<?= $pedido['id_pedido'] ?></h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                        </div>
-                                        <form method="POST" action="" id="formEditarEstado<?= $pedido['id_pedido'] ?>">
-                                            <div class="modal-body">
-                                                <input type="hidden" name="pedido_id" value="<?= $pedido['id_pedido'] ?>">
-                                                <input type="hidden" name="estado_anterior" value="<?= htmlspecialchars($estado_actual_modal) ?>">
-                                                
-                                                <!-- Información del Cliente (compacta) -->
-                                                <div class="mb-3">
-                                                    <small class="text-muted">
-                                                        <i class="fas fa-user me-1"></i>
-                                                        <strong><?= htmlspecialchars($pedido['nombre'] . ' ' . $pedido['apellido']) ?></strong> | 
-                                                        <?= htmlspecialchars($pedido['email']) ?>
-                                                    </small>
-                                                </div>
-                                                
-                                                <!-- Estado del Pedido -->
-                                                <div class="mb-3">
-                                                    <label class="form-label"><strong>Estado del Pedido:</strong></label>
-                                                    <?php
-                                                    // Mapeo de estados de pedido para el modal
-                                                    $estados_pedido_map_modal = [
-                                                        'pendiente' => ['color' => 'warning', 'nombre' => 'Pendiente'],
-                                                        'preparacion' => ['color' => 'info', 'nombre' => 'Preparación'],
-                                                        'en_viaje' => ['color' => 'primary', 'nombre' => 'En Viaje'],
-                                                        'completado' => ['color' => 'success', 'nombre' => 'Completado'],
-                                                        'devolucion' => ['color' => 'secondary', 'nombre' => 'Devolución'],
-                                                        'cancelado' => ['color' => 'secondary', 'nombre' => 'Cancelado']
-                                                    ];
-                                                    // Obtener información del estado actual del pedido para el badge
-                                                    if (isset($estados_pedido_map_modal[$estado_actual_modal])) {
-                                                        $info_estado_pedido_actual = $estados_pedido_map_modal[$estado_actual_modal];
-                                                    } else {
-                                                        $info_estado_pedido_actual = ['color' => 'secondary', 'nombre' => ucfirst(str_replace('_', ' ', $estado_actual_modal))];
-                                                    }
-                                                    ?>
-                                                    <!-- Badge mostrando el estado actual -->
-                                                    <div class="mb-2">
-                                                        <span class="badge bg-<?= htmlspecialchars($info_estado_pedido_actual['color']) ?>">
-                                                            <i class="fas fa-info-circle me-1"></i>Estado Actual: <?= htmlspecialchars($info_estado_pedido_actual['nombre']) ?>
-                                                        </span>
-                                                    </div>
-                                                    <select class="form-select" name="nuevo_estado" required>
-                                                        <option value="pendiente" <?= $estado_actual_modal === 'pendiente' ? 'selected' : '' ?>>Pendiente</option>
-                                                        <option value="preparacion" <?= $estado_actual_modal === 'preparacion' ? 'selected' : '' ?>>Preparación</option>
-                                                        <option value="en_viaje" <?= $estado_actual_modal === 'en_viaje' ? 'selected' : '' ?>>En Viaje</option>
-                                                        <option value="completado" <?= $estado_actual_modal === 'completado' ? 'selected' : '' ?>>Completado</option>
-                                                        <option value="devolucion" <?= $estado_actual_modal === 'devolucion' ? 'selected' : '' ?>>Devolución</option>
-                                                        <option value="cancelado" <?= $estado_actual_modal === 'cancelado' ? 'selected' : '' ?>>Cancelado</option>
-                                                    </select>
-                                                    <?php if ($estado_actual_modal !== 'cancelado'): ?>
-                                                    <small class="text-muted d-block mt-1">
-                                                        <i class="fas fa-info-circle me-1"></i>
-                                                        Si cancela el pedido, el stock será restaurado automáticamente.
-                                                    </small>
-                                                    <?php endif; ?>
-                                                </div>
-                                                
-                                                <!-- Información del Pago -->
-                                                <?php if ($pago_modal): ?>
-                                                <?php
-                                                // Mapeo de estados de pago para el modal
-                                                $estados_pago_map_modal = [
-                                                    'pendiente' => ['color' => 'warning', 'nombre' => 'Pendiente'],
-                                                    'pendiente_aprobacion' => ['color' => 'info', 'nombre' => 'Pendiente Aprobación'],
-                                                    'aprobado' => ['color' => 'success', 'nombre' => 'Aprobado'],
-                                                    'rechazado' => ['color' => 'danger', 'nombre' => 'Rechazado'],
-                                                    'cancelado' => ['color' => 'secondary', 'nombre' => 'Cancelado']
-                                                ];
-                                                // Normalizar estado actual del pago para mostrar y comparar
-                                                $estado_pago_actual_modal = strtolower(trim($pago_modal['estado_pago'] ?? ''));
-                                                if (empty($estado_pago_actual_modal)) {
-                                                    $estado_pago_actual_modal = 'pendiente';
-                                                }
-                                                // Obtener información del estado actual para el badge
-                                                if (isset($estados_pago_map_modal[$estado_pago_actual_modal])) {
-                                                    $info_estado_pago_actual = $estados_pago_map_modal[$estado_pago_actual_modal];
-                                                } else {
-                                                    $info_estado_pago_actual = ['color' => 'secondary', 'nombre' => ucfirst(str_replace('_', ' ', $estado_pago_actual_modal))];
-                                                }
-                                                ?>
-                                                <input type="hidden" name="estado_pago_anterior" value="<?= htmlspecialchars($estado_pago_actual_modal) ?>">
-                                                
-                                                <hr class="my-3">
-                                                <h6 class="mb-3"><i class="fas fa-credit-card me-2"></i>Información del Pago</h6>
-                                                
-                                                <!-- Estado del Pago -->
-                                                <div class="mb-3">
-                                                    <label class="form-label"><strong>Estado del Pago:</strong></label>
-                                                    <!-- Badge mostrando el estado actual -->
-                                                    <div class="mb-2">
-                                                        <span class="badge bg-<?= htmlspecialchars($info_estado_pago_actual['color']) ?>">
-                                                            <i class="fas fa-info-circle me-1"></i>Estado Actual: <?= htmlspecialchars($info_estado_pago_actual['nombre']) ?>
-                                                        </span>
-                                                    </div>
-                                                    <select class="form-select" name="nuevo_estado_pago" id="nuevo_estado_pago_<?= $pedido['id_pedido'] ?>">
-                                                        <option value="">-- Mantener estado actual --</option>
-                                                        <option value="pendiente" <?= $estado_pago_actual_modal === 'pendiente' ? 'selected' : '' ?>>Pendiente</option>
-                                                        <option value="pendiente_aprobacion" <?= $estado_pago_actual_modal === 'pendiente_aprobacion' ? 'selected' : '' ?>>Pendiente Aprobación</option>
-                                                        <option value="aprobado" <?= $estado_pago_actual_modal === 'aprobado' ? 'selected' : '' ?>>Aprobado</option>
-                                                        <option value="rechazado" <?= $estado_pago_actual_modal === 'rechazado' ? 'selected' : '' ?>>Rechazado</option>
-                                                        <option value="cancelado" <?= $estado_pago_actual_modal === 'cancelado' ? 'selected' : '' ?>>Cancelado</option>
-                                                    </select>
-                                                    <small class="text-muted d-block mt-1">
-                                                        <i class="fas fa-info-circle me-1"></i>
-                                                        Al aprobar el pago, el stock se descontará automáticamente. Al rechazar/cancelar, se restaurará si había sido descontado.
-                                                    </small>
-                                                </div>
-                                                
-                                                <!-- Monto del Pago (solo lectura - llenado por el cliente) -->
-                                                <div class="mb-3">
-                                                    <label class="form-label"><strong>Monto del Pago:</strong></label>
-                                                    <div class="input-group">
-                                                        <span class="input-group-text">$</span>
-                                                        <input type="text" class="form-control" 
-                                                               value="<?= number_format($pago_modal['monto'] ?? 0, 2, ',', '.') ?>" 
-                                                               readonly style="background-color: #e9ecef;">
-                                                    </div>
-                                                    <small class="text-muted">Monto ingresado por el cliente.</small>
-                                                </div>
-                                                
-                                                <!-- Código de Pago (solo lectura - llenado por el cliente) -->
-                                                <?php 
-                                                $estado_pago_actual = strtolower(trim($pago_modal['estado_pago'] ?? ''));
-                                                $mostrar_codigo_pago = ($estado_pago_actual === 'aprobado' && !empty($pago_modal['numero_transaccion']));
-                                                $mostrar_motivo_rechazo = ($estado_pago_actual === 'rechazado');
-                                                ?>
-                                                <?php if ($mostrar_codigo_pago): ?>
-                                                <div class="mb-3" id="codigo_pago_container_<?= $pedido['id_pedido'] ?>">
-                                                    <label class="form-label"><strong>Código de Pago:</strong></label>
-                                                    <input type="text" class="form-control" 
-                                                           value="<?= htmlspecialchars($pago_modal['numero_transaccion'] ?? '') ?>" 
-                                                           readonly style="background-color: #e9ecef;">
-                                                    <small class="text-muted">Código ingresado por el cliente.</small>
-                                                </div>
-                                                <?php endif; ?>
-                                                
-                                                <!-- Motivo de Rechazo (solo visible cuando se rechaza) -->
-                                                <div class="mb-3" id="motivo_rechazo_container_<?= $pedido['id_pedido'] ?>" style="display: <?= $mostrar_motivo_rechazo ? 'block' : 'none' ?>;">
-                                                    <label class="form-label"><strong>Motivo de Rechazo:</strong></label>
-                                                    <textarea class="form-control" name="motivo_rechazo" rows="2" placeholder="Motivo del rechazo"><?= htmlspecialchars($pago_modal['motivo_rechazo'] ?? '') ?></textarea>
-                                                    <small class="text-muted">Opcional. Motivo del rechazo del pago.</small>
-                                                </div>
-                                                
-                                                <?php else: ?>
-                                                <hr class="my-3">
-                                                <div class="alert alert-warning mb-3">
-                                                    <i class="fas fa-exclamation-triangle me-2"></i>
-                                                    <strong>No hay pago registrado para este pedido</strong>
-                                                </div>
-                                                <?php endif; ?>
-                                            </div>
-                                            <div class="modal-footer">
-                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                <button type="submit" name="actualizar_estado_pedido" class="btn btn-primary">
-                                                    <i class="fas fa-save me-1"></i>Guardar Cambios
-                                                </button>
-                                            </div>
-                                        </form>
-                                        
-                                        <!-- Formulario oculto para aprobar pago -->
-                                        <?php if ($pago_modal && $pago_modal['estado_pago'] === 'pendiente'): ?>
-                                        <form id="aprobar_pago_<?= $pedido['id_pedido'] ?>" method="POST" action="" style="display: none;">
-                                            <input type="hidden" name="pago_id" value="<?= $pago_modal['id_pago'] ?>">
-                                            <input type="hidden" name="aprobar_pago" value="1">
-                                        </form>
-                                        
-                                        <!-- Modal para rechazar pago -->
-                                        <div class="modal fade" id="rechazarPagoModal<?= $pedido['id_pedido'] ?>" tabindex="-1">
-                                            <div class="modal-dialog">
-                                                <div class="modal-content">
-                                                    <div class="modal-header bg-danger text-white">
-                                                        <h5 class="modal-title">Rechazar Pago - Pedido #<?= $pedido['id_pedido'] ?></h5>
-                                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                                                    </div>
-                                                    <form method="POST" action="">
-                                                        <div class="modal-body">
-                                                            <input type="hidden" name="pago_id" value="<?= $pago_modal['id_pago'] ?>">
-                                                            <div class="alert alert-warning">
-                                                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                                                <strong>¿Estás seguro?</strong> Al rechazar el pago, el stock será restaurado si había sido descontado.
-                                                            </div>
-                                                            <div class="mb-3">
-                                                                <label class="form-label"><strong>Motivo del rechazo (opcional):</strong></label>
-                                                                <textarea class="form-control" name="motivo_rechazo" rows="3" placeholder="Ej: Pago insuficiente, Tarjeta rechazada, etc."></textarea>
-                                                            </div>
-                                                        </div>
-                                                        <div class="modal-footer">
-                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                            <button type="submit" name="rechazar_pago" class="btn btn-danger">
-                                                                <i class="fas fa-times me-1"></i>Rechazar Pago
-                                                            </button>
-                                                        </div>
-                                                    </form>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                            </div>
-                            
                             <?php endforeach; ?>
                         </div>
                         <div class="mt-2">
@@ -919,7 +506,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
             </div>
 
             <!-- Pestaña de Clientes -->
-            <div class="tab-pane fade" id="clientes" role="tabpanel">
+            <div class="tab-pane fade <?= $tab_activo === 'clientes' ? 'show active' : '' ?>" id="clientes" role="tabpanel">
                 <div class="card">
                     <div class="card-header">
                         <h5 class="card-title mb-0">
@@ -984,7 +571,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
             </div>
 
             <!-- Pestaña de Métodos de Pago -->
-            <div class="tab-pane fade" id="metodos-pago" role="tabpanel">
+            <div class="tab-pane fade <?= $tab_activo === 'metodos-pago' ? 'show active' : '' ?>" id="metodos-pago" role="tabpanel">
                 <div class="row">
                     <!-- Formulario para agregar nuevo método -->
                     <div class="col-md-4 mb-4">
@@ -1012,12 +599,12 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                   name="descripcion_metodo" rows="3" 
                                                   maxlength="255"
                                                   placeholder="Descripción que verán los clientes"></textarea>
-                                        <small class="text-muted">Descripción opcional que aparece en el sitio (máximo 255 caracteres). Solo letras (incluyendo tildes y diéresis: á, é, í, ó, ú, ñ, ü), números, espacios, puntos (.), comas (,), dos puntos (:), guiones (-) y comillas simples (')</small>
+                                        <small class="text-muted">Máximo 255 caracteres.</small>
                                         <div class="invalid-feedback" id="error_descripcion_nuevo" style="display: none;">
                                             La descripción solo puede contener letras (incluyendo tildes y diéresis), números, espacios, puntos, comas, dos puntos, guiones y comillas simples
                                         </div>
                                     </div>
-                                    <button type="submit" name="agregar_metodo_pago" class="btn btn-primary w-100">
+                                    <button type="submit" name="agregar_metodo_pago" class="btn btn-primary w-100" data-auto-lock="true" data-lock-time="2000" data-lock-text="Agregando método...">
                                         <i class="fas fa-save me-1"></i>Agregar Método
                                     </button>
                                 </form>
@@ -1028,10 +615,18 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                     <!-- Lista de métodos existentes -->
                     <div class="col-md-8">
                         <div class="card">
-                            <div class="card-header">
+                            <div class="card-header d-flex justify-content-between align-items-center">
                                 <h5 class="card-title mb-0">
                                     <i class="fas fa-list me-2"></i>Métodos de Pago Disponibles
                                 </h5>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="mostrarMetodosInactivos" 
+                                           <?= $mostrar_metodos_inactivos ? 'checked' : '' ?>
+                                           data-toggle-metodos-inactivos>
+                                    <label class="form-check-label" for="mostrarMetodosInactivos">
+                                        <small>Ver Métodos de Pago Inactivos</small>
+                                    </label>
+                                </div>
                             </div>
                             <div class="card-body">
                                 <?php if (empty($lista_metodos_pago)): ?>
@@ -1047,15 +642,22 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                 <th class="sortable">ID</th>
                                                 <th class="sortable">Nombre</th>
                                                 <th class="sortable">Descripción</th>
+                                                <th class="sortable">Estado</th>
                                                 <th>Acciones</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <?php foreach ($lista_metodos_pago as $metodo): ?>
-                                            <tr>
+                                            <?php 
+                                            $activo = (int)($metodo['activo'] ?? 1);
+                                            $es_activo = $activo === 1;
+                                            ?>
+                                            <tr class="<?= !$es_activo ? 'table-secondary' : '' ?>">
                                                 <td>#<?= $metodo['id_forma_pago'] ?></td>
                                                 <td>
-                                                    <strong><?= htmlspecialchars($metodo['nombre']) ?></strong>
+                                                    <strong class="<?= !$es_activo ? 'text-decoration-line-through text-muted' : '' ?>">
+                                                        <?= htmlspecialchars($metodo['nombre']) ?>
+                                                    </strong>
                                                 </td>
                                                 <td>
                                                     <small class="text-muted">
@@ -1063,6 +665,26 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                     </small>
                                                 </td>
                                                 <td>
+                                                    <?php if ($es_activo): ?>
+                                                        <span class="badge bg-success">Activo</span>
+                                                    <?php else: ?>
+                                                        <span class="badge bg-secondary">Inactivo</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <form method="POST" action="" style="display: inline;" onsubmit="return confirm('¿Estás seguro de <?= $es_activo ? 'desactivar' : 'activar' ?> este método de pago?');">
+                                                        <input type="hidden" name="id_forma_pago" value="<?= $metodo['id_forma_pago'] ?>">
+                                                        <button type="submit" 
+                                                                name="toggle_activo_metodo_pago"
+                                                                class="btn btn-sm <?= $es_activo ? 'btn-outline-warning' : 'btn-outline-success' ?>"
+                                                                data-auto-lock="true" 
+                                                                data-lock-time="2000" 
+                                                                data-lock-text="<?= $es_activo ? 'Desactivando...' : 'Activando...' ?>">
+                                                            <i class="fas fa-<?= $es_activo ? 'toggle-on' : 'toggle-off' ?> me-1"></i>
+                                                            <?= $es_activo ? 'Desactivar' : 'Activar' ?>
+                                                        </button>
+                                                    </form>
+                                                    
                                                     <button type="button" 
                                                             class="btn btn-sm btn-outline-primary" 
                                                             data-bs-toggle="modal" 
@@ -1107,7 +729,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                                                       id="descripcion_metodo_edit_<?= $metodo['id_forma_pago'] ?>"
                                                                                       rows="3" 
                                                                                       maxlength="255"><?= htmlspecialchars($metodo['descripcion'] ?? '') ?></textarea>
-                                                                            <small class="text-muted">Descripción que verán los clientes (máximo 255 caracteres). Solo letras (incluyendo tildes y diéresis: á, é, í, ó, ú, ñ, ü), números, espacios, puntos (.), comas (,), dos puntos (:), guiones (-) y comillas simples (')</small>
+                                                                            <small class="text-muted">Máximo 255 caracteres.</small>
                                                                             <div class="invalid-feedback" id="error_descripcion_edit_<?= $metodo['id_forma_pago'] ?>" style="display: none;">
                                                                                 La descripción solo puede contener letras (incluyendo tildes y diéresis), números, espacios, puntos, comas, dos puntos, guiones y comillas simples
                                                                             </div>
@@ -1115,7 +737,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                                     </div>
                                                                     <div class="modal-footer">
                                                                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                                        <button type="submit" name="actualizar_metodo_pago" class="btn btn-primary">
+                                                                        <button type="submit" name="actualizar_metodo_pago" class="btn btn-primary" data-auto-lock="true" data-lock-time="2000" data-lock-text="Guardando cambios...">
                                                                             <i class="fas fa-save me-1"></i>Guardar Cambios
                                                                         </button>
                                                                     </div>
@@ -1183,7 +805,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
             </div>
 
             <!-- Pestaña 4: Métricas -->
-            <div class="tab-pane fade" id="metricas" role="tabpanel">
+            <div class="tab-pane fade <?= $tab_activo === 'metricas' ? 'show active' : '' ?>" id="metricas" role="tabpanel">
                 <div class="row mb-4">
                     <!-- Top 10 Productos Más Vendidos -->
                     <div class="col-md-6 mb-4">
@@ -1252,16 +874,8 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                             <tbody>
                                                 <?php foreach (array_slice($pedidos_tiempo_estado, 0, 5) as $pedido_tiempo): ?>
                                                     <?php
-                                                    $estado_actual = trim($pedido_tiempo['estado_pedido'] ?? 'pendiente');
-                                                    $estados_pedido_map = [
-                                                        'pendiente' => ['color' => 'warning', 'nombre' => 'Pendiente'],
-                                                        'preparacion' => ['color' => 'info', 'nombre' => 'Preparación'],
-                                                        'en_viaje' => ['color' => 'primary', 'nombre' => 'En Viaje'],
-                                                        'completado' => ['color' => 'success', 'nombre' => 'Completado'],
-                                                        'devolucion' => ['color' => 'secondary', 'nombre' => 'Devolución'],
-                                                        'cancelado' => ['color' => 'secondary', 'nombre' => 'Cancelado']
-                                                    ];
-                                                    $info_estado = $estados_pedido_map[$estado_actual] ?? ['color' => 'secondary', 'nombre' => ucfirst(str_replace('_', ' ', $estado_actual))];
+                                                    // Obtener información del estado usando función centralizada
+                                                    $info_estado = obtenerInfoEstadoPedido($pedido_tiempo['estado_pedido'] ?? '');
                                                     $horas = intval($pedido_tiempo['horas_en_estado'] ?? 0);
                                                     $dias = intval($pedido_tiempo['dias_en_estado'] ?? 0);
                                                     $tiempo_formato = $dias > 0 ? $dias . ' día' . ($dias > 1 ? 's' : '') : $horas . ' hora' . ($horas > 1 ? 's' : '');
@@ -1417,229 +1031,5 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
         </div>
     </div>
 
-    <!-- JavaScript para mostrar/ocultar campos dinámicamente en modal Editar Estado -->
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Función para manejar la visibilidad de campos según el estado del pago
-        function toggleCamposPago(pedidoId) {
-            const selectEstadoPago = document.getElementById('nuevo_estado_pago_' + pedidoId);
-            const codigoPagoContainer = document.getElementById('codigo_pago_container_' + pedidoId);
-            const motivoRechazoContainer = document.getElementById('motivo_rechazo_container_' + pedidoId);
-            
-            if (!selectEstadoPago) {
-                return; // Select no encontrado, salir
-            }
-            
-            const estadoSeleccionado = selectEstadoPago.value;
-            // Si no hay selección, usar el estado actual (valor del option selected)
-            const estadoActual = estadoSeleccionado || (selectEstadoPago.options[selectEstadoPago.selectedIndex]?.value || '');
-            const estadoFinal = estadoSeleccionado || estadoActual;
-            
-            // Mostrar/ocultar código de pago cuando se aprueba o ya está aprobado
-            // Nota: El código de pago es solo lectura (llenado por el cliente), solo se muestra si existe
-            if (codigoPagoContainer) {
-                if (estadoFinal === 'aprobado') {
-                    codigoPagoContainer.style.display = 'block';
-                } else {
-                    codigoPagoContainer.style.display = 'none';
-                }
-            }
-            
-            // Mostrar/ocultar motivo de rechazo cuando se rechaza
-            if (motivoRechazoContainer) {
-                if (estadoFinal === 'rechazado') {
-                    motivoRechazoContainer.style.display = 'block';
-                } else {
-                    motivoRechazoContainer.style.display = 'none';
-                }
-            }
-        }
-        
-        // Inicializar para todos los modales al cargar la página
-        const modalesEstado = document.querySelectorAll('[id^="editarEstadoModal"]');
-        modalesEstado.forEach(function(modal) {
-            const pedidoId = modal.id.replace('editarEstadoModal', '');
-            const selectEstadoPago = document.getElementById('nuevo_estado_pago_' + pedidoId);
-            
-            if (selectEstadoPago) {
-                // Ejecutar al cargar (para estado inicial)
-                toggleCamposPago(pedidoId);
-                
-                // Ejecutar cuando cambia el select
-                selectEstadoPago.addEventListener('change', function() {
-                    toggleCamposPago(pedidoId);
-                });
-            }
-        });
-        
-        // También ejecutar cuando se abre el modal (por si acaso)
-        modalesEstado.forEach(function(modal) {
-            modal.addEventListener('shown.bs.modal', function() {
-                const pedidoId = modal.id.replace('editarEstadoModal', '');
-                toggleCamposPago(pedidoId);
-            });
-        });
-    });
-    
-    // Función para toggle de pedidos inactivos
-    function togglePedidosInactivos(mostrar) {
-        const urlParams = new URLSearchParams(window.location.search);
-        urlParams.set('tab', 'pedidos');
-        
-        if (mostrar) {
-            urlParams.set('mostrar_inactivos', '1');
-        } else {
-            urlParams.delete('mostrar_inactivos');
-        }
-        
-        window.location.href = 'ventas.php?' + urlParams.toString();
-    }
-    
-    // Validación de descripción de método de pago
-    document.addEventListener('DOMContentLoaded', function() {
-        /**
-         * Valida la descripción del método de pago según el patrón del backend
-         * Hace trim() antes de validar para asegurar consistencia con el backend
-         * Patrón permitido: letras (A-Z, a-z con tildes y diéresis: á, é, í, ó, ú, ñ, ü), números (0-9), espacios, puntos (.), comas (,), dos puntos (:), guiones (-), comillas simples (')
-         * @param {string} descripcion - Texto a validar
-         * @return {boolean} - true si es válido, false si no
-         */
-        function validarDescripcionMetodoPago(descripcion) {
-            // Hacer trim() igual que el backend (línea 414 de sales_functions.php)
-            const descripcionTrimmed = descripcion ? descripcion.trim() : '';
-            
-            // Si está vacía después del trim, es válida (es opcional)
-            if (descripcionTrimmed === '') {
-                return true;
-            }
-            
-            // Validar caracteres permitidos: letras (con tildes y diéresis), números, espacios, puntos, comas, dos puntos, guiones, comillas simples
-            const patron = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü0-9\s\.,\:\-\']+$/;
-            return patron.test(descripcionTrimmed);
-        }
-        
-        /**
-         * Valida y muestra/oculta el mensaje de error para el campo descripción
-         * @param {HTMLElement} textarea - Elemento textarea a validar
-         * @param {HTMLElement} errorDiv - Elemento div donde mostrar el error
-         */
-        function validarCampoDescripcion(textarea, errorDiv) {
-            const valor = textarea.value;
-            const esValido = validarDescripcionMetodoPago(valor);
-            
-            if (!esValido && valor.trim() !== '') {
-                // Mostrar error
-                textarea.classList.add('is-invalid');
-                if (errorDiv) {
-                    errorDiv.style.display = 'block';
-                }
-            } else {
-                // Ocultar error
-                textarea.classList.remove('is-invalid');
-                if (errorDiv) {
-                    errorDiv.style.display = 'none';
-                }
-            }
-        }
-        
-        // Validación para el formulario de agregar método de pago
-        const descripcionNuevo = document.getElementById('descripcion_metodo_nuevo');
-        const errorDescripcionNuevo = document.getElementById('error_descripcion_nuevo');
-        if (descripcionNuevo) {
-            // Validar al escribir
-            descripcionNuevo.addEventListener('input', function() {
-                validarCampoDescripcion(descripcionNuevo, errorDescripcionNuevo);
-            });
-            
-            // Normalizar valor en blur (aplicar trim automáticamente)
-            descripcionNuevo.addEventListener('blur', function() {
-                const valorOriginal = descripcionNuevo.value;
-                const valorTrimmed = valorOriginal.trim();
-                if (valorOriginal !== valorTrimmed) {
-                    descripcionNuevo.value = valorTrimmed;
-                }
-                validarCampoDescripcion(descripcionNuevo, errorDescripcionNuevo);
-            });
-            
-            // Validar antes de enviar el formulario
-            const formAgregar = descripcionNuevo.closest('form');
-            if (formAgregar) {
-                formAgregar.addEventListener('submit', function(e) {
-                    // Aplicar trim antes de validar
-                    const valorTrimmed = descripcionNuevo.value.trim();
-                    if (descripcionNuevo.value !== valorTrimmed) {
-                        descripcionNuevo.value = valorTrimmed;
-                    }
-                    if (!validarDescripcionMetodoPago(descripcionNuevo.value)) {
-                        e.preventDefault();
-                        validarCampoDescripcion(descripcionNuevo, errorDescripcionNuevo);
-                        descripcionNuevo.focus();
-                        return false;
-                    }
-                });
-            }
-        }
-        
-        // Validación para los formularios de editar método de pago (múltiples modales)
-        function inicializarValidacionEditar() {
-            const textareasEdit = document.querySelectorAll('[id^="descripcion_metodo_edit_"]');
-            textareasEdit.forEach(function(textarea) {
-                // Evitar agregar listeners múltiples veces
-                if (textarea.dataset.validationInitialized === 'true') {
-                    return;
-                }
-                textarea.dataset.validationInitialized = 'true';
-                
-                const metodoId = textarea.id.replace('descripcion_metodo_edit_', '');
-                const errorDiv = document.getElementById('error_descripcion_edit_' + metodoId);
-                
-                // Validar al escribir
-                textarea.addEventListener('input', function() {
-                    validarCampoDescripcion(textarea, errorDiv);
-                });
-                
-                // Normalizar valor en blur (aplicar trim automáticamente)
-                textarea.addEventListener('blur', function() {
-                    const valorOriginal = textarea.value;
-                    const valorTrimmed = valorOriginal.trim();
-                    if (valorOriginal !== valorTrimmed) {
-                        textarea.value = valorTrimmed;
-                    }
-                    validarCampoDescripcion(textarea, errorDiv);
-                });
-                
-                // Validar antes de enviar el formulario
-                const formEdit = textarea.closest('form');
-                if (formEdit) {
-                    formEdit.addEventListener('submit', function(e) {
-                        // Aplicar trim antes de validar
-                        const valorTrimmed = textarea.value.trim();
-                        if (textarea.value !== valorTrimmed) {
-                            textarea.value = valorTrimmed;
-                        }
-                        if (!validarDescripcionMetodoPago(textarea.value)) {
-                            e.preventDefault();
-                            validarCampoDescripcion(textarea, errorDiv);
-                            textarea.focus();
-                            return false;
-                        }
-                    });
-                }
-            });
-        }
-        
-        // Inicializar validación al cargar la página
-        inicializarValidacionEditar();
-        
-        // Reinicializar cuando se abren modales de edición
-        const modalesEditarMetodo = document.querySelectorAll('[id^="editarMetodoModal"]');
-        modalesEditarMetodo.forEach(function(modal) {
-            modal.addEventListener('shown.bs.modal', function() {
-                inicializarValidacionEditar();
-            });
-        });
-    });
-    </script>
-    <script src="js/table-sort.js"></script>
 
 <?php include 'includes/footer.php'; render_footer(); ?>

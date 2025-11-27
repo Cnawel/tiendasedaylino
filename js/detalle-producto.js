@@ -486,15 +486,15 @@ document.addEventListener('DOMContentLoaded', function() {
                         stockIcon.className = 'fas fa-check-circle me-1';
                     }
                 } else {
-                    // Mensaje cuando no hay stock
+                    // Mensaje cuando no hay stock - usar color del sitio (naranja/beige) en lugar de rojo
                     stockEl.textContent = 'Sin stock disponible';
-                    stockEl.className = 'text-danger';
-                    stockContainer.style.borderLeftColor = '#dc3545';
-                    stockContainer.style.background = '#f8d7da';
+                    stockEl.className = 'text-warning';
+                    stockContainer.style.borderLeftColor = '#8B8B7A';
+                    stockContainer.style.background = '#F5F5F0';
                     
-                    // Cambiar icono a times para sin stock
+                    // Cambiar icono a warning para sin stock
                     if (stockIcon) {
-                        stockIcon.className = 'fas fa-times-circle me-1';
+                        stockIcon.className = 'fas fa-exclamation-triangle me-1';
                     }
                 }
             } else if (talla) {
@@ -844,35 +844,6 @@ function navegarSiguienteImagen() {
 // Hacer la función disponible globalmente
 window.navegarSiguienteImagen = navegarSiguienteImagen;
 
-/**
- * Función auxiliar para mostrar zoom
- */
-function mostrarZoom() {
-    const detalleZoom = document.getElementById('detalleZoom');
-    if (detalleZoom) {
-        detalleZoom.style.transform = 'scale(1.1)';
-        setTimeout(() => {
-            detalleZoom.style.transform = 'scale(1)';
-        }, 200);
-    }
-}
-
-/**
- * Función auxiliar para cambiar imagen (alias)
- */
-function cambiarImagen(i) { 
-    cambiarImagenPrincipal(i); 
-}
-
-/**
- * Función auxiliar para cambiar cantidad
- */
-function cambiarCantidad(d) { 
-    const input = document.getElementById('cantidad');
-    if (!input) return;
-    let val = parseInt(input.value) + d;
-    input.value = val < 1 ? 1 : val;
-}
 
 /**
  * Agrega producto al carrito usando AJAX (sin salir de la página)
@@ -1043,8 +1014,9 @@ function agregarAlCarrito(redirigirCheckout = false) {
         if (data.success === true || data.success === 1 || data.success === 'true') {
             // Mostrar mensaje de éxito
             const mensaje = data.mensaje || 'Producto agregado al carrito';
-            // Usar tipo de mensaje del backend si está disponible, sino usar 'success' por defecto
-            const tipoMensaje = data.tipo_mensaje || 'success';
+            // Siempre usar 'success' cuando la acción se puede realizar (mejor UX sin carteles rojos)
+            // Esto asegura que todos los mensajes donde la acción es exitosa se muestren como éxito
+            const tipoMensaje = 'success';
             mostrarMensajeCarrito(mensaje, tipoMensaje);
             
             // Actualizar contador del carrito en la navegación
@@ -1146,16 +1118,15 @@ function mostrarMensajeCarrito(mensaje, tipo) {
     }
     
     // Configurar clases según el tipo
+    // NUNCA usar rojo (alert-danger) - usar naranja/color del sitio (alert-warning) para errores
     let claseBootstrap, icono;
-    if (tipo === 'warning') {
-        claseBootstrap = 'alert-warning';
-        icono = 'fa-exclamation-triangle';
-    } else if (tipo === 'success') {
+    if (tipo === 'success') {
         claseBootstrap = 'alert-success';
         icono = 'fa-check-circle';
     } else {
-        claseBootstrap = 'alert-danger';
-        icono = 'fa-exclamation-circle';
+        // Para errores y warnings, usar alert-warning (naranja/color del sitio) en lugar de rojo
+        claseBootstrap = 'alert-warning';
+        icono = 'fa-exclamation-triangle';
     }
     
     mensajeContainer.innerHTML = `

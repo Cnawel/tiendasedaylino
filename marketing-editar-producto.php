@@ -199,7 +199,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_producto']
                 $nombre_producto_valido = true;
             }
         } else {
-            // Nombre no cambió, es válido
             $nombre_producto_valido = true;
         }
     }
@@ -221,29 +220,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_producto']
             if (!$id_categoria) {
                 // Crear nueva categoría usando función centralizada
                 $id_categoria = crearCategoria($mysqli, $nombre_categoria_nueva);
-                if ($id_categoria) {
-                    $categoria_valida = true;
-                } else {
-                    if (!isset($mensaje)) {
-                        $mensaje = 'Error al crear la nueva categoría';
-                        $mensaje_tipo = 'danger';
-                    }
+                $categoria_valida = ($id_categoria > 0);
+                if (!$categoria_valida && !isset($mensaje)) {
+                    $mensaje = 'Error al crear la nueva categoría';
+                    $mensaje_tipo = 'danger';
                 }
             } else {
-                // Categoría ya existe
                 $categoria_valida = true;
             }
         }
     } else {
         // Es un ID existente
         $id_categoria = intval($id_categoria_input);
-        if ($id_categoria > 0) {
-            $categoria_valida = true;
-        } else {
-            if (!isset($mensaje)) {
-                $mensaje = 'Categoría inválida';
-                $mensaje_tipo = 'danger';
-            }
+        $categoria_valida = ($id_categoria > 0);
+        if (!$categoria_valida && !isset($mensaje)) {
+            $mensaje = 'Categoría inválida';
+            $mensaje_tipo = 'danger';
         }
     }
     
@@ -625,8 +617,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_variantes'
             $stock = intval($variante['stock'] ?? 0);
             
             if ($talle_trim !== '' && $color_trim !== '' && $stock >= 0) {
-                // Verificar si ya existe esta combinación usando función centralizada
-                $existe = verificarVarianteExistente($mysqli, $producto['nombre_producto'], $producto['id_categoria'], $producto['genero'], $talle_trim, $color_trim);
+                // Verificar si ya existe esta combinación en el producto actual (solo este id_producto)
+                // IMPORTANTE: Usar verificarVarianteExistentePorProducto() para verificar solo en el producto actual,
+                // no en todo el grupo. Esto permite tener la misma combinación talle-color en diferentes productos.
+                $existe = verificarVarianteExistentePorProducto($mysqli, $id_producto, $talle_trim, $color_trim);
                 
                 if (!$existe) {
                     // Crear nueva variante con stock=0 usando función centralizada (el stock se actualiza mediante movimiento)
@@ -694,15 +688,16 @@ foreach ($categorias_temp as $cat) {
     }
 }
 
-// Obtener TODAS las variantes de productos con el mismo nombre_producto, categoría y género
-// Esto permite ver y editar todas las variantes del producto, no solo las del id_producto específico
+// Obtener TODAS las variantes del producto actual (solo de este id_producto específico)
+// IMPORTANTE: Esto asegura que solo se editen las variantes del producto actual,
+// manteniendo consistencia con marketing.php y detalle-producto.php que calculan stock por id_producto
 // Usar función centralizada
-$todas_variantes = obtenerTodasVariantesProductoPorGrupo($mysqli, $producto['nombre_producto'], $producto['id_categoria'], $producto['genero'], $id_producto);
+$todas_variantes = obtenerTodasVariantesProducto($mysqli, $id_producto);
 
-// Obtener fotos de TODOS los productos con el mismo nombre_producto, categoría y género
-// Esto permite ver y editar fotos de todos los colores disponibles del producto
+// Obtener fotos del producto actual (solo de este id_producto específico)
+// IMPORTANTE: Esto asegura que solo se editen las fotos del producto actual
 // Usar función centralizada
-$todas_fotos = obtenerTodasFotosProductoPorGrupo($mysqli, $producto['nombre_producto'], $producto['id_categoria'], $producto['genero'], $id_producto);
+$todas_fotos = obtenerTodasFotosProducto($mysqli, $id_producto);
 
 // Obtener colores únicos de las variantes ya obtenidas (evita consulta duplicada)
 $colores_variantes = [];
@@ -1130,68 +1125,6 @@ $fotos_temporales = obtenerFotosTemporales();
 // Variables globales necesarias para marketing_editar_producto.js
 window.tallesDisponibles = <?= json_encode($talles_disponibles) ?>;
 window.coloresDisponibles = <?= json_encode($colores_disponibles) ?>;
-</script>
-<script src="includes/marketing_forms.js"></script>
-<script src="includes/marketing_editar_producto.js"></script>
-<script>
-// Validación del formulario de editar producto
-document.addEventListener('DOMContentLoaded', function() {
-    const formActualizarProducto = document.querySelector('form[method="POST"]');
-    const inputDescripcion = document.getElementById('input_descripcion_producto_editar');
-    const errorDescripcion = document.getElementById('error_descripcion_editar');
-    
-    if (formActualizarProducto && inputDescripcion) {
-        // Validar descripción en tiempo real
-        inputDescripcion.addEventListener('blur', function() {
-            if (this.value.trim()) {
-                const validacion = validarDescripcionProducto(this.value);
-                if (!validacion.valido) {
-                    mostrarErrorCampo(this, errorDescripcion, validacion.error);
-                } else {
-                    limpiarErrorCampo(this, errorDescripcion);
-                }
-            } else {
-                // Si está vacío, es válido (campo opcional)
-                limpiarErrorCampo(this, errorDescripcion);
-            }
-        });
-        
-        inputDescripcion.addEventListener('input', function() {
-            // Limpiar error mientras el usuario escribe
-            if (this.classList.contains('is-invalid')) {
-                limpiarErrorCampo(this, errorDescripcion);
-            }
-        });
-        
-        // Validar antes de enviar el formulario
-        formActualizarProducto.addEventListener('submit', function(e) {
-            let hayErrores = false;
-            
-            // Validar descripción
-            if (inputDescripcion) {
-                const validacionDescripcion = validarDescripcionProducto(inputDescripcion.value);
-                if (!validacionDescripcion.valido) {
-                    mostrarErrorCampo(inputDescripcion, errorDescripcion, validacionDescripcion.error);
-                    hayErrores = true;
-                } else {
-                    limpiarErrorCampo(inputDescripcion, errorDescripcion);
-                }
-            }
-            
-            // Prevenir envío si hay errores
-            if (hayErrores) {
-                e.preventDefault();
-                // Scroll al primer error
-                const primerError = formActualizarProducto.querySelector('.is-invalid');
-                if (primerError) {
-                    primerError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    primerError.focus();
-                }
-                return false;
-            }
-        });
-    }
-});
 </script>
 
 <?php include 'includes/footer.php'; render_footer(); ?>

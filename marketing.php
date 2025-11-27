@@ -712,7 +712,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                             </small>
                         </div>
                         
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary" data-auto-lock="true" data-lock-time="3000" data-lock-text="Procesando CSV...">
                             <i class="fas fa-upload me-1"></i>Procesar CSV
                         </button>
                     </form>
@@ -896,7 +896,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                         </div>
                         
                         <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-primary">Crear Producto</button>
+                            <button type="submit" class="btn btn-primary" data-auto-lock="true" data-lock-time="2000" data-lock-text="Creando producto...">Crear Producto</button>
                             <button type="reset" class="btn btn-outline-secondary">Limpiar</button>
                         </div>
                     </form>
@@ -931,7 +931,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                 <small class="text-muted">Formatos permitidos: JPG, PNG, GIF, WEBP. Tamaño máximo: 5MB por archivo</small>
                             </div>
                             <div class="col-md-4 d-flex align-items-end">
-                                <button type="submit" class="btn btn-primary w-100">
+                                <button type="submit" class="btn btn-primary w-100" data-auto-lock="true" data-lock-time="3000" data-lock-text="Subiendo fotos...">
                                     <i class="fas fa-upload me-2"></i>Subir Fotos
                                 </button>
                             </div>
@@ -1238,70 +1238,5 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
         </div>
     </div>
 </div>
-
-<script src="includes/marketing_forms.js"></script>
-<script src="js/table-sort.js"></script>
-
-<script>
-// Activar pestaña según parámetro URL
-document.addEventListener('DOMContentLoaded', function() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const tabParam = urlParams.get('tab');
-    
-    if (tabParam) {
-        const tabsValidos = ['productos', 'csv', 'agregar', 'fotos', 'metricas'];
-        if (tabsValidos.includes(tabParam)) {
-            // Activar pestaña usando Bootstrap
-            const tabButton = document.getElementById(tabParam + '-tab');
-            if (tabButton) {
-                const tab = new bootstrap.Tab(tabButton);
-                tab.show();
-            }
-        }
-    }
-});
-
-// Función para cambiar límite de productos
-function cambiarLimiteProductos(limite) {
-    const urlParams = new URLSearchParams(window.location.search);
-    urlParams.set('limite', limite);
-    urlParams.set('tab', 'productos');
-    window.location.href = 'marketing.php?' + urlParams.toString();
-}
-
-// Función para toggle de productos inactivos
-function toggleProductosInactivos(mostrar) {
-    const urlParams = new URLSearchParams(window.location.search);
-    urlParams.set('tab', 'productos');
-    
-    if (mostrar) {
-        urlParams.set('mostrar_inactivos', '1');
-    } else {
-        urlParams.delete('mostrar_inactivos');
-    }
-    
-    window.location.href = 'marketing.php?' + urlParams.toString();
-}
-
-// Función para copiar nombre de imagen
-function copiarNombre(nombre, boton) {
-    navigator.clipboard.writeText(nombre).then(function() {
-        // Cambiar ícono temporalmente para indicar éxito
-        const icono = boton.querySelector('i');
-        const claseOriginal = icono.className;
-        icono.className = 'fas fa-check';
-        boton.classList.remove('btn-outline-secondary');
-        boton.classList.add('btn-success');
-        
-        setTimeout(function() {
-            icono.className = claseOriginal;
-            boton.classList.remove('btn-success');
-            boton.classList.add('btn-outline-secondary');
-        }, 2000);
-    }).catch(function(err) {
-        alert('Error al copiar: ' + err);
-    });
-}
-</script>
 
 <?php include 'includes/footer.php'; render_footer(); ?>

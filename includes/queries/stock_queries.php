@@ -154,11 +154,16 @@ function validarAjusteStock($mysqli, $id_variante, $cantidad) {
 /**
  * Valida que hay stock suficiente antes de crear un movimiento de venta
  * 
+ * @deprecated Esta función está deprecada. Para nuevos usos, preferir validarStockDisponible().
+ * Se mantiene por compatibilidad con registrarMovimientoStock() que usa $id_variante directamente.
+ * 
  * FUNCIÓN INTERNA: Usada principalmente por registrarMovimientoStock() para validar
- * stock disponible antes de registrar una venta. También puede usarse directamente
- * para validaciones previas.
+ * stock disponible antes de registrar una venta.
  * 
  * Reemplaza la lógica del trigger trg_validar_stock_disponible_antes_venta
+ * 
+ * NOTA: Esta función recibe $id_variante directamente. Si tienes $id_producto, $talle y $color,
+ * usa validarStockDisponible() en su lugar.
  * 
  * @param mysqli $mysqli Conexión a la base de datos
  * @param int $id_variante ID de la variante
@@ -209,36 +214,65 @@ function validarStockDisponibleVenta($mysqli, $id_variante, $cantidad) {
 }
 
 /**
- * Valida stock disponible para operaciones de carrito (validación orientativa)
+ * Valida stock disponible de forma unificada (función centralizada)
  * 
- * NOTA: Esta es una validación orientativa para mejorar la UX del carrito.
- * La validación final y bloqueo real del stock se realiza en checkout mediante
- * descontarStockPedido() y registrarMovimientoStock(), que sí usan transacciones
- * con validaciones atómicas en WHERE para garantizar coherencia.
+ * Esta función centraliza toda la validación de stock, eliminando código duplicado.
+ * La lógica de validación es idéntica en ambos modos - solo cambia el contexto de uso.
+ * 
+ * IMPORTANTE: Esta función NO usa FOR UPDATE. Solo hace SELECT simple.
+ * La validación atómica real se hace después en actualizarStockDesdeMovimiento()
+ * con UPDATE WHERE para prevenir race conditions sin necesidad de bloquear filas.
+ * 
+ * Modos de validación:
+ * 
+ * - 'preliminar': Usar en checkout.php y carrito.php para validación rápida
+ *   y mostrar información al usuario. No bloquea filas, solo consulta.
+ *   En este modo, valida contra cantidad_total_solicitada (cantidad_actual_carrito + cantidad_solicitada)
+ *   para considerar lo que ya está en el carrito.
+ *   
+ *   Ejemplo de uso en carrito.php:
+ *   validarStockDisponible($mysqli, $id_producto, $talla, $color, $cantidad, 'preliminar', $cantidad_actual_carrito);
+ * 
+ * - 'definitivo': Usar en procesar-pedido.php antes de crear el pedido.
+ *   Misma validación, pero en contexto de transacción antes de crear pedido.
+ *   En este modo, valida contra cantidad_solicitada directamente (ya es la cantidad total del item).
+ *   
+ *   Ejemplo de uso en procesar-pedido.php:
+ *   validarStockDisponible($mysqli, $id_producto, $talla, $color, $cantidad, 'definitivo', 0);
+ * 
+ * Diferencia clave: La lógica de validación es la misma, solo cambia qué cantidad se valida:
+ * - 'preliminar': cantidad_actual_carrito + cantidad_solicitada (para agregar al carrito)
+ * - 'definitivo': cantidad_solicitada (ya es la cantidad total del item en el carrito)
  * 
  * @param mysqli $mysqli Conexión a la base de datos
  * @param int $id_producto ID del producto
  * @param string $talle Talle de la variante
  * @param string $color Color de la variante
- * @param int $cantidad_solicitada Cantidad que se desea agregar al carrito
- * @param int $cantidad_actual_carrito Cantidad que ya está en el carrito (opcional)
- * @return array Array con 'stock_disponible', 'variante_activa', 'producto_activo', 'id_variante', 'precio_actual', 'nombre_producto'
+ * @param int $cantidad_solicitada Cantidad solicitada
+ * @param string $modo Modo de validación: 'preliminar' o 'definitivo' (default: 'preliminar')
+ * @param int $cantidad_actual_carrito Cantidad que ya está en el carrito (opcional, default: 0)
+ * @return array Array con 'stock_disponible', 'variante_activa', 'producto_activo', 'id_variante', 'precio_actual', 'nombre_producto', 'talle', 'color'
  * @throws Exception Si la variante no existe, está inactiva o no hay stock suficiente
  */
-function validarStockDisponibleCarrito($mysqli, $id_producto, $talle, $color, $cantidad_solicitada, $cantidad_actual_carrito = 0) {
+function validarStockDisponible($mysqli, $id_producto, $talle, $color, $cantidad_solicitada, $modo = 'preliminar', $cantidad_actual_carrito = 0) {
     // Validar parámetros
     $id_producto = intval($id_producto);
     $talle = trim(strval($talle));
     $color = trim(strval($color));
     $cantidad_solicitada = intval($cantidad_solicitada);
     $cantidad_actual_carrito = intval($cantidad_actual_carrito);
+    $modo = trim(strval($modo));
     
     if ($id_producto <= 0 || empty($talle) || empty($color) || $cantidad_solicitada <= 0) {
         throw new Exception('Parámetros inválidos para validar stock');
     }
     
-    // Validación orientativa del stock para el carrito
-    // La validación final y bloqueo real se hace en checkout (descontarStockPedido)
+    if ($modo !== 'preliminar' && $modo !== 'definitivo') {
+        throw new Exception('Modo de validación inválido. Debe ser "preliminar" o "definitivo"');
+    }
+    
+    // Validación sin FOR UPDATE - solo SELECT simple
+    // La validación atómica real se hace después en actualizarStockDesdeMovimiento() con UPDATE WHERE
     $sql = "
         SELECT 
             sv.id_variante,
@@ -287,16 +321,25 @@ function validarStockDisponibleCarrito($mysqli, $id_producto, $talle, $color, $c
         throw new Exception('El producto seleccionado está inactivo');
     }
     
-    // Calcular cantidad total que se tendría en el carrito
+    // Calcular cantidad total que se tendría en el carrito (si aplica)
     $cantidad_total_solicitada = $cantidad_actual_carrito + $cantidad_solicitada;
     
     // Validar stock disponible
-    if ($stock_disponible < $cantidad_total_solicitada) {
-        $cantidad_disponible_para_agregar = $stock_disponible - $cantidad_actual_carrito;
-        if ($cantidad_disponible_para_agregar <= 0) {
-            throw new Exception("Stock insuficiente. Disponible: {$stock_disponible} unidades. Ya tienes {$cantidad_actual_carrito} en el carrito.");
+    // En modo 'definitivo', validar contra cantidad_solicitada directamente
+    // En modo 'preliminar', validar contra cantidad_total_solicitada (incluye lo que ya está en carrito)
+    $cantidad_a_validar = ($modo === 'definitivo') ? $cantidad_solicitada : $cantidad_total_solicitada;
+    
+    if ($stock_disponible < $cantidad_a_validar) {
+        if ($modo === 'definitivo') {
+            throw new Exception("Stock insuficiente. Stock disponible: {$stock_disponible}, Intento de venta: {$cantidad_solicitada}");
         } else {
-            throw new Exception("Stock insuficiente. Disponible: {$stock_disponible} unidades. Puedes agregar hasta {$cantidad_disponible_para_agregar} unidades más.");
+            // Modo preliminar: mensaje más detallado para UX
+            $cantidad_disponible_para_agregar = $stock_disponible - $cantidad_actual_carrito;
+            if ($cantidad_disponible_para_agregar <= 0) {
+                throw new Exception("Stock insuficiente. Disponible: {$stock_disponible} unidades. Ya tienes {$cantidad_actual_carrito} en el carrito.");
+            } else {
+                throw new Exception("Stock insuficiente. Disponible: {$stock_disponible} unidades. Puedes agregar hasta {$cantidad_disponible_para_agregar} unidades más.");
+            }
         }
     }
     
@@ -311,6 +354,30 @@ function validarStockDisponibleCarrito($mysqli, $id_producto, $talle, $color, $c
         'talle' => $talle,
         'color' => $color
     ];
+}
+
+/**
+ * Valida stock disponible para operaciones de carrito (validación orientativa)
+ * 
+ * @deprecated Esta función está deprecada. Usar validarStockDisponible() en su lugar.
+ * 
+ * NOTA: Esta es una validación orientativa para mejorar la UX del carrito.
+ * La validación final y bloqueo real del stock se realiza en checkout mediante
+ * descontarStockPedido() y registrarMovimientoStock(), que sí usan transacciones
+ * con validaciones atómicas en WHERE para garantizar coherencia.
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param int $id_producto ID del producto
+ * @param string $talle Talle de la variante
+ * @param string $color Color de la variante
+ * @param int $cantidad_solicitada Cantidad que se desea agregar al carrito
+ * @param int $cantidad_actual_carrito Cantidad que ya está en el carrito (opcional)
+ * @return array Array con 'stock_disponible', 'variante_activa', 'producto_activo', 'id_variante', 'precio_actual', 'nombre_producto'
+ * @throws Exception Si la variante no existe, está inactiva o no hay stock suficiente
+ */
+function validarStockDisponibleCarrito($mysqli, $id_producto, $talle, $color, $cantidad_solicitada, $cantidad_actual_carrito = 0) {
+    // Delegar a la función unificada para mantener compatibilidad hacia atrás
+    return validarStockDisponible($mysqli, $id_producto, $talle, $color, $cantidad_solicitada, 'preliminar', $cantidad_actual_carrito);
 }
 
 // ============================================================================

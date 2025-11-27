@@ -40,12 +40,13 @@ function obtenerEstadisticasPedidos($mysqli) {
     $stats['total_pedidos'] = intval($result['total_pedidos'] ?? 0);
     $stmt->close();
     
-    // Pedidos pendientes: estado_pedido IN ('pendiente', 'pendiente_validado_stock') Y (pago no existe O pago NO está aprobado)
+    // Pedidos pendientes: estado_pedido = 'pendiente' Y (pago no existe O pago NO está aprobado)
+    // NOTA: Todo pedido en 'pendiente' ya tiene stock validado (se valida antes de crear el pedido)
     $sql_pendientes = "
         SELECT COUNT(DISTINCT p.id_pedido) as pedidos_pendientes
         FROM Pedidos p
         LEFT JOIN Pagos pag ON p.id_pedido = pag.id_pedido
-        WHERE LOWER(TRIM(p.estado_pedido)) IN ('pendiente', 'pendiente_validado_stock')
+        WHERE LOWER(TRIM(p.estado_pedido)) = 'pendiente'
           AND (pag.id_pago IS NULL OR LOWER(TRIM(IFNULL(pag.estado_pago, ''))) != 'aprobado')
     ";
     $stmt = $mysqli->prepare($sql_pendientes);
@@ -567,52 +568,6 @@ function actualizarPedidoCompleto($mysqli, $id_pedido, $estado_pedido, $direccio
     return $resultado;
 }
 
-/**
- * Obtiene el tiempo promedio de procesamiento de pedidos
- * 
- * Esta función calcula el tiempo promedio que tarda un pedido en ser procesado,
- * desde fecha_pedido hasta fecha_actualizacion, para pedidos que están en estado
- * 'en_viaje' o 'completado'. Útil para métricas y reportes de rendimiento.
- * 
- * @param mysqli $mysqli Conexión a la base de datos
- * @return array Array asociativo con 'tiempo_promedio_horas' (float) y 'tiempo_promedio_dias' (float)
- */
-function obtenerTiempoPromedioProcesamiento($mysqli) {
-    $sql = "
-        SELECT 
-            AVG(TIMESTAMPDIFF(HOUR, fecha_pedido, fecha_actualizacion)) as tiempo_promedio_horas,
-            AVG(TIMESTAMPDIFF(DAY, fecha_pedido, fecha_actualizacion)) as tiempo_promedio_dias
-        FROM Pedidos
-        WHERE estado_pedido IN ('en_viaje', 'completado')
-        AND fecha_actualizacion IS NOT NULL
-        AND fecha_pedido IS NOT NULL
-    ";
-    
-    $stmt = $mysqli->prepare($sql);
-    if (!$stmt) {
-        return [
-            'tiempo_promedio_horas' => 0.0,
-            'tiempo_promedio_dias' => 0.0
-        ];
-    }
-    
-    if (!$stmt->execute()) {
-        error_log("ERROR obtenerTiempoPromedioProcesamiento: No se pudo ejecutar consulta - " . $stmt->error);
-        $stmt->close();
-        return [
-            'tiempo_promedio_horas' => 0.0,
-            'tiempo_promedio_dias' => 0.0
-        ];
-    }
-    $result = $stmt->get_result();
-    $row = $result->fetch_assoc();
-    $stmt->close();
-    
-    return [
-        'tiempo_promedio_horas' => floatval($row['tiempo_promedio_horas'] ?? 0),
-        'tiempo_promedio_dias' => floatval($row['tiempo_promedio_dias'] ?? 0)
-    ];
-}
 
 /**
  * Obtiene pedidos con más tiempo en su estado actual
@@ -792,43 +747,6 @@ function obtenerTopProductosVendidos($mysqli, $limite = 10) {
     return $productos;
 }
 
-/**
- * Verifica que un detalle de pedido pertenece a un usuario específico
- * 
- * Esta función verifica que un detalle de pedido (id_detalle) pertenece a un pedido
- * del usuario especificado. Útil para validar permisos antes de permitir acciones
- * como modificaciones.
- * 
- * @param mysqli $mysqli Conexión a la base de datos
- * @param int $id_detalle_pedido ID del detalle de pedido a verificar
- * @param int $id_usuario ID del usuario propietario del pedido
- * @return array|null Array con datos del pedido (id_pedido, id_usuario) si pertenece al usuario, null en caso contrario
- */
-function verificarDetallePedidoUsuario($mysqli, $id_detalle_pedido, $id_usuario) {
-    $sql = "
-        SELECT dp.id_pedido, p.id_usuario
-        FROM Detalle_Pedido dp
-        INNER JOIN Pedidos p ON dp.id_pedido = p.id_pedido
-        WHERE dp.id_detalle = ? AND p.id_usuario = ?
-    ";
-    
-    $stmt = $mysqli->prepare($sql);
-    if (!$stmt) {
-        return null;
-    }
-    
-    $stmt->bind_param('ii', $id_detalle_pedido, $id_usuario);
-    if (!$stmt->execute()) {
-        error_log("ERROR verificarDetallePedidoUsuario: No se pudo ejecutar consulta - " . $stmt->error);
-        $stmt->close();
-        return null;
-    }
-    $result = $stmt->get_result();
-    $verificacion = $result->fetch_assoc();
-    $stmt->close();
-    
-    return $verificacion;
-}
 
 /**
  * Cancela automáticamente pedidos pendientes que tienen más de X días sin pago aprobado
@@ -862,7 +780,7 @@ function cancelarPedidosPendientesAntiguos($mysqli, $dias_limite = 60) {
         SELECT DISTINCT p.id_pedido, p.fecha_pedido, p.id_usuario, p.estado_pedido
         FROM Pedidos p
         LEFT JOIN Pagos pag ON p.id_pedido = pag.id_pedido
-        WHERE LOWER(TRIM(p.estado_pedido)) IN ('pendiente', 'pendiente_validado_stock')
+        WHERE LOWER(TRIM(p.estado_pedido)) = 'pendiente'
           AND (pag.id_pago IS NULL OR LOWER(TRIM(IFNULL(pag.estado_pago, ''))) != 'aprobado')
           AND DATEDIFF(NOW(), p.fecha_pedido) > ?
     ";
@@ -980,7 +898,8 @@ function estaEnRecorridoActivoPedido($estado_pedido) {
 /**
  * Verifica si un pedido puede ser cancelado según su estado actual
  * 
- * REGLA DE NEGOCIO: Solo pedidos en estados iniciales (pendiente, pendiente_validado_stock) pueden cancelarse.
+ * REGLA DE NEGOCIO: Solo pedidos en estado inicial (pendiente) pueden cancelarse.
+ * NOTA: Todo pedido en 'pendiente' ya tiene stock validado (se valida antes de crear el pedido).
  * Pedidos en recorrido activo (preparacion, en_viaje, completado, devolucion) NO pueden cancelarse.
  * 
  * NOTA: Esta función ahora delega a StateValidator para centralizar la lógica de validación.
@@ -1004,18 +923,18 @@ function puedeCancelarPedido($estado_pedido) {
  * Esta matriz previene transiciones inválidas antes de ejecutar lógica de negocio.
  * 
  * REGLAS DE NEGOCIO:
- * - Estados iniciales (pendiente, pendiente_validado_stock): Pueden cancelarse
+ * - Estados iniciales (pendiente): Pueden cancelarse
+ *   NOTA: Todo pedido en 'pendiente' ya tiene stock validado (se valida antes de crear el pedido)
  * - Estados de recorrido activo (preparacion, en_viaje, completado, devolucion): NO pueden cancelarse normalmente
- * - EXCEPCIÓN: preparacion puede cancelarse SOLO cuando el pago está cancelado/rechazado (validación adicional)
- * - Un pedido en recorrido activo solo puede avanzar hacia estados finales, nunca cancelarse (excepto preparacion con excepción)
+ * - EXCEPCIÓN: preparacion y en_viaje pueden cancelarse SOLO cuando el pago está cancelado/rechazado (validación adicional)
+ * - Un pedido en recorrido activo solo puede avanzar hacia estados finales, nunca cancelarse (excepto preparacion y en_viaje con excepción)
  * 
  * @var array
  */
 $transicionesPedido = [
-    'pendiente' => ['pendiente_validado_stock', 'preparacion', 'cancelado'], // pendiente_validado_stock: cuando se valida stock con FOR UPDATE
-    'pendiente_validado_stock' => ['preparacion', 'cancelado'], // similar a pendiente, pero con stock ya validado
+    'pendiente' => ['preparacion', 'cancelado'],
     'preparacion' => ['en_viaje', 'completado', 'cancelado'], // Puede cancelarse SOLO cuando el pago está cancelado/rechazado (validación adicional en actualizarEstadoPedidoConValidaciones)
-    'en_viaje' => ['completado', 'devolucion'], // NO puede cancelarse: ya está en recorrido activo
+    'en_viaje' => ['completado', 'devolucion'], // Puede cancelarse SOLO cuando el pago está cancelado/rechazado (validación adicional en actualizarEstadoPedidoConValidaciones)
     'completado' => [], // estado terminal en MVP - venta cerrada, no admite cambios
     'devolucion' => ['cancelado'], // si se cierra así
     'cancelado' => [] // estado terminal
@@ -1088,19 +1007,26 @@ function _validarRetrocesosIlógicos($estado_anterior, $estado_nuevo) {
  * @throws Exception Si el pago no está aprobado o está rechazado/cancelado
  */
 function _validarEstadoPagoParaEstadosAvanzados($pago_actual, $estado_pago, $nuevo_estado_pedido) {
+    require_once __DIR__ . '/../estado_helpers.php';
+    
     // Validar que el pago esté aprobado
     if (!$pago_actual) {
-        throw new Exception("No se puede cambiar el pedido a '{$nuevo_estado_pedido}' sin un pago asociado");
+        $info_estado = obtenerInfoEstadoPedido($nuevo_estado_pedido);
+        throw new Exception("No se puede cambiar el pedido a '{$info_estado['nombre']}' porque no hay un pago asociado. Sugerencia: Primero debe crearse y aprobarse un pago para este pedido.");
     }
     
     $estado_pago_norm = strtolower(trim($estado_pago ?? ''));
     if ($estado_pago_norm !== 'aprobado') {
-        throw new Exception("No se puede cambiar el pedido a '{$nuevo_estado_pedido}' sin pago aprobado. Estado actual del pago: {$estado_pago}");
+        $info_estado = obtenerInfoEstadoPedido($nuevo_estado_pedido);
+        $info_pago = obtenerInfoEstadoPago($estado_pago);
+        throw new Exception("No se puede cambiar el pedido a '{$info_estado['nombre']}' porque el pago está en estado '{$info_pago['nombre']}'. El pago debe estar aprobado primero. Sugerencia: Aprueba el pago y luego cambia el estado del pedido.");
     }
     
     // Validar explícitamente que el pago NO esté rechazado o cancelado
     if (in_array($estado_pago_norm, ['rechazado', 'cancelado'])) {
-        throw new Exception("No se puede cambiar el pedido a '{$nuevo_estado_pedido}' con pago rechazado o cancelado");
+        $info_estado = obtenerInfoEstadoPedido($nuevo_estado_pedido);
+        $info_pago = obtenerInfoEstadoPago($estado_pago);
+        throw new Exception("No se puede cambiar el pedido a '{$info_estado['nombre']}' porque el pago está en estado '{$info_pago['nombre']}'. Solo se pueden avanzar pedidos con pagos aprobados. Sugerencia: Si el pago fue rechazado o cancelado, el pedido debe cancelarse en lugar de avanzar.");
     }
 }
 
@@ -1127,13 +1053,17 @@ function _validarPreparacionConPago($pago_actual, $estado_pago) {
     // BLOQUEAR: Solo permitir preparacion si pago está aprobado (NO pendiente_aprobacion)
     if ($estado_pago_norm !== 'aprobado') {
         error_log("_validarPreparacionConPago: Estado pago NO es aprobado. Estado normalizado: '{$estado_pago_norm}'");
+        require_once __DIR__ . '/../estado_helpers.php';
+        
         if (in_array($estado_pago_norm, ['rechazado', 'cancelado'])) {
-            throw new Exception('No se puede cambiar el pedido a preparación con pago rechazado o cancelado');
+            $info_pago = obtenerInfoEstadoPago($estado_pago);
+            throw new Exception("No se puede cambiar el pedido a preparación porque el pago está en estado '{$info_pago['nombre']}'. Solo se pueden preparar pedidos con pagos aprobados. Sugerencia: Si el pago fue rechazado o cancelado, el pedido debe cancelarse en lugar de avanzar a preparación.");
         }
         if ($estado_pago_norm === 'pendiente_aprobacion') {
-            throw new Exception('No se puede cambiar el pedido a preparación con pago pendiente de aprobación. El pago debe estar aprobado primero. Cuando se apruebe el pago, el pedido pasará automáticamente a preparación.');
+            throw new Exception('No se puede cambiar el pedido a preparación porque el pago está pendiente de aprobación. El pago debe estar aprobado primero. Sugerencia: Cuando apruebes el pago desde el panel de ventas, el pedido pasará automáticamente a preparación.');
         }
-        throw new Exception('No se puede cambiar el pedido a preparación. El pago debe estar aprobado. Estado actual del pago: ' . $estado_pago);
+        $info_pago = obtenerInfoEstadoPago($estado_pago);
+        throw new Exception("No se puede cambiar el pedido a preparación porque el pago está en estado '{$info_pago['nombre']}'. El pago debe estar aprobado primero. Sugerencia: Aprueba el pago desde el panel de ventas y luego el pedido pasará automáticamente a preparación.");
     }
     
     error_log("_validarPreparacionConPago: Validación exitosa - pago está aprobado");
@@ -1157,16 +1087,19 @@ function _cambiarPedidoAEnViaje($mysqli, $id_pedido, $estado_pedido_anterior, $e
     $estado_pago = normalizarEstado($estado_pago);
     
     if ($estado_pedido_anterior !== 'preparacion') {
-        throw new Exception('Solo se puede enviar un pedido que está en estado de preparación');
+        $info_anterior = obtenerInfoEstadoPedido($estado_pedido_anterior);
+        throw new Exception("Solo se puede enviar un pedido que está en estado de preparación. El pedido actual está en estado '{$info_anterior['nombre']}'. Sugerencia: El pedido debe estar en preparación antes de poder enviarlo.");
     }
     
     // Validar explícitamente que el pago NO esté rechazado o cancelado
     if (in_array($estado_pago, ['rechazado', 'cancelado'])) {
-        throw new Exception('No se puede enviar un pedido con pago rechazado o cancelado');
+        $info_pago = obtenerInfoEstadoPago($estado_pago);
+        throw new Exception("No se puede enviar el pedido porque el pago está en estado '{$info_pago['nombre']}'. Solo se pueden enviar pedidos con pagos aprobados. Sugerencia: Si el pago fue rechazado o cancelado, el pedido debe cancelarse en lugar de enviarse.");
     }
     
     if ($estado_pago !== 'aprobado') {
-        throw new Exception('No se puede enviar pedido sin pago aprobado');
+        $info_pago = obtenerInfoEstadoPago($estado_pago);
+        throw new Exception("No se puede enviar el pedido porque el pago está en estado '{$info_pago['nombre']}'. El pago debe estar aprobado primero. Sugerencia: Aprueba el pago desde el panel de ventas antes de enviar el pedido.");
     }
     
     if (!actualizarEstadoPedido($mysqli, $id_pedido, 'en_viaje')) {
@@ -1192,16 +1125,19 @@ function _cambiarPedidoACompletado($mysqli, $id_pedido, $estado_pedido_anterior,
     $estado_pago = normalizarEstado($estado_pago);
     
     if (!in_array($estado_pedido_anterior, ['preparacion', 'en_viaje'])) {
-        throw new Exception('Solo se puede completar un pedido que está en preparación o en viaje');
+        $info_anterior = obtenerInfoEstadoPedido($estado_pedido_anterior);
+        throw new Exception("Solo se puede completar un pedido que está en preparación o en viaje. El pedido actual está en estado '{$info_anterior['nombre']}'. Sugerencia: El pedido debe estar en preparación o en viaje antes de poder completarlo.");
     }
     
     // Validar explícitamente que el pago NO esté rechazado o cancelado
     if (in_array($estado_pago, ['rechazado', 'cancelado'])) {
-        throw new Exception('No se puede completar un pedido con pago rechazado o cancelado');
+        $info_pago = obtenerInfoEstadoPago($estado_pago);
+        throw new Exception("No se puede completar el pedido porque el pago está en estado '{$info_pago['nombre']}'. Solo se pueden completar pedidos con pagos aprobados. Sugerencia: Si el pago fue rechazado o cancelado, el pedido debe cancelarse en lugar de completarse.");
     }
     
     if ($estado_pago !== 'aprobado') {
-        throw new Exception('No se puede completar pedido sin pago aprobado');
+        $info_pago = obtenerInfoEstadoPago($estado_pago);
+        throw new Exception("No se puede completar el pedido porque el pago está en estado '{$info_pago['nombre']}'. El pago debe estar aprobado primero. Sugerencia: Aprueba el pago desde el panel de ventas antes de completar el pedido.");
     }
     
     if (!actualizarEstadoPedido($mysqli, $id_pedido, 'completado')) {
@@ -1231,16 +1167,19 @@ function _cambiarPedidoADevolucion($mysqli, $id_pedido, $estado_pedido_anterior,
     $estado_pago = normalizarEstado($estado_pago);
     
     if ($estado_pedido_anterior !== 'en_viaje') {
-        throw new Exception('Solo se puede devolver un pedido que está en viaje. Los pedidos completados son terminales y no admiten cambios.');
+        $info_anterior = obtenerInfoEstadoPedido($estado_pedido_anterior);
+        throw new Exception("Solo se puede devolver un pedido que está en viaje. El pedido actual está en estado '{$info_anterior['nombre']}'. Los pedidos completados son terminales y no admiten cambios. Sugerencia: Solo se pueden devolver pedidos que están en viaje.");
     }
     
     // Validar explícitamente que el pago NO esté rechazado o cancelado
     if (in_array($estado_pago, ['rechazado', 'cancelado'])) {
-        throw new Exception('No se puede devolver un pedido con pago rechazado o cancelado');
+        $info_pago = obtenerInfoEstadoPago($estado_pago);
+        throw new Exception("No se puede devolver el pedido porque el pago está en estado '{$info_pago['nombre']}'. Solo se pueden devolver pedidos con pagos aprobados. Sugerencia: Si el pago fue rechazado o cancelado, el pedido debe cancelarse en lugar de devolverse.");
     }
     
     if ($estado_pago !== 'aprobado') {
-        throw new Exception('No se puede devolver pedido sin pago aprobado');
+        $info_pago = obtenerInfoEstadoPago($estado_pago);
+        throw new Exception("No se puede devolver el pedido porque el pago está en estado '{$info_pago['nombre']}'. El pago debe estar aprobado primero. Sugerencia: Solo se pueden devolver pedidos con pagos aprobados.");
     }
     
     // Obtener detalles del pedido para restaurar stock
@@ -1290,16 +1229,17 @@ function _cancelarPedidoConValidaciones($mysqli, $id_pedido, $estado_pedido_ante
     $estado_pago_norm = $estado_pago ? normalizarEstado($estado_pago) : null;
     
     // Validación: Solo estados iniciales pueden cancelarse normalmente
-    // EXCEPCIÓN: Permitir cancelar desde 'preparacion' cuando el pago está cancelado/rechazado
-    // Esto permite corregir inconsistencias donde el pago fue cancelado pero el pedido quedó en preparación
+    // EXCEPCIÓN: Permitir cancelar desde 'preparacion' o 'en_viaje' cuando el pago está cancelado/rechazado
+    // Esto permite corregir inconsistencias donde el pago fue cancelado pero el pedido quedó en preparación o en viaje
     if (!puedeCancelarPedido($estado_pedido_anterior)) {
-        // Verificar si es el caso excepcional: preparación con pago cancelado/rechazado
-        if ($estado_pedido_anterior === 'preparacion' && in_array($estado_pago_norm, ['cancelado', 'rechazado'])) {
+        // Verificar si es el caso excepcional: preparación o en_viaje con pago cancelado/rechazado
+        if (in_array($estado_pedido_anterior, ['preparacion', 'en_viaje']) && in_array($estado_pago_norm, ['cancelado', 'rechazado'])) {
             // Permitir cancelación: el pago ya está cancelado/rechazado, no hay stock descontado
-            error_log("Cancelación pedido #{$id_pedido}: Excepción - Preparación con pago cancelado/rechazado. Estado pago: {$estado_pago}");
+            error_log("Cancelación pedido #{$id_pedido}: Excepción - {$estado_pedido_anterior} con pago cancelado/rechazado. Estado pago: {$estado_pago}");
         } else {
             // Bloquear cancelación: pedido en recorrido activo con pago aprobado o pendiente
-            throw new Exception('Solo se puede cancelar un pedido que está en estado inicial (pendiente o pendiente_validado_stock). Un pedido en recorrido activo no puede cancelarse.');
+            $info_anterior = obtenerInfoEstadoPedido($estado_pedido_anterior);
+            throw new Exception("Solo se puede cancelar un pedido que está en estado inicial (pendiente o pendiente validado stock). El pedido actual está en estado '{$info_anterior['nombre']}' (en proceso). Un pedido en proceso no puede cancelarse. Sugerencia: Si el pedido aún no fue enviado, puedes cancelarlo antes de que pase a 'en viaje'.");
         }
     }
     
@@ -1380,8 +1320,8 @@ function actualizarEstadoPedidoConValidaciones($mysqli, $id_pedido, $nuevo_estad
     // Normalizar estado antes de validar
     $nuevo_estado_pedido = normalizarEstado($nuevo_estado_pedido);
     
-    // Validar estados válidos (incluye pendiente_validado_stock que está en BD)
-    $estados_validos = ['pendiente', 'pendiente_validado_stock', 'preparacion', 'en_viaje', 'completado', 'devolucion', 'cancelado'];
+    // Validar estados válidos
+    $estados_validos = ['pendiente', 'preparacion', 'en_viaje', 'completado', 'devolucion', 'cancelado'];
     if (!in_array($nuevo_estado_pedido, $estados_validos)) {
         throw new Exception('Estado de pedido inválido: ' . $nuevo_estado_pedido);
     }

@@ -1,0 +1,18 @@
+[
+    {
+        "fecha": "2025-11-20 01:05:03",
+        "timestamp": 1763600703,
+        "nombre": "Ventas Principal",
+        "email": "ventas@test.com",
+        "asunto": "problema_pagina",
+        "mensaje": "test test test test test test test test"
+    },
+    {
+        "fecha": "2025-11-21 19:51:03",
+        "timestamp": 1763754663,
+        "nombre": "Marketing Principal",
+        "email": "marketing@test.com",
+        "asunto": "problema_cuenta",
+        "mensaje": "tengo un problema con la cuenta"
+    }
+]

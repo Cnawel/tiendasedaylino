@@ -47,10 +47,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Validación en tiempo real del campo teléfono
+    // Usa la función validarTelefono de common_js_functions.php
     const telefonoInput = document.getElementById('telefono');
     
     if (telefonoInput) {
-        // Validar al escribir
+        // Filtrar caracteres no permitidos mientras se escribe
         telefonoInput.addEventListener('input', function(e) {
             const value = e.target.value;
             // Solo permitir números, espacios y símbolos: +, -, (, )
@@ -61,48 +62,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.target.value = value.replace(/[^0-9+\-() ]/g, '');
             }
             
-            // Validar formato y longitudes según diccionario: 6-20 caracteres
-            const valueLength = e.target.value.length;
-            if (valueLength > 0) {
-                const isValid = /^[0-9+\-() ]+$/.test(e.target.value);
-                if (isValid && valueLength >= 6 && valueLength <= 20) {
-                    setFieldValidation(e.target, true);
-                    e.target.setCustomValidity('');
-                } else {
-                    setFieldValidation(e.target, false);
-                    if (!isValid) {
-                        e.target.setCustomValidity('Solo se permiten números y símbolos (+, -, paréntesis, espacios)');
-                    } else if (valueLength < 6) {
-                        e.target.setCustomValidity('El teléfono debe tener al menos 6 caracteres');
-                    } else if (valueLength > 20) {
-                        e.target.setCustomValidity('El teléfono no puede exceder 20 caracteres');
-                    }
+            // Limitar longitud máxima
+            if (e.target.value.length > 20) {
+                e.target.value = e.target.value.substring(0, 20);
+            }
+            
+            // Limpiar validación mientras se escribe
+            if (this.classList.contains('is-invalid')) {
+                this.classList.remove('is-invalid');
+                if (this.setCustomValidity) {
+                    this.setCustomValidity('');
                 }
-            } else {
-                setFieldValidation(e.target, null);
-                e.target.setCustomValidity('');
             }
         });
         
-        // Validar al perder el foco
-        telefonoInput.addEventListener('blur', function(e) {
-            const value = e.target.value.trim();
-            if (value.length > 0) {
-                const isValid = /^[0-9+\-() ]+$/.test(value);
-                const valueLength = value.length;
-                if (!isValid) {
-                    setFieldValidation(e.target, false);
-                    e.target.setCustomValidity('Solo se permiten números y símbolos (+, -, paréntesis, espacios)');
-                } else if (valueLength < 6) {
-                    setFieldValidation(e.target, false);
-                    e.target.setCustomValidity('El teléfono debe tener al menos 6 caracteres');
-                } else if (valueLength > 20) {
-                    setFieldValidation(e.target, false);
-                    e.target.setCustomValidity('El teléfono no puede exceder 20 caracteres');
-                } else {
-                    setFieldValidation(e.target, true);
-                    e.target.setCustomValidity('');
-                }
+        // Validar al perder el foco usando función consolidada
+        telefonoInput.addEventListener('blur', function() {
+            if (typeof validarTelefono === 'function') {
+                // Teléfono es opcional en checkout
+                validarTelefono(this, true);
             }
         });
     }
@@ -117,24 +95,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Validación de dirección (calle)
+    // Usa la función validarDireccion de common_js_functions.php
     const direccionCalleInput = document.getElementById('direccion_calle');
     if (direccionCalleInput) {
-        const direccionCallePattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+$/;
-        
         direccionCalleInput.addEventListener('blur', function() {
-            const valor = this.value.trim();
-            if (!valor) {
-                this.setCustomValidity('La dirección es requerida');
-                setFieldValidation(this, false);
-            } else if (valor.length < 2) {
-                this.setCustomValidity('La dirección debe tener al menos 2 caracteres');
-                setFieldValidation(this, false);
-            } else if (!direccionCallePattern.test(valor)) {
-                this.setCustomValidity('Solo se permiten letras (incluyendo acentos), números, espacios, guiones, apóstrofes y acentos graves');
-                setFieldValidation(this, false);
-            } else {
-                this.setCustomValidity('');
-                setFieldValidation(this, true);
+            if (typeof validarDireccion === 'function') {
+                validarDireccion(this, true, 2, 'calle');
             }
         });
         
@@ -149,27 +115,20 @@ document.addEventListener('DOMContentLoaded', function() {
             // Limpiar validación mientras se escribe
             if (this.classList.contains('is-invalid')) {
                 this.classList.remove('is-invalid');
-                this.setCustomValidity('');
+                if (this.setCustomValidity) {
+                    this.setCustomValidity('');
+                }
             }
         });
     }
     
     // Validación de número de dirección
+    // Usa la función validarDireccion de common_js_functions.php
     const direccionNumeroInput = document.getElementById('direccion_numero');
     if (direccionNumeroInput) {
-        const direccionNumeroPattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+$/;
-        
         direccionNumeroInput.addEventListener('blur', function() {
-            const valor = this.value.trim();
-            if (!valor) {
-                this.setCustomValidity('El número es requerido');
-                setFieldValidation(this, false);
-            } else if (!direccionNumeroPattern.test(valor)) {
-                this.setCustomValidity('Solo se permiten letras (incluyendo acentos), números, espacios, guiones, apóstrofes y acentos graves');
-                setFieldValidation(this, false);
-            } else {
-                this.setCustomValidity('');
-                setFieldValidation(this, true);
+            if (typeof validarDireccion === 'function') {
+                validarDireccion(this, true, 1, 'numero');
             }
         });
         
@@ -184,25 +143,21 @@ document.addEventListener('DOMContentLoaded', function() {
             // Limpiar validación mientras se escribe
             if (this.classList.contains('is-invalid')) {
                 this.classList.remove('is-invalid');
-                this.setCustomValidity('');
+                if (this.setCustomValidity) {
+                    this.setCustomValidity('');
+                }
             }
         });
     }
     
     // Validación de piso/departamento (opcional)
+    // Usa la función validarDireccion de common_js_functions.php
     const direccionPisoInput = document.getElementById('direccion_piso');
     if (direccionPisoInput) {
-        const direccionPisoPattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+$/;
-        
         direccionPisoInput.addEventListener('blur', function() {
-            const valor = this.value.trim();
-            // Piso/Depto es opcional, solo validar si tiene valor
-            if (valor && !direccionPisoPattern.test(valor)) {
-                this.setCustomValidity('Solo se permiten letras (incluyendo acentos), números, espacios, guiones, apóstrofes y acentos graves');
-                setFieldValidation(this, false);
-            } else {
-                this.setCustomValidity('');
-                setFieldValidation(this, true);
+            if (typeof validarDireccion === 'function') {
+                // Piso/Depto es opcional
+                validarDireccion(this, false, 1, 'piso');
             }
         });
         
@@ -217,7 +172,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // Limpiar validación mientras se escribe
             if (this.classList.contains('is-invalid')) {
                 this.classList.remove('is-invalid');
-                this.setCustomValidity('');
+                if (this.setCustomValidity) {
+                    this.setCustomValidity('');
+                }
             }
         });
     }

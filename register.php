@@ -25,11 +25,12 @@
  */
 
 // ========================================================================
-// MANEJO DE ERRORES TEMPORAL PARA DIAGNÓSTICO
+// MANEJO DE ERRORES
 // ========================================================================
-// Activar reporte de errores para ver el error real (temporal para debugging)
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+// NOTA: En producción, los errores se registran en el log del servidor
+// Solo activar display_errors en desarrollo local para debugging
+// error_reporting(E_ALL);
+// ini_set('display_errors', 1);
 ini_set('log_errors', 1);
 
 session_start();
@@ -42,14 +43,6 @@ if (!file_exists($password_functions_path)) {
 }
 require_once $password_functions_path;
 
-// Cargar funciones de consultas de usuarios
-$usuario_queries_path = __DIR__ . '/includes/queries/usuario_queries.php';
-if (!file_exists($usuario_queries_path)) {
-    error_log("ERROR: No se pudo encontrar usuario_queries.php en " . $usuario_queries_path);
-    die("Error crítico: Archivo de consultas de usuario no encontrado. Por favor, contacta al administrador.");
-}
-require_once $usuario_queries_path;
-
 // Cargar funciones de consultas de perfil
 $perfil_queries_path = __DIR__ . '/includes/queries/perfil_queries.php';
 if (!file_exists($perfil_queries_path)) {
@@ -59,12 +52,24 @@ if (!file_exists($perfil_queries_path)) {
 require_once $perfil_queries_path;
 
 // Cargar funciones de administración
+// NOTA: admin_functions.php ya incluye usuario_queries.php, no es necesario incluirlo por separado
 $admin_functions_path = __DIR__ . '/includes/admin_functions.php';
 if (!file_exists($admin_functions_path)) {
     error_log("ERROR: No se pudo encontrar admin_functions.php en " . $admin_functions_path);
     die("Error crítico: Archivo de funciones de administración no encontrado. Por favor, contacta al administrador.");
 }
-require_once $admin_functions_path;
+require_once $admin_functions_path; // Incluye usuario_queries.php
+
+// Cargar funciones de validación centralizadas adicionales
+$validation_functions_path = __DIR__ . '/includes/validation_functions.php';
+if (!file_exists($validation_functions_path)) {
+    error_log("ERROR: No se pudo encontrar validation_functions.php en " . $validation_functions_path);
+    die("Error crítico: Archivo de funciones de validación no encontrado. Por favor, contacta al administrador.");
+}
+require_once $validation_functions_path;
+
+// Cargar funciones de email con Gmail SMTP
+require_once __DIR__ . '/includes/email_gmail_functions.php';
 
 // Configurar título de la página
 $titulo_pagina = 'Registro';
@@ -125,6 +130,8 @@ if (empty($preguntas_recupero) && isset($mysqli) && $mysqli instanceof mysqli) {
 
 // Procesar formulario de registro
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Iniciar output buffering para prevenir errores de headers ya enviados
+    ob_start();
     
     // Verificar que la conexión a la base de datos esté disponible
     if (!isset($mysqli) || !($mysqli instanceof mysqli)) {
@@ -172,10 +179,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (strlen($nombre_trimmed) > 50) {
             $errores['nombre'] = 'El nombre no puede exceder 50 caracteres.';
         } else {
-            // Validación exitosa - usar valor sin sanitizar para guardar en BD
+            // Validación exitosa - usar valor original para guardar en BD
             // NOTA: NO sanitizar con htmlspecialchars() antes de guardar en BD
             // Los datos se sanitizan al MOSTRAR en HTML, no al guardar
-            // La función validarNombreApellido() retorna valor sanitizado, pero necesitamos el original
+            // La función validarNombreApellido() retorna valor original sin sanitizar
             $nombre = $nombre_trimmed;
         }
     }
@@ -195,8 +202,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$validacion_apellido['valido']) {
             $errores['apellido'] = $validacion_apellido['error'];
         } else {
-            // Validación exitosa - usar valor sin sanitizar para guardar en BD
-            // La función validarNombreApellido() retorna valor sanitizado, pero necesitamos el original
+            // Validación exitosa - usar valor original para guardar en BD
+            // NOTA: NO sanitizar con htmlspecialchars() antes de guardar en BD
+            // Los datos se sanitizan al MOSTRAR en HTML, no al guardar
+            // La función validarNombreApellido() retorna valor original sin sanitizar
             $apellido = $apellido_trimmed;
         }
     }
@@ -215,21 +224,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email = strtolower(trim($email_raw));
     }
     
-    // Sanitizar y validar CONTRASEÑA
+    // Validar CONTRASEÑA usando función centralizada
     // IMPORTANTE: NO usar trim() en password - puede cambiar la contraseña
     $password = $_POST['password'] ?? '';
     
-    // Validaciones básicas para CONTRASEÑA (permite contraseñas débiles)
-    // Solo se requiere longitud mínima, sin requisitos de complejidad
-    if ($password === '' || strlen($password) === 0) {
-        $errores['password'] = 'La contraseña es obligatoria.';
-    } elseif (strlen($password) < 6) {
-        $errores['password'] = 'La contraseña debe tener al menos 6 caracteres.';
-    } elseif (strlen($password) > 32) {
-        $errores['password'] = 'La contraseña no puede exceder 32 caracteres.';
+    // Usar función centralizada que valida: longitud 8-128, complejidad (minúscula, mayúscula, número, especial)
+    $validacion_password = validarPassword($password, true); // true = requiere complejidad
+    if (!$validacion_password['valido']) {
+        $errores['password'] = $validacion_password['error'];
     }
-    // Nota: Se eliminó la validación de complejidad (mayúscula, minúscula, número, carácter especial)
-    // para permitir contraseñas más débiles según lo solicitado
     
     // Validar CONFIRMACIÓN DE CONTRASEÑA (OBLIGATORIO)
     // IMPORTANTE: NO usar trim() en password_confirm - debe coincidir exactamente
@@ -240,50 +243,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errores['password_confirm'] = 'Las contraseñas no coinciden.';
     }
     
-    // Validar FECHA DE NACIMIENTO (OBLIGATORIO)
+    // Validar FECHA DE NACIMIENTO usando función centralizada (OBLIGATORIO)
     // HTML5 date input envía formato YYYY-MM-DD directamente
     $fecha_nacimiento_raw = trim($_POST['fecha_nacimiento'] ?? '');
     $valores_form['fecha_nacimiento'] = $fecha_nacimiento_raw;
     
     if (empty($fecha_nacimiento_raw)) {
         $errores['fecha_nacimiento'] = 'La fecha de nacimiento es obligatoria.';
-    } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_nacimiento_raw)) {
-        // Validar formato YYYY-MM-DD
-        $errores['fecha_nacimiento'] = 'El formato de fecha de nacimiento no es válido.';
     } else {
-        // Validar que sea una fecha válida
-        $fecha_parts = explode('-', $fecha_nacimiento_raw);
-        $year = intval($fecha_parts[0]);
-        $month = intval($fecha_parts[1]);
-        $day = intval($fecha_parts[2]);
-        
-        if (!checkdate($month, $day, $year)) {
-            $errores['fecha_nacimiento'] = 'La fecha de nacimiento no es una fecha válida.';
+        // Usar función centralizada que valida: formato, rango de años (1925-2012), edad mínima (13 años), no futura
+        $validacion_fecha = validarFechaNacimiento($fecha_nacimiento_raw);
+        if (!$validacion_fecha['valido']) {
+            $errores['fecha_nacimiento'] = $validacion_fecha['error'];
         } else {
-            // Validar rango de año permitido (1925-2012)
-            if ($year < 1925 || $year > 2012) {
-                $errores['fecha_nacimiento'] = 'La fecha de nacimiento debe estar entre 1925 y 2012.';
-            } else {
-                // Validar fecha futura y edad mínima
-                try {
-                    $fecha_nac = new DateTime($fecha_nacimiento_raw);
-                    $fecha_actual = new DateTime();
-                    if ($fecha_nac > $fecha_actual) {
-                        $errores['fecha_nacimiento'] = 'La fecha de nacimiento no puede ser una fecha futura.';
-                    } else {
-                        // Validar edad mínima (13 años)
-                        $edad = $fecha_actual->diff($fecha_nac)->y;
-                        if ($edad < 13) {
-                            $errores['fecha_nacimiento'] = 'Debes tener al menos 13 años para registrarte.';
-                        } else {
-                            // Validación exitosa - asignar fecha validada
-                            $fecha_nacimiento = $fecha_nacimiento_raw;
-                        }
-                    }
-                } catch (Exception $e) {
-                    $errores['fecha_nacimiento'] = 'La fecha de nacimiento no es válida.';
-                }
-            }
+            // Validación exitosa - asignar fecha validada
+            $fecha_nacimiento = $validacion_fecha['valor'];
         }
     }
     
@@ -431,6 +405,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($hash_password === false) {
             $errores['password'] = 'Error al procesar la contraseña. Inténtalo de nuevo.';
         } else {
+            // Verificar longitud del hash antes de crear el usuario
+            $hash_length = strlen($hash_password);
+            if ($hash_length < 60) {
+                error_log("ERROR register.php: Hash generado tiene longitud incorrecta: $hash_length caracteres (mínimo esperado: 60)");
+                $errores['password'] = 'Error al procesar la contraseña. Inténtalo de nuevo.';
+                $hash_password = false;
+            } elseif ($hash_length > 255) {
+                error_log("ERROR register.php: Hash generado excede longitud máxima: $hash_length caracteres (máximo: 255)");
+                $errores['password'] = 'Error al procesar la contraseña. Inténtalo de nuevo.';
+                $hash_password = false;
+            }
+        }
+        
+        if ($hash_password !== false) {
             // ========================================================================
             // INSERCIÓN SEGURA EN BASE DE DATOS
             // ========================================================================
@@ -488,13 +476,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $password_confirm = null;
                             $hash_password = null;
                             
-                            // Guardar mensaje de éxito en sesión
+                            // Guardar mensaje de éxito en sesión ANTES de enviar email
+                            // Esto asegura que el mensaje se guarde incluso si el email falla
                             $_SESSION['mensaje_registro'] = 'Tu cuenta ha sido creada exitosamente. Por favor, inicia sesión.';
                             $_SESSION['mensaje_registro_tipo'] = 'success';
                             
-                            // Redireccionar a login
-                            header('Location: login.php');
-                            exit;
+                            // Enviar email de bienvenida (no bloquear flujo si falla)
+                            // Usar try-catch para capturar tanto Exception como Error
+                            try {
+                                $email_enviado = enviar_email_bienvenida($nombre, $apellido, $email);
+                                if (!$email_enviado) {
+                                    error_log("No se pudo enviar email de bienvenida para usuario ID: $id_usuario_nuevo (email: $email)");
+                                }
+                            } catch (Exception $e) {
+                                // Solo loggear error, no interrumpir el flujo
+                                error_log("Error al enviar email de bienvenida para usuario ID: $id_usuario_nuevo. Error: " . $e->getMessage());
+                            } catch (Error $e) {
+                                // Capturar también errores fatales de PHP
+                                error_log("Error fatal al enviar email de bienvenida para usuario ID: $id_usuario_nuevo. Error: " . $e->getMessage());
+                            }
+                            
+                            // Redirigir a login (después de guardar sesión y enviar email)
+                            // Limpiar cualquier output previo antes de redirigir
+                            ob_clean();
+                            
+                            if (!headers_sent()) {
+                                header('Location: login.php');
+                                exit;
+                            } else {
+                                // Si ya se envió output, usar JavaScript para redirigir
+                                echo '<script>window.location.href = "login.php";</script>';
+                                exit;
+                            }
                         } else {
                             // Hash no verifica correctamente
                             $errores['general'] = 'Error: El hash se guardó pero no verifica correctamente. Por favor, intenta registrarte nuevamente.';
@@ -512,10 +525,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     } // Cierre del else que verifica la conexión $mysqli
 }
+
+// Incluir header solo si no se hizo redirección (es decir, si hay errores o es GET)
+include 'includes/header.php';
 ?>
-
-<?php include 'includes/header.php'; ?>
-
 
 <!-- Contenido principal del registro -->
 <main class="auth-page">
@@ -770,6 +783,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </main>
 
-    <script src="includes/register.js"></script>
+    <script src="js/register.js"></script>
 
 <?php include 'includes/footer.php'; render_footer(); ?>

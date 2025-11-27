@@ -83,8 +83,8 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
     $motivo_rechazo = trim($post['motivo_rechazo'] ?? '');
     
     // Validar estados permitidos (según ENUM de la base de datos)
-    // Incluir pendiente_validado_stock que es un estado válido según la documentación
-    $estados_pedido_validos = ['pendiente', 'pendiente_validado_stock', 'preparacion', 'en_viaje', 'completado', 'devolucion', 'cancelado'];
+    // NOTA: Todo pedido en 'pendiente' ya tiene stock validado (se valida antes de crear el pedido)
+    $estados_pedido_validos = ['pendiente', 'preparacion', 'en_viaje', 'completado', 'devolucion', 'cancelado'];
     $estados_pago_validos = ['pendiente', 'pendiente_aprobacion', 'aprobado', 'rechazado', 'cancelado'];
     
     // Validar que el estado del pedido sea válido
@@ -341,7 +341,16 @@ function procesarAprobacionPago($mysqli, $post, $id_usuario) {
     } catch (Exception $e) {
         // Verificar si el error es por stock insuficiente
         if (strpos($e->getMessage(), 'STOCK_INSUFICIENTE') !== false) {
-            return ['mensaje' => 'No hay stock disponible para aprobar este pago. Verifique el stock de los productos del pedido.', 'mensaje_tipo' => 'warning'];
+            // Extraer información de variantes si está disponible
+            $mensaje_error = $e->getMessage();
+            if (preg_match('/Variante #(\d+): Tiene (\d+) unidades disponibles pero se necesitan (\d+) unidades/', $mensaje_error, $matches)) {
+                $id_variante = $matches[1];
+                $stock_disponible = $matches[2];
+                $intento_venta = $matches[3];
+                return ['mensaje' => "No hay suficiente stock para aprobar este pago. La variante #{$id_variante} tiene {$stock_disponible} unidades disponibles pero se necesitan {$intento_venta} unidades. Sugerencia: Revisa el stock disponible en el panel de productos o contacta al cliente para ajustar la cantidad.", 'mensaje_tipo' => 'warning'];
+            } else {
+                return ['mensaje' => 'No hay suficiente stock disponible para aprobar este pago. Sugerencia: Verifica el stock de los productos del pedido en el panel de productos y ajusta las cantidades si es necesario, o contacta al cliente para informarle sobre la disponibilidad.', 'mensaje_tipo' => 'warning'];
+            }
         } else {
             return ['mensaje' => 'Error al aprobar el pago: ' . $e->getMessage(), 'mensaje_tipo' => 'danger'];
         }

@@ -15,8 +15,8 @@
   
   /* Colores funcionales (3) */
   --color-success: #28a745;            /* Éxito: validaciones, badges, estados positivos */
-  --color-danger: #dc3545;              /* Errores: alertas, acciones destructivas, estados negativos */
-  --color-warning: #ffc107;             /* Advertencias: estados pendientes, notificaciones */
+  --color-danger: #4A4A4A;              /* Errores: alertas, acciones destructivas, estados negativos */
+  --color-warning: #8B8B7A;             /* Advertencias: estados pendientes, notificaciones */
   
   /* Colores de texto (2) */
   --color-text-secondary: #666;        /* Texto secundario: descripciones, subtítulos */
@@ -43,9 +43,10 @@
   --color-border-gray: #dee2e6;
   
   /* Colores de alertas (fondos) */
-  --color-alert-danger-bg: #F5C6CB;
+  --color-alert-danger-bg: #E8E8E5;
   --color-alert-success-bg: #C3E6CB;
-  --color-alert-warning-bg: #FFE69C;
+  --color-alert-warning-bg: #F5F5F0;
+  --color-alert-warning-text: #666;
   
   /* Colores grises adicionales */
   --color-gray-light: #F5F5F5;
@@ -89,13 +90,24 @@
     padding: 11px 28px;
 }
 
+.boton-formulario {
+    background: var(#215488);
+    color: var(--color-bg-white);
+    font-size: 1.1em;
+}
+
 .auth-btn {
     width: 100%;
 }
 
 .btn-primary:hover,
 .boton-tarjeta:hover,
-.boton-formulario:hover,
+.boton-formulario:hover {
+    background: --color-bg-white;
+    box-shadow: 0 3px 10px var(--color-text-secondary);
+}
+
+.boton-tarjeta:hover,
 .auth-btn:hover {
     box-shadow: 0 3px 10px var(--color-text-secondary);
 }
@@ -280,7 +292,9 @@
 
 .alert-warning {
     background-color: var(--color-alert-warning-bg);
-    color: var(--color-warning);
+    color: var(--color-alert-warning-text);
+    border-left: 4px solid var(--color-primary);
+    font-weight: 500;
 }
 
 .alert-info {
@@ -1984,6 +1998,8 @@ img[src*="iconos/"],
     width: 100%;
     height: 100%;
     object-fit: cover;
+    pointer-events: none; /* Permitir que el clic pase al contenedor */
+    user-select: none; /* Prevenir selección de imagen */
 }
 
 /* Información del producto compacta */
@@ -2102,14 +2118,19 @@ input[type="radio"]:checked + .btn-color-compacto.color-sin-stock {
 
 /* Selector de cantidad compacto */
 .cantidad-selector-compacto {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    background: var(--color-bg-white);
+    padding: 4px;
+    border-radius: 6px;
+    border: 1px solid var(--color-border-gray);
+    width: fit-content;
 }
 
 .btn-cantidad-compacto {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     padding: 0;
     display: flex;
     align-items: center;
@@ -2118,21 +2139,48 @@ input[type="radio"]:checked + .btn-color-compacto.color-sin-stock {
     background: var(--color-bg-white);
     border-radius: 4px;
     cursor: pointer;
-    transition: background-color 0.2s ease, border-color 0.2s ease;
+    transition: all 0.2s ease;
+    color: var(--color-text-main);
+    font-size: 0.85rem;
 }
 
 .btn-cantidad-compacto:hover {
-    background: var(--color-bg-light);
-    border-color: var(--color-text-main);
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--color-bg-white);
+    transform: scale(1.05);
+}
+
+.btn-cantidad-compacto:active {
+    transform: scale(0.95);
 }
 
 .form-control-cantidad-compacto {
-    width: 60px;
+    width: 70px;
     text-align: center;
     border: 1.5px solid var(--color-border-gray);
     border-radius: 4px;
-    padding: 6px;
-    font-size: 0.9rem;
+    padding: 8px 4px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-text-main);
+    background: var(--color-bg-white);
+    appearance: textfield; /* Estándar: ocultar flechas del input number */
+    -moz-appearance: textfield; /* Firefox: ocultar flechas del input number */
+}
+
+.form-control-cantidad-compacto::-webkit-outer-spin-button,
+.form-control-cantidad-compacto::-webkit-inner-spin-button {
+    -webkit-appearance: none; /* Chrome/Safari: ocultar flechas del input number */
+    margin: 0;
+}
+
+.form-control-cantidad-compacto:focus {
+    border-color: var(--color-primary);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+    background: var(--color-bg-white);
+    color: var(--color-text-main);
 }
 
 /* Botones de acción compactos */
@@ -2452,11 +2500,6 @@ input[type="radio"]:checked + .btn-color-compacto.color-sin-stock {
 table.sortable-table thead th.sortable {
     position: relative;
     user-select: none;
-    transition: background-color 0.2s ease;
-}
-
-table.sortable-table thead th.sortable:hover {
-    background-color: var(--color-overlay-light);
 }
 
 table.sortable-table thead th.sortable.table-hover-sort {
@@ -2498,11 +2541,6 @@ table.sortable-table thead th.sortable.sort-desc .sort-arrow {
     opacity: 1;
 }
 
-/* Hover en headers ordenables */
-table.sortable-table thead th.sortable:hover .sort-arrow {
-    color: var(--color-primary);
-    opacity: 0.8;
-}
 
 /* Cursor pointer para indicar que es clickeable */
 table.sortable-table thead th.sortable {
@@ -2510,10 +2548,6 @@ table.sortable-table thead th.sortable {
 }
 
 /* Estilo para tablas con tema oscuro (Bootstrap table-dark) */
-table.sortable-table thead.table-dark th.sortable:hover {
-    background-color: var(--color-overlay-white-light);
-}
-
 table.sortable-table thead.table-dark th.sortable.table-hover-sort {
     background-color: var(--color-overlay-white-medium);
 }
@@ -2529,7 +2563,3 @@ table.sortable-table thead.table-dark th.sortable.sort-desc .sort-arrow {
     opacity: 1;
 }
 
-table.sortable-table thead.table-dark th.sortable:hover .sort-arrow {
-    color: var(--color-overlay-white-hover);
-    opacity: 0.9;
-}

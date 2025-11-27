@@ -198,5 +198,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+    
+    // Agregar event listener al formulario de variantes para prepararEnvioFormulario()
+    // NOTA: También está en onsubmit del HTML, pero esto asegura que funcione correctamente
+    const formVariantesUnificado = document.getElementById('formVariantesUnificado');
+    if (formVariantesUnificado) {
+        formVariantesUnificado.addEventListener('submit', function(e) {
+            // Preparar formulario antes de enviar (limpiar inputs vacíos)
+            if (typeof prepararEnvioFormulario === 'function') {
+                prepararEnvioFormulario();
+            }
+        });
+    }
 });
 

@@ -29,12 +29,13 @@
 session_start();
 
 // ========================================================================
-// MODO DEBUG - Mostrar solo errores en pantalla
+// MODO DEBUG - Desactivado en producción
 // ========================================================================
-// Activar mostrar errores para desarrollo/debug
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+// Los errores se registran en el log del servidor, no se muestran al usuario
+// Para activar debug en desarrollo, descomentar las siguientes líneas:
+// ini_set('display_errors', 1);
+// ini_set('display_startup_errors', 1);
+// error_reporting(E_ALL);
 
 require_once __DIR__ . '/config/database.php';
 
@@ -49,39 +50,16 @@ if (!isset($_SESSION['id_usuario'])) {
 }
 
 /**
+ * Cargar funciones comunes del carrito
+ */
+require_once __DIR__ . '/includes/carrito_functions.php';
+
+/**
  * Limpiar mensajes de error obsoletos relacionados con login
  * Si el usuario ya está logueado, cualquier mensaje de error sobre login
  * es obsoleto y no debe mostrarse
  */
-if (isset($_SESSION['mensaje_error']) && 
-    strpos($_SESSION['mensaje_error'], 'Debes iniciar sesión') !== false) {
-    unset($_SESSION['mensaje_error']);
-}
-
-/**
- * Función helper: Verificar si el carrito tiene productos reales (excluyendo _meta)
- * @param array $carrito Array del carrito de sesión
- * @return bool True si tiene productos reales, false si está vacío
- */
-function tieneProductosReales($carrito) {
-    if (!isset($carrito) || !is_array($carrito) || empty($carrito)) {
-        return false;
-    }
-    
-    // Contar productos reales (excluyendo _meta)
-    foreach ($carrito as $clave => $item) {
-        if ($clave === '_meta') {
-            continue;
-        }
-        // Verificar que el item tenga estructura válida
-        if (isset($item['id_producto']) && isset($item['talla']) && 
-            isset($item['color']) && isset($item['cantidad'])) {
-            return true;
-        }
-    }
-    
-    return false;
-}
+limpiarMensajesErrorObsoletos('Debes iniciar sesión');
 
 // Verificar que el carrito tenga productos reales (no solo _meta)
 if (!tieneProductosReales($_SESSION['carrito'] ?? [])) {
@@ -128,82 +106,61 @@ require_once __DIR__ . '/includes/perfil_functions.php';
 require_once __DIR__ . '/includes/envio_functions.php';
 
 /**
- * Parsear dirección del usuario en componentes (calle, número, piso) - simplificado
+ * Parsear dirección del usuario en componentes (calle, número, piso) usando función centralizada
  */
 $direccion_completa = $usuario['direccion'] ?? '';
-$direccion_parseada = ['calle' => '', 'numero' => '', 'piso' => ''];
-if (!empty($direccion_completa)) {
-    // Parseo simple: buscar primer número
-    if (preg_match('/^(.+?)\s+(\d+)(.*)$/', trim($direccion_completa), $matches)) {
-        $direccion_parseada['calle'] = trim($matches[1]);
-        $direccion_parseada['numero'] = $matches[2];
-        $direccion_parseada['piso'] = trim($matches[3]);
-    } else {
-        $direccion_parseada['calle'] = trim($direccion_completa);
-    }
-}
+$direccion_parseada = parsearDireccion($direccion_completa);
 
 /**
  * Calcular resumen del pedido
  * Procesa todos los productos del carrito, valida stock y elimina productos inválidos
+ * 
+ * NOTA SOBRE VALIDACIÓN DE STOCK:
+ * Esta validación es PRELIMINAR y se usa solo para mostrar información al usuario.
+ * La validación DEFINITIVA con FOR UPDATE se realiza en procesar-pedido.php para:
+ * - Prevenir race conditions (múltiples usuarios comprando simultáneamente)
+ * - Garantizar atomicidad en la transacción
+ * - Bloquear filas de stock durante la validación
+ * 
+ * Esta validación en checkout.php es más rápida y permite mostrar al usuario
+ * qué productos están disponibles antes de confirmar el pedido.
  */
 $productos_carrito = array();
 $total_carrito = 0;
 $total_items = 0;
 $productos_a_eliminar = array();
 
-// Procesar cada producto del carrito
+// Procesar cada producto del carrito usando función helper
 foreach ($_SESSION['carrito'] as $clave => $item) {
     // Saltar metadatos del carrito
     if ($clave === '_meta') {
         continue;
     }
     
-    // Validar estructura del item
-    if (!isset($item['id_producto']) || !isset($item['talla']) || 
-        !isset($item['color']) || !isset($item['cantidad'])) {
-        $productos_a_eliminar[] = $clave;
-        continue;
-    }
+    // Procesar item usando función helper (modo preliminar)
+    $resultado = procesarItemCarrito($mysqli, $item, $clave, 'preliminar');
     
-    // Obtener datos del producto y variante desde BD (ya normaliza stock)
-    $producto = obtenerProductoConVariante($mysqli, $item['id_producto'], $item['talla'], $item['color']);
-    
-    // Validar que el producto existe y tiene variante activa
-    if (!$producto || empty($producto['id_variante'])) {
-        $productos_a_eliminar[] = $clave;
-        continue;
-    }
-    
-    // Stock ya está normalizado por obtenerProductoConVariante (int, nunca NULL, mínimo 0)
-    $stock_disponible = $producto['stock'] ?? 0;
-    
-    // Normalizar cantidad solicitada
-    $cantidad_solicitada = max(1, intval($item['cantidad']));
-    
-    // Validar stock disponible
-    if ($stock_disponible < $cantidad_solicitada) {
+    // Si hay error, agregar a lista de eliminación
+    if ($resultado === false) {
         $productos_a_eliminar[] = $clave;
         continue;
     }
     
     // Producto válido: agregar al resumen
-    $subtotal = $producto['precio_actual'] * $cantidad_solicitada;
-    $total_carrito += $subtotal;
-    $total_items += $cantidad_solicitada;
-    
-    $productos_carrito[] = array(
-        'clave' => $clave,
-        'id_producto' => $producto['id_producto'],
-        'id_variante' => $producto['id_variante'],
-        'nombre_producto' => $producto['nombre_producto'],
-        'precio_actual' => $producto['precio_actual'],
+    $productos_carrito[] = [
+        'clave' => $resultado['clave'],
+        'id_producto' => $resultado['id_producto'],
+        'id_variante' => $resultado['id_variante'],
+        'nombre_producto' => $resultado['nombre_producto'],
+        'precio_actual' => $resultado['precio_actual'],
         'talla' => $item['talla'],
         'color' => $item['color'],
-        'cantidad' => $cantidad_solicitada,
-        'stock_disponible' => $stock_disponible,
-        'subtotal' => $subtotal
-    );
+        'cantidad' => $resultado['cantidad'],
+        'stock_disponible' => $resultado['stock_disponible'],
+        'subtotal' => $resultado['subtotal']
+    ];
+    $total_carrito += $resultado['subtotal'];
+    $total_items += $resultado['cantidad'];
 }
 
 // Eliminar productos inválidos del carrito
@@ -311,6 +268,11 @@ if (!empty($checkout_errores)) {
 
 /**
  * Calcular costo de envío
+ * NOTA: Este cálculo se repite en procesar-pedido.php por diseño:
+ * - Aquí (checkout.php): Se calcula para MOSTRAR al usuario el costo estimado antes de confirmar
+ * - En procesar-pedido.php: Se calcula para GUARDAR el costo real en el pedido
+ * Ambos cálculos son necesarios porque el usuario puede cambiar la dirección en checkout,
+ * y el cálculo final debe reflejar la dirección seleccionada al procesar el pedido.
  */
 $provincia_usuario = $usuario['provincia'] ?? '';
 $localidad_usuario = $usuario['localidad'] ?? '';
@@ -384,7 +346,7 @@ $monto_faltante = obtenerMontoFaltanteEnvioGratis($total_carrito);
         <?php else: ?>
         
         <!-- Formulario de Checkout -->
-        <form method="POST" action="/procesar-pedido.php" id="formCheckout">
+        <form method="POST" action="procesar-pedido.php" id="formCheckout">
             <div class="row">
                 <!-- Columna izquierda: Datos de envío y pago -->
                 <div class="col-lg-8">
@@ -438,6 +400,8 @@ $monto_faltante = obtenerMontoFaltanteEnvioGratis($total_carrito);
                                     <input type="text" class="form-control" id="direccion_calle" name="direccion_calle" 
                                            value="<?php echo htmlspecialchars($direccion_parseada['calle']); ?>" 
                                            placeholder="Nombre de la calle"
+                                           pattern="[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+"
+                                           title="Solo se permiten letras (incluyendo acentos), números, espacios, guiones, apóstrofes y acentos graves"
                                            required>
                                 </div>
                                 <div class="col-md-3 mb-3">
@@ -445,13 +409,17 @@ $monto_faltante = obtenerMontoFaltanteEnvioGratis($total_carrito);
                                     <input type="text" class="form-control" id="direccion_numero" name="direccion_numero" 
                                            value="<?php echo htmlspecialchars($direccion_parseada['numero']); ?>" 
                                            placeholder="Número"
+                                           pattern="[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+"
+                                           title="Solo se permiten letras (incluyendo acentos), números, espacios, guiones, apóstrofes y acentos graves"
                                            required>
                                 </div>
                                 <div class="col-md-3 mb-3">
                                     <label for="direccion_piso" class="form-label">Piso / Depto.</label>
                                     <input type="text" class="form-control" id="direccion_piso" name="direccion_piso" 
                                            value="<?php echo htmlspecialchars($direccion_parseada['piso']); ?>" 
-                                           placeholder="Opcional">
+                                           placeholder="Opcional"
+                                           pattern="[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+"
+                                           title="Solo se permiten letras (incluyendo acentos), números, espacios, guiones, apóstrofes y acentos graves">
                                 </div>
                             </div>
 
@@ -534,7 +502,9 @@ $monto_faltante = obtenerMontoFaltanteEnvioGratis($total_carrito);
                                            id="pago_<?php echo $forma['id_forma_pago']; ?>" 
                                            value="<?php echo $forma['id_forma_pago']; ?>"
                                            <?php echo ($forma['id_forma_pago'] == 1) ? 'checked' : ''; ?>
-                                           required>
+                                           required
+                                           data-forma-pago-id="<?php echo $forma['id_forma_pago']; ?>"
+                                           data-forma-pago-nombre="<?php echo htmlspecialchars($forma['nombre']); ?>">
                                     <label class="form-check-label" for="pago_<?php echo $forma['id_forma_pago']; ?>">
                                         <strong><?php echo htmlspecialchars($forma['nombre']); ?></strong>
                                         <?php if ($forma['descripcion']): ?>
@@ -544,6 +514,13 @@ $monto_faltante = obtenerMontoFaltanteEnvioGratis($total_carrito);
                                     </label>
                                 </div>
                                 <?php endforeach; ?>
+                                
+                                <!-- Warning informativo sobre método de pago seleccionado -->
+                                <div id="warning-metodo-pago" class="alert alert-info alert-dismissible fade show d-none" role="alert">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <span id="mensaje-metodo-pago"></span>
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -586,6 +563,17 @@ $monto_faltante = obtenerMontoFaltanteEnvioGratis($total_carrito);
                                         <small class="text-muted d-block">
                                             Cantidad: <?php echo $producto['cantidad']; ?> x $<?php echo number_format($producto['precio_actual'], 2); ?>
                                         </small>
+                                        <?php 
+                                        // Warning de stock bajo (menos de 5 unidades disponibles)
+                                        $stock_disponible = $producto['stock_disponible'] ?? 0;
+                                        $mostrar_warning_stock_bajo = !$tiene_error && $stock_disponible > 0 && $stock_disponible < 5;
+                                        ?>
+                                        <?php if ($mostrar_warning_stock_bajo): ?>
+                                        <div class="alert alert-warning alert-sm py-1 px-2 mt-2 mb-1" style="font-size: 0.75rem; line-height: 1.3;">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>
+                                            <strong>Stock limitado:</strong> Quedan <?php echo $stock_disponible; ?> unidades disponibles
+                                        </div>
+                                        <?php endif; ?>
                                         <?php if ($tiene_error && isset($producto['error_mensaje'])): ?>
                                         <div class="alert alert-danger alert-sm py-1 px-2 mt-2 mb-1" style="font-size: 0.75rem; line-height: 1.3;">
                                             <i class="fas fa-exclamation-circle me-1"></i>
@@ -642,7 +630,7 @@ $monto_faltante = obtenerMontoFaltanteEnvioGratis($total_carrito);
                             </div>
 
                             <!-- Botón de confirmar -->
-                            <button type="submit" class="btn btn-success w-100 mb-2" <?php echo empty($formas_pago) ? 'disabled' : ''; ?>>
+                            <button type="submit" class="btn btn-success w-100 mb-2" data-auto-lock="true" data-lock-time="3000" data-lock-text="Procesando pedido..." <?php echo empty($formas_pago) ? 'disabled' : ''; ?>>
                                 <i class="fas fa-check-circle me-2"></i>
                                 Confirmar Pedido
                             </button>
@@ -690,7 +678,7 @@ $monto_faltante = obtenerMontoFaltanteEnvioGratis($total_carrito);
     }
 </style>
 
-<script src="includes/checkout.js"></script>
+<script src="js/checkout.js"></script>
 
 <?php include 'includes/footer.php'; render_footer(); ?>
 

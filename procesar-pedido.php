@@ -36,9 +36,13 @@ require_once __DIR__ . '/includes/queries/pedido_queries.php';
 require_once __DIR__ . '/includes/queries/producto_queries.php';
 require_once __DIR__ . '/includes/queries/forma_pago_queries.php';
 require_once __DIR__ . '/includes/queries/pago_queries.php';
+require_once __DIR__ . '/includes/queries/stock_queries.php'; // Necesario para validarStockDisponibleVenta()
 require_once __DIR__ . '/includes/perfil_functions.php';
 require_once __DIR__ . '/includes/envio_functions.php';
 require_once __DIR__ . '/includes/carrito_functions.php';
+require_once __DIR__ . '/includes/email_gmail_functions.php';
+require_once __DIR__ . '/includes/queries/usuario_queries.php'; // Para obtenerUsuarioPorId() y actualizarDatosUsuarioCompleto()
+require_once __DIR__ . '/includes/validation_functions.php'; // Funciones de validación centralizadas
 
 /**
  * Validaciones iniciales
@@ -107,40 +111,32 @@ if (!empty($campos_faltantes)) {
     exit;
 }
 
-// Validar formato de email
-$email_contacto = filter_var(trim($_POST['email_contacto']), FILTER_VALIDATE_EMAIL);
-if (!$email_contacto) {
-    $_SESSION['mensaje_error'] = "El email de contacto no es válido";
+// Validar formato de email usando función centralizada
+$validacion_email = validarEmail($_POST['email_contacto']);
+if (!$validacion_email['valido']) {
+    $_SESSION['mensaje_error'] = $validacion_email['error'];
     header('Location: checkout.php');
     exit;
 }
+$email_contacto = strtolower(trim($_POST['email_contacto'])); // Usar original sin sanitizar para BD
 
-// Validar formato de teléfono (solo números y símbolos permitidos)
-$telefono = trim($_POST['telefono']);
-// Validar longitud según diccionario: 6-20 caracteres
-if (strlen($telefono) < 6) {
-    $_SESSION['mensaje_error'] = "El teléfono debe tener al menos 6 caracteres";
+// Validar formato de teléfono usando función centralizada
+$validacion_telefono = validarTelefono($_POST['telefono'], false);
+if (!$validacion_telefono['valido']) {
+    $_SESSION['mensaje_error'] = $validacion_telefono['error'];
     header('Location: checkout.php');
     exit;
 }
-if (strlen($telefono) > 20) {
-    $_SESSION['mensaje_error'] = "El teléfono no puede exceder 20 caracteres";
-    header('Location: checkout.php');
-    exit;
-}
-if (!preg_match('/^[0-9+\-() ]+$/', $telefono)) {
-    $_SESSION['mensaje_error'] = "El teléfono contiene caracteres no permitidos";
-    header('Location: checkout.php');
-    exit;
-}
+$telefono = $validacion_telefono['valor'];
 
-// Validar código postal (solo letras, números y espacios)
-$codigo_postal = trim($_POST['codigo_postal']);
-if (!preg_match('/^[A-Za-z0-9 ]+$/', $codigo_postal)) {
-    $_SESSION['mensaje_error'] = "El código postal contiene caracteres no permitidos";
+// Validar código postal usando función centralizada
+$validacion_codigo_postal = validarCodigoPostal($_POST['codigo_postal']);
+if (!$validacion_codigo_postal['valido']) {
+    $_SESSION['mensaje_error'] = $validacion_codigo_postal['error'];
     header('Location: checkout.php');
     exit;
 }
+$codigo_postal = $validacion_codigo_postal['valor'];
 
 // Validar ID de forma de pago
 $id_forma_pago = intval($_POST['id_forma_pago']);
@@ -155,16 +151,18 @@ if ($id_forma_pago <= 0) {
  * 
  * NOTA SOBRE VALIDACIÓN DE STOCK:
  * Esta es la validación DEFINITIVA que se ejecuta antes de crear el pedido.
- * Usa FOR UPDATE para bloquear las filas de stock y prevenir race conditions.
+ * Usa transacciones para garantizar atomicidad en la validación.
  * 
  * DIFERENCIA CON checkout.php:
  * - checkout.php: Validación preliminar rápida (sin bloqueo) para mostrar al usuario
- * - procesar-pedido.php: Validación definitiva con transacción y FOR UPDATE
+ * - procesar-pedido.php: Validación definitiva con transacción
  * 
  * Esta validación es necesaria porque:
  * 1. Múltiples usuarios pueden intentar comprar el mismo producto simultáneamente
  * 2. El stock puede cambiar entre checkout y procesamiento
  * 3. Garantiza que solo se procesen pedidos con stock realmente disponible
+ * 
+ * NOTA: El stock se valida nuevamente al aprobar el pago antes de descontarlo.
  */
 $productos_validos = [];
 $total_pedido = 0;
@@ -172,15 +170,15 @@ $errores_stock = [];
 $checkout_errores = [];
 $checkout_productos_problema = [];
 
-// Iniciar transacción para validar stock con FOR UPDATE (evita race conditions)
+// Iniciar transacción para validar stock (sin FOR UPDATE, más simple y confiable)
 $mysqli->begin_transaction();
 
 try {
     /**
-     * Procesar cada producto del carrito
+     * Procesar cada producto del carrito usando función helper centralizada
      * NOTA: Este procesamiento es similar al de checkout.php pero con validación definitiva:
      * - checkout.php: Validación rápida para mostrar información al usuario
-     * - procesar-pedido.php: Validación con FOR UPDATE para garantizar atomicidad
+     * - procesar-pedido.php: Validación definitiva antes de crear el pedido
      * 
      * Ambos procesamientos son necesarios porque:
      * 1. checkout.php muestra información preliminar al usuario
@@ -193,174 +191,55 @@ try {
             continue;
         }
         
-        // Validar que el item tenga los datos necesarios
-        if (!isset($item['id_producto']) || !isset($item['talla']) || !isset($item['color']) || !isset($item['cantidad'])) {
-            continue;
-        }
+        // Procesar item usando función helper (modo definitivo)
+        $resultado = procesarItemCarrito($mysqli, $item, $clave, 'definitivo');
         
-        // Obtener datos del producto y verificar stock
-        $producto = obtenerProductoConVariante($mysqli, $item['id_producto'], $item['talla'], $item['color']);
-        
-        if (!$producto || empty($producto['id_variante'])) {
-            $mensaje_error = "El producto seleccionado ya no está disponible";
-            $errores_stock[] = $mensaje_error;
+        // Si hay error, construir estructura de error usando función helper
+        $error_checkout = construirErrorCheckout($resultado, $item, $clave);
+        if ($error_checkout !== null) {
+            $errores_stock[] = $error_checkout['mensaje'];
             $checkout_errores[] = [
-                'clave' => $clave,
-                'mensaje' => $mensaje_error,
-                'tipo' => 'producto_no_disponible'
+                'clave' => $error_checkout['clave'],
+                'mensaje' => $error_checkout['mensaje'],
+                'tipo' => $error_checkout['tipo'],
+                'stock_disponible' => $error_checkout['stock_disponible'],
+                'cantidad_solicitada' => $error_checkout['cantidad_solicitada']
             ];
             $checkout_productos_problema[$clave] = [
-                'clave' => $clave,
+                'clave' => $error_checkout['clave'],
                 'id_producto' => $item['id_producto'],
-                'talla' => $item['talla'],
-                'color' => $item['color'],
-                'cantidad_solicitada' => $item['cantidad'],
-                'stock_disponible' => 0,
-                'precio_actual' => 0,
-                'disponible' => false
+                'talla' => $error_checkout['talla'],
+                'color' => $error_checkout['color'],
+                'cantidad_solicitada' => $error_checkout['cantidad_solicitada'],
+                'stock_disponible' => $error_checkout['stock_disponible'],
+                'precio_actual' => $error_checkout['precio_actual'],
+                'disponible' => $error_checkout['disponible'],
+                'nombre_producto' => $error_checkout['nombre_producto']
             ];
             continue;
         }
         
-        $id_variante = intval($producto['id_variante']);
-        $cantidad_solicitada = intval($item['cantidad']);
-        
-        // Validar stock con FOR UPDATE para bloquear la fila y evitar race conditions
-        $sql_stock = "
-            SELECT 
-                sv.stock, 
-                sv.activo as variante_activa, 
-                p.activo as producto_activo,
-                p.nombre_producto,
-                p.precio_actual,
-                sv.talle,
-                sv.color
-            FROM Stock_Variantes sv
-            INNER JOIN Productos p ON sv.id_producto = p.id_producto
-            WHERE sv.id_variante = ?
-            FOR UPDATE
-        ";
-        
-        $stmt_stock = $mysqli->prepare($sql_stock);
-        if (!$stmt_stock) {
-            throw new Exception('Error al validar stock disponible');
-        }
-        
-        $stmt_stock->bind_param('i', $id_variante);
-        $stmt_stock->execute();
-        $result_stock = $stmt_stock->get_result();
-        $datos_stock = $result_stock->fetch_assoc();
-        $stmt_stock->close();
-        
-        if (!$datos_stock) {
-            $mensaje_error = "El producto seleccionado ya no está disponible";
-            $errores_stock[] = $mensaje_error;
-            $checkout_errores[] = [
-                'clave' => $clave,
-                'mensaje' => $mensaje_error,
-                'tipo' => 'producto_no_encontrado'
-            ];
-            $checkout_productos_problema[$clave] = [
-                'clave' => $clave,
-                'id_producto' => $item['id_producto'],
-                'talla' => $item['talla'],
-                'color' => $item['color'],
-                'cantidad_solicitada' => $cantidad_solicitada,
-                'stock_disponible' => 0,
-                'precio_actual' => floatval($producto['precio_actual'] ?? 0),
-                'disponible' => false
-            ];
-            continue;
-        }
-        
-        $stock_disponible = intval($datos_stock['stock']);
-        $variante_activa = intval($datos_stock['variante_activa']);
-        $producto_activo = intval($datos_stock['producto_activo']);
-        $precio_actual = floatval($datos_stock['precio_actual']);
-        
-        // Validar que variante y producto estén activos
-        if ($variante_activa === 0 || $producto_activo === 0) {
-            if ($variante_activa === 0) {
-                $mensaje_error = "La variante {$datos_stock['talle']} {$datos_stock['color']} del producto {$datos_stock['nombre_producto']} está inactiva";
-                $errores_stock[] = $mensaje_error;
-                $checkout_errores[] = [
-                    'clave' => $clave,
-                    'mensaje' => $mensaje_error,
-                    'tipo' => 'variante_inactiva'
-                ];
-            }
-            if ($producto_activo === 0) {
-                $mensaje_error = "El producto {$datos_stock['nombre_producto']} está inactivo";
-                $errores_stock[] = $mensaje_error;
-                $checkout_errores[] = [
-                    'clave' => $clave,
-                    'mensaje' => $mensaje_error,
-                    'tipo' => 'producto_inactivo'
-                ];
-            }
-            $checkout_productos_problema[$clave] = [
-                'clave' => $clave,
-                'id_producto' => $item['id_producto'],
-                'talla' => $datos_stock['talle'],
-                'color' => $datos_stock['color'],
-                'cantidad_solicitada' => $cantidad_solicitada,
-                'stock_disponible' => $stock_disponible,
-                'precio_actual' => $precio_actual,
-                'disponible' => false,
-                'nombre_producto' => $datos_stock['nombre_producto']
-            ];
-            continue;
-        }
-        
-        // Verificar stock disponible
-        if ($stock_disponible < $cantidad_solicitada) {
-            $mensaje_error = "Stock insuficiente para {$datos_stock['nombre_producto']} (Talla: {$datos_stock['talle']}, Color: {$datos_stock['color']}). Disponible: {$stock_disponible}, Solicitado: {$cantidad_solicitada}";
-            $errores_stock[] = $mensaje_error;
-            $checkout_errores[] = [
-                'clave' => $clave,
-                'mensaje' => $mensaje_error,
-                'tipo' => 'stock_insuficiente',
-                'stock_disponible' => $stock_disponible,
-                'cantidad_solicitada' => $cantidad_solicitada
-            ];
-            $checkout_productos_problema[$clave] = [
-                'clave' => $clave,
-                'id_producto' => $item['id_producto'],
-                'talla' => $datos_stock['talle'],
-                'color' => $datos_stock['color'],
-                'cantidad_solicitada' => $cantidad_solicitada,
-                'stock_disponible' => $stock_disponible,
-                'precio_actual' => $precio_actual,
-                'disponible' => true,
-                'nombre_producto' => $datos_stock['nombre_producto']
-            ];
-            continue;
-        }
-        
-        // Calcular subtotal
-        $precio_unitario = floatval($producto['precio_actual']);
-        $subtotal = $precio_unitario * $cantidad_solicitada;
-        $total_pedido += $subtotal;
-        
-        // Guardar producto válido con todos los datos necesarios
-        // Usar talle de la BD (con 'e') para consistencia
+        // Producto válido: agregar a lista y actualizar total
         $productos_validos[] = [
-            'clave' => $clave,
-            'id_producto' => $producto['id_producto'],
-            'id_variante' => $producto['id_variante'],
-            'nombre_producto' => $producto['nombre_producto'],
-            'precio_unitario' => $precio_unitario,
-            'talle' => $producto['talle'], // Usar talle de BD (con 'e')
-            'color' => $producto['color'],
-            'cantidad' => $cantidad_solicitada,
-            'subtotal' => $subtotal
+            'clave' => $resultado['clave'],
+            'id_producto' => $resultado['id_producto'],
+            'id_variante' => $resultado['id_variante'],
+            'nombre_producto' => $resultado['nombre_producto'],
+            'precio_unitario' => $resultado['precio_actual'],
+            'talle' => $resultado['talle'],
+            'color' => $resultado['color'],
+            'cantidad' => $resultado['cantidad'],
+            'subtotal' => $resultado['subtotal']
         ];
+        $total_pedido += $resultado['subtotal'];
     }
     
     // Si hay errores de stock, hacer rollback y redirigir a checkout con información detallada
     if (!empty($errores_stock)) {
         $mysqli->rollback();
-        $_SESSION['mensaje_error'] = "Hay problemas con algunos productos en tu carrito. Por favor, revisa los detalles a continuación.";
+        
+        // Construir mensaje de error usando función helper
+        $_SESSION['mensaje_error'] = construirMensajeErrorGeneral($checkout_errores);
         $_SESSION['checkout_errores'] = $checkout_errores;
         $_SESSION['checkout_productos_problema'] = $checkout_productos_problema;
         header('Location: checkout.php');
@@ -378,11 +257,13 @@ try {
     error_log("Error al validar stock en procesar-pedido.php: " . $error_message);
     error_log("Archivo: " . $error_file . " Línea: " . $error_line);
     
-    // Mensaje más descriptivo según el tipo de error
+    // Mensaje más descriptivo según el tipo de error con acciones sugeridas
     if (strpos($error_message, 'STOCK_INSUFICIENTE') !== false) {
-        $_SESSION['mensaje_error'] = "Algunos productos ya no tienen stock disponible. Por favor, revisa tu carrito.";
+        $_SESSION['mensaje_error'] = "El stock disponible ha cambiado mientras procesábamos tu pedido. Esto puede ocurrir cuando varios clientes compran simultáneamente. Acción sugerida: Revisa tu carrito, ajusta las cantidades según el stock disponible, o remueve los productos sin stock y continúa con los productos disponibles.";
+    } elseif (strpos($error_message, 'inactivo') !== false) {
+        $_SESSION['mensaje_error'] = "Algunos productos ya no están disponibles. Estos fueron removidos automáticamente de tu carrito. Acción sugerida: Revisa tu carrito y continúa con los productos disponibles, o agrega otros productos a tu carrito.";
     } else {
-        $_SESSION['mensaje_error'] = "Error al validar stock disponible. Por favor, intenta nuevamente. Si el problema persiste, contacta al administrador.";
+        $_SESSION['mensaje_error'] = "Ocurrió un error al validar el stock disponible. Acción sugerida: Intenta nuevamente. Si el problema persiste, contacta al administrador con el número de pedido si tienes uno, o describe el problema que estás experimentando.";
     }
     header('Location: checkout.php');
     exit;
@@ -390,7 +271,7 @@ try {
 
 // Verificar que haya productos válidos
 if (empty($productos_validos)) {
-    $_SESSION['mensaje_error'] = "No hay productos disponibles en tu carrito. Por favor, agrega productos antes de continuar.";
+    $_SESSION['mensaje_error'] = "No hay productos disponibles en tu carrito. Acción sugerida: Agrega productos disponibles al carrito desde la tienda antes de continuar con el checkout.";
     header('Location: checkout.php');
     exit;
 }
@@ -412,63 +293,44 @@ $mysqli->begin_transaction();
 
 try {
     /**
-     * Actualizar datos del usuario si se modificaron
+     * Actualizar datos del usuario usando función centralizada
      */
     $nombre = trim($_POST['nombre']);
     $apellido = trim($_POST['apellido']);
-    $telefono = trim($_POST['telefono']);
-    $email_contacto = trim($_POST['email_contacto']);
     $direccion_calle = trim($_POST['direccion_calle']);
     $direccion_numero = trim($_POST['direccion_numero']);
     $direccion_piso = trim($_POST['direccion_piso'] ?? '');
     $provincia = trim($_POST['provincia']);
     $localidad = trim($_POST['localidad']);
-    $codigo_postal = trim($_POST['codigo_postal']);
     
-    // Combinar dirección completa
-    $direccion_completa = trim($direccion_calle) . ' ' . trim($direccion_numero);
-    if (!empty($direccion_piso)) {
-        $direccion_completa .= ' ' . trim($direccion_piso);
-    }
-    $direccion_completa = trim($direccion_completa);
-    
-    // Actualizar datos del usuario
-    $sql_update_usuario = "UPDATE Usuarios SET 
-        nombre = ?,
-        apellido = ?,
-        telefono = ?,
-        email = ?,
-        direccion = ?,
-        localidad = ?,
-        provincia = ?,
-        codigo_postal = ?,
-        fecha_actualizacion = NOW()
-        WHERE id_usuario = ? AND activo = 1";
-    
-    $stmt_update_usuario = $mysqli->prepare($sql_update_usuario);
-    if (!$stmt_update_usuario) {
-        throw new Exception("Error al preparar actualización de usuario: " . $mysqli->error);
-    }
-    
-    $stmt_update_usuario->bind_param('ssssssssi', 
-        $nombre, 
-        $apellido, 
-        $telefono, 
-        $email_contacto, 
-        $direccion_completa, 
-        $localidad, 
-        $provincia, 
-        $codigo_postal, 
-        $id_usuario
+    // Actualizar datos del usuario usando función centralizada con validaciones
+    $resultado_actualizacion = actualizarDatosUsuarioCompleto(
+        $mysqli,
+        $id_usuario,
+        $nombre,
+        $apellido,
+        $email_contacto,
+        $telefono,
+        $direccion_calle,
+        $direccion_numero,
+        $direccion_piso,
+        $localidad,
+        $provincia,
+        $codigo_postal
     );
     
-    if (!$stmt_update_usuario->execute()) {
-        throw new Exception("Error al actualizar datos del usuario: " . $stmt_update_usuario->error);
+    if (!$resultado_actualizacion['exito']) {
+        throw new Exception($resultado_actualizacion['error']);
     }
-    $stmt_update_usuario->close();
+    
+    // Obtener dirección completa para usar en el pedido (ya validada por la función)
+    $validacion_direccion = validarDireccionCompleta($direccion_calle, $direccion_numero, $direccion_piso);
+    $direccion_completa = $validacion_direccion['direccion_completa'];
     
     /**
-     * Crear pedido
+     * Crear pedido con estado 'pendiente'
+     * El pedido espera aprobación del pago. El stock se validará nuevamente
+     * al aprobar el pago antes de descontarlo.
      */
     $id_pedido = crearPedido($mysqli, $id_usuario, 'pendiente');
     
@@ -589,6 +451,27 @@ try {
     $_SESSION['pedido_exitoso'] = $pedido_exitoso;
     
     /**
+     * Enviar email de confirmación de pedido (no bloquear flujo si falla)
+     */
+    try {
+        // Obtener datos del usuario desde la base de datos
+        $usuario = obtenerUsuarioPorId($mysqli, $id_usuario);
+        if ($usuario) {
+            $datos_usuario = [
+                'nombre' => $usuario['nombre'],
+                'apellido' => $usuario['apellido'],
+                'email' => $usuario['email']
+            ];
+            enviar_email_confirmacion_pedido_gmail($pedido_exitoso, $datos_usuario);
+        } else {
+            error_log("No se pudo obtener datos del usuario ID: $id_usuario para enviar email de confirmación");
+        }
+    } catch (Exception $e) {
+        // Solo loggear error, no interrumpir el flujo
+        error_log("Error al enviar email de confirmación de pedido ID: {$pedido_exitoso['id_pedido']}. Error: " . $e->getMessage());
+    }
+    
+    /**
      * Limpiar carrito de sesión
      */
     unset($_SESSION['carrito']);
@@ -630,7 +513,8 @@ try {
             "<strong>Línea:</strong> " . $error_line . "<br>" .
             "<strong>Trace:</strong><pre style='font-size: 0.85rem; max-height: 200px; overflow-y: auto;'>" . htmlspecialchars($error_trace) . "</pre>";
     } else {
-        $_SESSION['mensaje_error'] = "Ocurrió un error al procesar tu pedido. Por favor, intenta nuevamente. Si el problema persiste, contacta al administrador.";
+        // Mensaje mejorado con acciones sugeridas
+        $_SESSION['mensaje_error'] = "Ocurrió un error al procesar tu pedido. Por favor, verifica que todos los datos estén correctos e intenta nuevamente. Si el problema persiste, contacta al administrador con los detalles de tu pedido.";
     }
     
     header('Location: checkout.php');

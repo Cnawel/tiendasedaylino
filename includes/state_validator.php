@@ -57,7 +57,8 @@ class StateValidator {
      * Define explícitamente qué transiciones de estado están permitidas desde cada estado actual.
      * 
      * REGLAS DE NEGOCIO:
-     * - Estados iniciales (pendiente, pendiente_validado_stock): Pueden cancelarse
+     * - Estados iniciales (pendiente): Pueden cancelarse
+     *   NOTA: Todo pedido en 'pendiente' ya tiene stock validado (se valida antes de crear el pedido)
      * - Estados de recorrido activo (preparacion, en_viaje, completado, devolucion): NO pueden cancelarse normalmente
      * - EXCEPCIÓN: preparacion puede cancelarse SOLO cuando el pago está cancelado/rechazado (validación adicional)
      * - Un pedido en recorrido activo solo puede avanzar hacia estados finales, nunca cancelarse (excepto preparacion con excepción)
@@ -65,10 +66,9 @@ class StateValidator {
      * @var array
      */
     private static $transicionesPedido = [
-        'pendiente' => ['pendiente_validado_stock', 'preparacion', 'cancelado'],
-        'pendiente_validado_stock' => ['preparacion', 'cancelado'],
+        'pendiente' => ['preparacion', 'cancelado'],
         'preparacion' => ['en_viaje', 'completado', 'cancelado'], // Puede cancelarse SOLO cuando el pago está cancelado/rechazado (validación adicional)
-        'en_viaje' => ['completado', 'devolucion'], // NO puede cancelarse: ya está en recorrido activo
+        'en_viaje' => ['completado', 'devolucion'], // Puede cancelarse SOLO cuando el pago está cancelado/rechazado (validación adicional)
         'completado' => [], // estado terminal en MVP - venta cerrada, no admite cambios
         'devolucion' => ['cancelado'],
         'cancelado' => [] // estado terminal
@@ -81,7 +81,7 @@ class StateValidator {
      */
     private static $estadosIniciales = [
         'pago' => ['pendiente'],
-        'pedido' => ['pendiente', 'pendiente_validado_stock']
+        'pedido' => ['pendiente'] // Todo pedido en 'pendiente' ya tiene stock validado
     ];
     
     /**
@@ -109,14 +109,18 @@ class StateValidator {
     /**
      * Normaliza un estado (trim + strtolower)
      * 
+     * Usa la función normalizarEstado() de estado_helpers.php para mantener consistencia
+     * 
      * @param string|null $estado Estado a normalizar
      * @return string Estado normalizado
      */
     private static function normalizeState($estado) {
-        if ($estado === null) {
-            return '';
+        // Cargar función de normalización si no está disponible
+        if (!function_exists('normalizarEstado')) {
+            require_once __DIR__ . '/estado_helpers.php';
         }
-        return strtolower(trim($estado));
+        // Usar función centralizada de normalización
+        return normalizarEstado($estado, '');
     }
     
     /**
@@ -279,22 +283,44 @@ class StateValidator {
      *   - 'warning.action_suggested' => string Acción sugerida para resolver
      */
     public static function validateOrderPaymentState($order_state, $payment_state) {
-        // Normalizar estados
+        // Normalizar estado del pedido
         $order_norm = self::normalizeState($order_state);
-        $payment_norm = self::normalizeState($payment_state);
         
-        // Si no hay estado de pago (null o vacío), no hay inconsistencia
-        if (empty($payment_norm)) {
+        // ========================================================================
+        // MANEJO ESPECIAL: Null (sin pago asociado)
+        // ========================================================================
+        // Verificar null ANTES de normalizar para distinguir entre:
+        // - null = no hay pago asociado
+        // - 'pendiente' = pago existe pero está pendiente
+        if ($payment_state === null || $payment_state === '') {
+            // Estados avanzados requieren pago aprobado
+            // Si no hay pago, es inconsistente
+            $estados_avanzados = ['preparacion', 'en_viaje', 'completado', 'devolucion'];
+            if (in_array($order_norm, $estados_avanzados)) {
+                return [
+                    'valid' => false,
+                    'warning' => [
+                        'type' => 'warning',
+                        'message' => "Pedido en '{$order_norm}' debería tener pago aprobado, pero no hay pago asociado",
+                        'severity' => 'ADVERTENCIA',
+                        'action_suggested' => 'Crear y aprobar un pago para este pedido o cancelarlo'
+                    ]
+                ];
+            }
+            // Estados no avanzados (pendiente, cancelado) pueden no tener pago
             return [
                 'valid' => true,
                 'warning' => null
             ];
         }
         
+        // Normalizar estado del pago solo si no es null
+        $payment_norm = self::normalizeState($payment_state);
+        
         // GRUPO 1: INCONSISTENCIAS CRÍTICAS (danger)
-        // en_viaje/completado + rechazado/cancelado
-        if (in_array($order_norm, ['en_viaje', 'completado']) 
-            && in_array($payment_norm, ['rechazado', 'cancelado'])) {
+        // Pedido en viaje o completado con pago rechazado o cancelado
+        if (($order_norm === 'en_viaje' || $order_norm === 'completado') 
+            && ($payment_norm === 'rechazado' || $payment_norm === 'cancelado')) {
             return [
                 'valid' => false,
                 'warning' => [
@@ -307,9 +333,9 @@ class StateValidator {
         }
         
         // GRUPO 2: Estados avanzados sin pago aprobado (warning)
-        // preparacion, en_viaje, completado, devolucion + pendiente/pendiente_aprobacion
-        if (in_array($order_norm, ['preparacion', 'en_viaje', 'completado', 'devolucion']) 
-            && in_array($payment_norm, ['pendiente', 'pendiente_aprobacion'])) {
+        // Pedido avanzado (preparacion, en_viaje, completado, devolucion) con pago pendiente
+        if (($order_norm === 'preparacion' || $order_norm === 'en_viaje' || $order_norm === 'completado' || $order_norm === 'devolucion')
+            && ($payment_norm === 'pendiente' || $payment_norm === 'pendiente_aprobacion')) {
             return [
                 'valid' => false,
                 'warning' => [
@@ -321,10 +347,9 @@ class StateValidator {
             ];
         }
         
-        // GRUPO 3: Estados con pago rechazado/cancelado (warning)
-        // preparacion + rechazado/cancelado
+        // GRUPO 3: Preparación con pago rechazado o cancelado (warning)
         if ($order_norm === 'preparacion' 
-            && in_array($payment_norm, ['rechazado', 'cancelado'])) {
+            && ($payment_norm === 'rechazado' || $payment_norm === 'cancelado')) {
             return [
                 'valid' => false,
                 'warning' => [
@@ -336,10 +361,9 @@ class StateValidator {
             ];
         }
         
-        // GRUPO 4: Devolución con pago rechazado/cancelado (warning)
-        // devolucion + rechazado/cancelado
+        // GRUPO 4: Devolución con pago rechazado o cancelado (warning)
         if ($order_norm === 'devolucion' 
-            && in_array($payment_norm, ['rechazado', 'cancelado'])) {
+            && ($payment_norm === 'rechazado' || $payment_norm === 'cancelado')) {
             return [
                 'valid' => false,
                 'warning' => [
@@ -352,7 +376,6 @@ class StateValidator {
         }
         
         // GRUPO 5: Pedido cancelado con pago aprobado (warning)
-        // cancelado + aprobado
         if ($order_norm === 'cancelado' && $payment_norm === 'aprobado') {
             return [
                 'valid' => false,

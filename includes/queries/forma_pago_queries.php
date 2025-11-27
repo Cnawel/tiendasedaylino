@@ -74,35 +74,6 @@ function obtenerFormaPagoPorId($mysqli, $id_forma_pago) {
     return $forma_pago;
 }
 
-/**
- * Obtiene todas las formas de pago activas con sus IDs y descripciones (para elementos select)
- * 
- * Esta función retorna solo los campos necesarios para elementos HTML select:
- * id_forma_pago (value), nombre (texto visible), y descripcion (texto adicional).
- * Útil para generar dropdowns de formas de pago en formularios.
- * 
- * @param mysqli $mysqli Conexión a la base de datos
- * @return array Array asociativo de formas de pago con id_forma_pago, nombre, descripcion
- */
-function obtenerFormasPagoSelect($mysqli) {
-    $sql = "SELECT id_forma_pago, nombre, descripcion FROM Forma_Pagos WHERE activo = 1 ORDER BY id_forma_pago";
-    
-    $stmt = $mysqli->prepare($sql);
-    if (!$stmt) {
-        return [];
-    }
-    
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    $formas_pago = [];
-    while ($row = $result->fetch_assoc()) {
-        $formas_pago[] = $row;
-    }
-    
-    $stmt->close();
-    return $formas_pago;
-}
 
 /**
  * Crea una nueva forma de pago

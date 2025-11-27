@@ -30,6 +30,10 @@ config/email.php
 config/mailgun.php
 # Nota: Usar config/mailgun.example.php como template
 
+# Configuración de Gmail SMTP con credenciales
+config/gmail.php
+# Nota: Usar config/gmail.example.php como template
+
 # Archivos de entorno con credenciales
 *.env
 .env.local

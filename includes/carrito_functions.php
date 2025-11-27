@@ -111,40 +111,53 @@ function procesarItemCarrito($mysqli, $item, $clave, $modo = 'preliminar') {
         return false;
     }
     
-    // Obtener datos del producto y variante
-    $producto = obtenerProductoConVariante($mysqli, $item['id_producto'], $item['talla'], $item['color']);
+    // Incluir función de validación de stock si no está incluida
+    require_once __DIR__ . '/queries/stock_queries.php';
     
-    // Validar que el producto existe y tiene variante activa
-    if (!$producto || empty($producto['id_variante'])) {
-        return false;
-    }
-    
-    $stock_disponible = intval($producto['stock'] ?? 0);
     $cantidad_solicitada = max(1, intval($item['cantidad']));
     
-    // En modo definitivo, validar stock con función centralizada
-    if ($modo === 'definitivo') {
-        try {
-            validarStockDisponibleVenta($mysqli, $producto['id_variante'], $cantidad_solicitada);
-        } catch (Exception $e) {
-            // Retornar error estructurado con información del producto
+    // Usar función unificada de validación en ambos modos
+    try {
+        $datos_stock = validarStockDisponible(
+            $mysqli, 
+            $item['id_producto'], 
+            $item['talla'], 
+            $item['color'], 
+            $cantidad_solicitada, 
+            $modo,
+            0 // cantidad_actual_carrito = 0 porque ya estamos procesando el item completo
+        );
+    } catch (Exception $e) {
+        // En modo definitivo, retornar error estructurado
+        if ($modo === 'definitivo') {
+            // Obtener datos del producto para el mensaje de error
+            require_once __DIR__ . '/queries/producto_queries.php';
+            $producto = obtenerProductoConVariante($mysqli, $item['id_producto'], $item['talla'], $item['color']);
+            
             return [
                 'error' => true,
                 'mensaje' => $e->getMessage(),
                 'tipo' => determinarTipoError($e->getMessage()),
-                'stock_disponible' => $stock_disponible,
+                'stock_disponible' => $producto ? intval($producto['stock'] ?? 0) : 0,
                 'cantidad_solicitada' => $cantidad_solicitada,
-                'nombre_producto' => $producto['nombre_producto'],
-                'talle' => $producto['talle'],
-                'color' => $producto['color'],
-                'precio_actual' => floatval($producto['precio_actual'])
+                'nombre_producto' => $producto ? $producto['nombre_producto'] : 'producto desconocido',
+                'talle' => $producto ? $producto['talle'] : $item['talla'],
+                'color' => $producto ? $producto['color'] : $item['color'],
+                'precio_actual' => $producto ? floatval($producto['precio_actual']) : 0
             ];
-        }
-    } else {
-        // En modo preliminar, solo verificar stock disponible
-        if ($stock_disponible < $cantidad_solicitada) {
+        } else {
+            // En modo preliminar, retornar false (comportamiento original)
             return false;
         }
+    }
+    
+    // Obtener datos completos del producto para el retorno
+    require_once __DIR__ . '/queries/producto_queries.php';
+    $producto = obtenerProductoConVariante($mysqli, $item['id_producto'], $item['talla'], $item['color']);
+    
+    // Si no se pudo obtener el producto, retornar false
+    if (!$producto || empty($producto['id_variante'])) {
+        return false;
     }
     
     // Retornar datos del producto procesado
@@ -158,7 +171,7 @@ function procesarItemCarrito($mysqli, $item, $clave, $modo = 'preliminar') {
         'talle' => $producto['talle'],
         'color' => $producto['color'],
         'cantidad' => $cantidad_solicitada,
-        'stock_disponible' => $stock_disponible,
+        'stock_disponible' => $datos_stock['stock_disponible'],
         'subtotal' => floatval($producto['precio_actual']) * $cantidad_solicitada
     ];
 }

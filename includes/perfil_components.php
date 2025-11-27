@@ -7,8 +7,9 @@
  * 
  * Funciones:
  * - renderFormularioMarcarPago($pago_pedido): Renderiza formulario para marcar pago como pagado
- * - renderFormularioCancelarPedido($pedido): Renderiza formulario para cancelar pedido
  * - renderModalEliminarCuenta(): Renderiza modal para eliminar cuenta
+ * 
+ * NOTA: renderFormularioCancelarPedido() fue eliminada - Solo personal de VENTAS puede cancelar pedidos
  * 
  * @package TiendaSedaYLino
  * @version 1.0
@@ -23,9 +24,10 @@ if (!function_exists('renderFormularioMarcarPago')) {
      * @return void
      */
     function renderFormularioMarcarPago($pago_pedido) {
+        $id_pago = intval($pago_pedido['id_pago']);
         ?>
-        <form method="POST" action="" class="d-inline-flex align-items-center gap-2">
-            <input type="hidden" name="id_pago" value="<?= $pago_pedido['id_pago'] ?>">
+        <form method="POST" action="" class="d-inline-flex align-items-center gap-2 form-marcar-pago" data-id-pago="<?= $id_pago ?>">
+            <input type="hidden" name="id_pago" value="<?= $id_pago ?>">
             <input type="text" 
                    class="form-control form-control-sm" 
                    name="numero_transaccion" 
@@ -33,7 +35,8 @@ if (!function_exists('renderFormularioMarcarPago')) {
                    maxlength="100"
                    size="15"
                    pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s'´$€£¥]+"
-                   title="Letras, números, espacios, apóstrofe ('), acento agudo (´) y símbolos de dinero ($, €, £, ¥)">
+                   title="Letras, números, espacios, apóstrofe ('), acento agudo (´) y símbolos de dinero ($, €, £, ¥)"
+                   required>
             <button type="submit" name="marcar_pago_pagado" class="btn btn-sm btn-success">
                 <i class="fas fa-check-circle me-1"></i>Marcar Pago
             </button>
@@ -42,33 +45,9 @@ if (!function_exists('renderFormularioMarcarPago')) {
     }
 }
 
-if (!function_exists('renderFormularioCancelarPedido')) {
-    /**
-     * Renderiza formulario para cancelar pedido
-     * El envío se maneja mediante JavaScript en js/perfil.js
-     * 
-     * @param array $pedido Datos del pedido
-     * @param array|null $pago Datos del pago (opcional)
-     * @return void
-     */
-    function renderFormularioCancelarPedido($pedido, $pago = null) {
-        $id_pedido = intval($pedido['id_pedido']);
-        $estado_pedido = !empty($pedido['estado_pedido']) ? strtolower(trim($pedido['estado_pedido'])) : 'pendiente';
-        $estado_pago = $pago && !empty($pago['estado_pago']) ? strtolower(trim($pago['estado_pago'])) : '';
-        ?>
-        <form method="POST" action="" class="d-inline" 
-              data-estado-pedido="<?= htmlspecialchars($estado_pedido, ENT_QUOTES, 'UTF-8') ?>"
-              data-estado-pago="<?= htmlspecialchars($estado_pago, ENT_QUOTES, 'UTF-8') ?>">
-            <input type="hidden" name="id_pedido" value="<?= $id_pedido ?>">
-            <button type="submit" 
-                    name="cancelar_pedido_cliente" 
-                    class="btn btn-sm btn-secondary">
-                <i class="fas fa-times-circle me-1"></i>Cancelar Pedido
-            </button>
-        </form>
-        <?php
-    }
-}
+// NOTA: renderFormularioCancelarPedido() fue eliminada
+// Los clientes ya no pueden cancelar pedidos desde el perfil
+// Solo el personal de VENTAS puede cancelar pedidos desde el panel de ventas (ventas.php)
 
 
 if (!function_exists('renderModalVerPedido')) {

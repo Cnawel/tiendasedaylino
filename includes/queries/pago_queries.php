@@ -418,7 +418,7 @@ function actualizarEstadoPago($mysqli, $id_pago, $nuevo_estado, $motivo_rechazo 
                 SET estado_pedido = 'preparacion',
                     fecha_actualizacion = NOW()
                 WHERE id_pedido = ? 
-                  AND estado_pedido IN ('pendiente', 'pendiente_validado_stock', 'preparacion')
+                  AND estado_pedido IN ('pendiente', 'preparacion')
             ";
             
             $stmt_pedido = $mysqli->prepare($sql_pedido);
@@ -683,7 +683,7 @@ function actualizarPagoCompleto($mysqli, $id_pago, $estado_pago, $monto, $numero
                         SET estado_pedido = 'cancelado',
                             fecha_actualizacion = NOW()
                         WHERE id_pedido = ?
-                          AND estado_pedido IN ('pendiente', 'pendiente_validado_stock', 'preparacion', 'en_viaje')
+                          AND estado_pedido IN ('pendiente', 'preparacion', 'en_viaje')
                     ";
                 
                 $stmt_pedido = $mysqli->prepare($sql_pedido);
@@ -732,38 +732,6 @@ function rechazarPago($mysqli, $id_pago, $id_usuario = null, $motivo = null) {
     return actualizarEstadoPagoConPedido($mysqli, $id_pago, 'rechazado', $motivo, $id_usuario);
 }
 
-/**
- * Aprueba un pago y descuenta stock automáticamente
- * 
- * FUNCIÓN HELPER DESCRIPTIVA: Hace explícito que esta operación aprueba el pago
- * y descuenta stock. Es un wrapper de actualizarEstadoPagoConPedido() con propósito claro.
- * 
- * @param mysqli $mysqli Conexión a la base de datos
- * @param int $id_pago ID del pago
- * @param int|null $id_usuario ID del usuario que aprueba (opcional)
- * @return bool True si se aprobó correctamente
- * @throws Exception Si hay error en la aprobación o stock insuficiente
- */
-function aprobarPagoYDescontarStock($mysqli, $id_pago, $id_usuario = null) {
-    return aprobarPago($mysqli, $id_pago, $id_usuario);
-}
-
-/**
- * Rechaza un pago y restaura stock si había sido descontado
- * 
- * FUNCIÓN HELPER DESCRIPTIVA: Hace explícito que esta operación rechaza el pago
- * y restaura stock si había sido descontado. Es un wrapper de rechazarPago() con propósito claro.
- * 
- * @param mysqli $mysqli Conexión a la base de datos
- * @param int $id_pago ID del pago
- * @param string|null $motivo Motivo del rechazo (opcional)
- * @param int|null $id_usuario ID del usuario que rechaza (opcional)
- * @return bool True si se rechazó correctamente
- * @throws Exception Si hay error en el rechazo
- */
-function rechazarPagoYRestaurarStock($mysqli, $id_pago, $motivo = null, $id_usuario = null) {
-    return rechazarPago($mysqli, $id_pago, $id_usuario, $motivo);
-}
 
 /**
  * Obtiene todos los pagos con filtros opcionales
@@ -923,8 +891,9 @@ function validarTransicionPago($estado_actual, $nuevo_estado) {
  * @throws Exception Si se intenta cancelar un pago en recorrido activo
  */
 function _validarCancelacionPagoRecorridoActivo($nuevo_estado_pago, $estado_pago_anterior) {
-    // Cargar StateValidator si no está cargado
+    // Cargar StateValidator y estado_helpers si no están cargados
     require_once __DIR__ . '/../state_validator.php';
+    require_once __DIR__ . '/../estado_helpers.php';
     
     // Normalizar estados
     $nuevo_estado_norm = strtolower(trim($nuevo_estado_pago));
@@ -932,7 +901,8 @@ function _validarCancelacionPagoRecorridoActivo($nuevo_estado_pago, $estado_pago
     
     // Si se intenta cancelar y está en recorrido activo, lanzar excepción
     if ($nuevo_estado_norm === 'cancelado' && StateValidator::isInActiveJourney($estado_anterior_norm, 'pago')) {
-        throw new Exception("No se puede cancelar un pago que está en recorrido activo. Estado actual: {$estado_anterior_norm}. Un pago en recorrido activo no puede cancelarse.");
+        $info_pago = obtenerInfoEstadoPago($estado_anterior_norm);
+        throw new Exception("No se puede cancelar el pago porque está en proceso (estado: '{$info_pago['nombre']}'). Los pagos en proceso no pueden cancelarse. Si necesitas revertir un pago aprobado, debes rechazarlo en lugar de cancelarlo.");
     }
 }
 
@@ -966,12 +936,12 @@ function _validarRechazoCancelacionPagoAprobado($estado_pago_anterior, $estado_p
     // Validar estados terminales del pedido usando StateValidator
     if (StateValidator::isTerminal($estado_pedido_actual, 'pedido')) {
         $info_pedido = obtenerInfoEstadoPedido($estado_pedido_actual);
-        throw new Exception("No se puede cancelar o rechazar un pago aprobado cuando el pedido está en estado '{$info_pedido['nombre']}'. Un pedido en estado terminal es una venta cerrada.");
+        throw new Exception("No se puede cancelar o rechazar el pago porque el pedido está en estado '{$info_pedido['nombre']}' (venta cerrada). Los pedidos completados son ventas finalizadas y no admiten modificaciones. Si necesitas hacer cambios, contacta al administrador del sistema.");
     }
     
     // Validar estados avanzados (en_viaje es un caso especial)
     if ($estado_pedido_actual === 'en_viaje') {
-        throw new Exception("No se puede cancelar/rechazar un pago aprobado cuando el pedido está en estado 'en viaje'. El pedido ya fue procesado.");
+        throw new Exception("No se puede cancelar o rechazar el pago porque el pedido ya está en viaje. El pedido fue procesado y enviado. Si necesitas revertir esta operación, primero debes gestionar el retorno físico del pedido.");
     }
 }
 
@@ -1004,8 +974,11 @@ function _aprobarPagoConValidaciones($mysqli, $id_pago, $pago_bloqueado, $id_ped
     // Validar coherencia de negocio: El pedido debe estar en estado pendiente o preparacion
     // Permitir preparacion para corregir inconsistencias donde el pedido fue cambiado manualmente
     // pero el pago aún no está aprobado
-    if (!in_array($estado_pedido_actual, ['pendiente', 'pendiente_validado_stock', 'preparacion'])) {
-        throw new Exception("No se puede aprobar el pago. El pedido está en estado '{$estado_pedido_actual}'. Solo se pueden aprobar pagos de pedidos en estado 'pendiente', 'pendiente_validado_stock' o 'preparacion'.");
+    // NOTA: Todo pedido en 'pendiente' ya tiene stock validado (se valida antes de crear el pedido)
+    if (!in_array($estado_pedido_actual, ['pendiente', 'preparacion'])) {
+        require_once __DIR__ . '/../estado_helpers.php';
+        $info_pedido = obtenerInfoEstadoPedido($estado_pedido_actual);
+        throw new Exception("El pago no puede aprobarse porque el pedido está en estado '{$info_pedido['nombre']}'. Solo se pueden aprobar pagos de pedidos en estado inicial (pendiente) o en preparación. Si el pedido ya avanzó más, verifica el estado actual y ajusta según corresponda.");
     }
     
     // Validar que no exista otro pago aprobado para este pedido
@@ -1032,7 +1005,7 @@ function _aprobarPagoConValidaciones($mysqli, $id_pago, $pago_bloqueado, $id_ped
     $stmt_verificar->close();
     
     if ($verificacion && intval($verificacion['pagos_aprobados']) > 0) {
-        throw new Exception('Ya existe otro pago aprobado para este pedido');
+        throw new Exception('Ya existe un pago aprobado para este pedido. No se puede aprobar otro pago para el mismo pedido. Sugerencia: Revisa el historial de pagos del pedido para verificar que no haya duplicados o contacta al administrador si necesitas corregir esta situación.');
     }
     
     // Obtener Detalle_Pedido del pedido
@@ -1076,7 +1049,15 @@ function _aprobarPagoConValidaciones($mysqli, $id_pago, $pago_bloqueado, $id_ped
         try {
             validarStockDisponibleVenta($mysqli, $id_variante, $cantidad_solicitada);
         } catch (Exception $e) {
-            $errores_stock[] = "Variante #{$id_variante}: " . $e->getMessage();
+            // Mejorar mensaje de error para ser más informativo
+            $mensaje_error = $e->getMessage();
+            if (preg_match('/Stock disponible: (\d+), Intento de venta: (\d+)/', $mensaje_error, $matches)) {
+                $stock_disponible = $matches[1];
+                $intento_venta = $matches[2];
+                $errores_stock[] = "Variante #{$id_variante}: Tiene {$stock_disponible} unidades disponibles pero se necesitan {$intento_venta} unidades";
+            } else {
+                $errores_stock[] = "Variante #{$id_variante}: " . $mensaje_error;
+            }
         }
     }
     
@@ -1112,7 +1093,7 @@ function _aprobarPagoConValidaciones($mysqli, $id_pago, $pago_bloqueado, $id_ped
     $hay_ventas_previas = verificarVentasPreviasPedido($mysqli, $id_pedido);
     if ($hay_ventas_previas > 0) {
         error_log("Intento de descontar stock duplicado para pedido #{$id_pedido}. Ya existen {$hay_ventas_previas} movimientos tipo 'venta'.");
-        throw new Exception('VENTA_YA_DESCONTADA_PARA_PEDIDO: Ya se descontó stock para este pedido. No se puede descontar nuevamente.');
+        throw new Exception('VENTA_YA_DESCONTADA_PARA_PEDIDO: El stock de este pedido ya fue descontado previamente. No se puede descontar nuevamente. Esto es normal si el pago ya fue aprobado anteriormente.');
     }
     
     // Descontar stock
@@ -1149,7 +1130,7 @@ function _aprobarPagoConValidaciones($mysqli, $id_pago, $pago_bloqueado, $id_ped
         SET estado_pedido = 'preparacion',
             fecha_actualizacion = NOW()
         WHERE id_pedido = ?
-          AND estado_pedido IN ('pendiente', 'pendiente_validado_stock', 'preparacion')
+          AND estado_pedido IN ('pendiente', 'preparacion')
     ";
     
     $stmt_actualizar_pedido = $mysqli->prepare($sql_actualizar_pedido);
@@ -1228,7 +1209,7 @@ function _rechazarOCancelarPago($mysqli, $id_pago, $nuevo_estado_pago, $motivo_r
     // Continuar con la lógica de cancelación solo si el pedido no está cancelado ni completado
     if ($estado_pedido_actual !== 'cancelado'  
         && $estado_pedido_actual !== 'completado'
-        && in_array($estado_pedido_actual, ['pendiente', 'pendiente_validado_stock', 'preparacion', 'en_viaje'])) {
+        && in_array($estado_pedido_actual, ['pendiente', 'preparacion', 'en_viaje'])) {
     
         error_log("actualizarEstadoPagoConPedido: Cancelando pedido #{$id_pedido} debido a pago {$nuevo_estado_pago} (estado anterior: {$estado_pago_anterior})");
         

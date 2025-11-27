@@ -39,29 +39,59 @@ document.addEventListener('DOMContentLoaded', function() {
         
         switch (campoId) {
             case 'nombre':
-                const nombrePattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+$/;
                 if (!valorTrimmed) {
                     return { valido: false, mensaje: 'El nombre es obligatorio.' };
-                } else if (valorTrimmed.length < 2) {
-                    return { valido: false, mensaje: 'El nombre debe tener al menos 2 caracteres.' };
-                } else if (valorTrimmed.length > 50) {
-                    return { valido: false, mensaje: 'El nombre no puede exceder 50 caracteres.' };
-                } else if (!nombrePattern.test(valorTrimmed)) {
-                    return { valido: false, mensaje: 'El nombre solo puede contener letras, espacios, apóstrofe (\') y acento agudo (´).' };
+                } else if (typeof validarNombreApellido === 'function') {
+                    // Usar función consolidada de common_js_functions.php
+                    const esValido = validarNombreApellido(valorTrimmed, 2, 50);
+                    if (!esValido) {
+                        if (valorTrimmed.length < 2) {
+                            return { valido: false, mensaje: 'El nombre debe tener al menos 2 caracteres.' };
+                        } else if (valorTrimmed.length > 50) {
+                            return { valido: false, mensaje: 'El nombre no puede exceder 50 caracteres.' };
+                        } else {
+                            return { valido: false, mensaje: 'El nombre solo puede contener letras, espacios, apóstrofe (\') y acento agudo (´).' };
+                        }
+                    }
+                } else {
+                    // Fallback si la función no está disponible
+                    const nombrePattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+$/;
+                    if (valorTrimmed.length < 2) {
+                        return { valido: false, mensaje: 'El nombre debe tener al menos 2 caracteres.' };
+                    } else if (valorTrimmed.length > 50) {
+                        return { valido: false, mensaje: 'El nombre no puede exceder 50 caracteres.' };
+                    } else if (!nombrePattern.test(valorTrimmed)) {
+                        return { valido: false, mensaje: 'El nombre solo puede contener letras, espacios, apóstrofe (\') y acento agudo (´).' };
+                    }
                 }
                 return { valido: true, mensaje: '' };
                 
             case 'apellido':
-                const apellidoPattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+$/;
                 if (!valorTrimmed) {
                     // Apellido es opcional, no mostrar error si está vacío
                     return { valido: true, mensaje: '' };
-                } else if (valorTrimmed.length < 2) {
-                    return { valido: false, mensaje: 'El apellido debe tener al menos 2 caracteres.' };
-                } else if (valorTrimmed.length > 100) {
-                    return { valido: false, mensaje: 'El apellido no puede exceder 100 caracteres.' };
-                } else if (!apellidoPattern.test(valorTrimmed)) {
-                    return { valido: false, mensaje: 'El apellido solo puede contener letras, espacios, apóstrofe (\') y acento agudo (´).' };
+                } else if (typeof validarNombreApellido === 'function') {
+                    // Usar función consolidada de common_js_functions.php
+                    const esValido = validarNombreApellido(valorTrimmed, 2, 100);
+                    if (!esValido) {
+                        if (valorTrimmed.length < 2) {
+                            return { valido: false, mensaje: 'El apellido debe tener al menos 2 caracteres.' };
+                        } else if (valorTrimmed.length > 100) {
+                            return { valido: false, mensaje: 'El apellido no puede exceder 100 caracteres.' };
+                        } else {
+                            return { valido: false, mensaje: 'El apellido solo puede contener letras, espacios, apóstrofe (\') y acento agudo (´).' };
+                        }
+                    }
+                } else {
+                    // Fallback si la función no está disponible
+                    const apellidoPattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+$/;
+                    if (valorTrimmed.length < 2) {
+                        return { valido: false, mensaje: 'El apellido debe tener al menos 2 caracteres.' };
+                    } else if (valorTrimmed.length > 100) {
+                        return { valido: false, mensaje: 'El apellido no puede exceder 100 caracteres.' };
+                    } else if (!apellidoPattern.test(valorTrimmed)) {
+                        return { valido: false, mensaje: 'El apellido solo puede contener letras, espacios, apóstrofe (\') y acento agudo (´).' };
+                    }
                 }
                 return { valido: true, mensaje: '' };
                 
@@ -118,10 +148,20 @@ document.addEventListener('DOMContentLoaded', function() {
             case 'password':
                 if (!valor || valor.length === 0) {
                     return { valido: false, mensaje: 'La contraseña es obligatoria.' };
-                } else if (valor.length < 6) {
-                    return { valido: false, mensaje: 'La contraseña debe tener al menos 6 caracteres.' };
-                } else if (valor.length > 32) {
-                    return { valido: false, mensaje: 'La contraseña no puede exceder 32 caracteres.' };
+                } else if (valor.length < 8) {
+                    return { valido: false, mensaje: 'La contraseña debe tener al menos 8 caracteres.' };
+                } else if (valor.length > 128) {
+                    return { valido: false, mensaje: 'La contraseña no puede exceder 128 caracteres.' };
+                } else {
+                    // Validar complejidad: minúscula, mayúscula, número, carácter especial
+                    const tieneMinuscula = /[a-z]/.test(valor);
+                    const tieneMayuscula = /[A-Z]/.test(valor);
+                    const tieneNumero = /[0-9]/.test(valor);
+                    const tieneEspecial = /[@$!%*?&]/.test(valor);
+                    
+                    if (!tieneMinuscula || !tieneMayuscula || !tieneNumero || !tieneEspecial) {
+                        return { valido: false, mensaje: 'La contraseña debe contener al menos: 1 minúscula, 1 mayúscula, 1 número y 1 carácter especial (@$!%*?&).' };
+                    }
                 }
                 return { valido: true, mensaje: '' };
                 
@@ -269,11 +309,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // CRITERIOS DE FORTALEZA (solo informativo, no bloquea registro)
         // ========================================================================
         
-        // Longitud mínima (6 caracteres ahora)
-        if (password.length >= 6) strength += 30;
-        if (password.length >= 8) strength += 10;
+        // Longitud mínima (8 caracteres ahora, coincidiendo con PHP)
+        if (password.length >= 8) strength += 30;
         if (password.length >= 12) strength += 10;
         if (password.length >= 16) strength += 10;
+        if (password.length >= 20) strength += 10;
         
         // Caracteres opcionales (mejoran la fortaleza pero no son requeridos)
         if (/[a-z]/.test(password)) strength += 10; // Minúscula
@@ -313,6 +353,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ========================================================================
     // Toggle mostrar/ocultar contraseñas
+    // Usa la función togglePassword de common_js_functions.php
     // ========================================================================
     if (togglePasswordBtn && passwordInput) {
         // Remover listeners previos si existen
@@ -323,22 +364,11 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             e.stopPropagation();
             
-            const icon = this.querySelector('i');
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                if (icon) {
-                    icon.classList.remove('fa-eye');
-                    icon.classList.add('fa-eye-slash');
-                    this.setAttribute('aria-label', 'Ocultar contraseña');
-                }
-            } else {
-                passwordInput.type = 'password';
-                if (icon) {
-                    icon.classList.remove('fa-eye-slash');
-                    icon.classList.add('fa-eye');
-                    this.setAttribute('aria-label', 'Mostrar contraseña');
-                }
+            // Usar función consolidada de common_js_functions.php
+            if (typeof togglePassword === 'function') {
+                togglePassword(passwordInput.id || passwordInput);
             }
+            
             return false;
         });
     }
@@ -352,22 +382,11 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             e.stopPropagation();
             
-            const icon = this.querySelector('i');
-            if (passwordConfirmInput.type === 'password') {
-                passwordConfirmInput.type = 'text';
-                if (icon) {
-                    icon.classList.remove('fa-eye');
-                    icon.classList.add('fa-eye-slash');
-                    this.setAttribute('aria-label', 'Ocultar contraseña');
-                }
-            } else {
-                passwordConfirmInput.type = 'password';
-                if (icon) {
-                    icon.classList.remove('fa-eye-slash');
-                    icon.classList.add('fa-eye');
-                    this.setAttribute('aria-label', 'Mostrar contraseña');
-                }
+            // Usar función consolidada de common_js_functions.php
+            if (typeof togglePassword === 'function') {
+                togglePassword(passwordConfirmInput.id || passwordConfirmInput);
             }
+            
             return false;
         });
     }

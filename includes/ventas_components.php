@@ -267,13 +267,19 @@ function renderModalEditarEstado($pedido, $pedido_completo_modal, $pago_modal, $
                         <?php 
                         renderFormularioHiddenFields($id_pedido, $estado_actual_modal);
                         renderInfoClienteCompacta($pedido);
-                        renderFormularioEstadoPedido($estado_actual_modal);
                         
+                        // Mostrar formulario de pago primero
+                        $estado_pago_para_filtrado = null;
                         if ($pago_modal) {
                             renderFormularioPago($id_pedido, $pago_modal);
+                            // Normalizar estado del pago para filtrado
+                            $estado_pago_para_filtrado = normalizarEstado($pago_modal['estado_pago'] ?? null);
                         } else {
                             renderAlertaSinPago();
                         }
+                        
+                        // Mostrar formulario de pedido después, pasando estado del pago para filtrado
+                        renderFormularioEstadoPedido($estado_actual_modal, $estado_pago_para_filtrado);
                         ?>
                     </div>
                     <div class="modal-footer">
@@ -326,13 +332,218 @@ function renderInfoClienteCompacta($pedido) {
 }
 
 /**
+ * Obtiene las transiciones válidas de estado de pedido según el estado del pago
+ * 
+ * Filtra las transiciones permitidas según la matriz de estados y las restricciones
+ * basadas en el estado del pago. Un pedido solo puede avanzar a estados avanzados
+ * (preparacion, en_viaje, completado, devolucion) si el pago está aprobado.
+ * 
+ * REGLAS:
+ * - Pago pendiente/pendiente_aprobacion: Solo permite pendiente y cancelado
+ * - Pago aprobado: Permite todas las transiciones válidas según matriz
+ * - Pago rechazado/cancelado: Solo permite cancelado (y mantener estado actual si es válido)
+ *   EXCEPCIÓN: Permite cancelar desde 'en_viaje' cuando el pago está rechazado/cancelado
+ * - Sin pago: Solo permite pendiente y cancelado
+ * 
+ * @param string $estado_pedido_actual Estado actual normalizado del pedido
+ * @param string|null $estado_pago Estado normalizado del pago (null si no hay pago)
+ * @return array Array de estados válidos para transición
+ */
+function obtenerTransicionesValidasPedido($estado_pedido_actual, $estado_pago = null) {
+    // Cargar StateValidator si no está disponible
+    require_once __DIR__ . '/state_validator.php';
+    
+    // Normalizar estados
+    $estado_pedido_norm = normalizarEstado($estado_pedido_actual);
+    $estado_pago_norm = $estado_pago ? normalizarEstado($estado_pago) : null;
+    
+    // ========================================================================
+    // VALIDACIÓN 1: Estados Terminales
+    // ========================================================================
+    // Verificar si el estado actual es terminal
+    if (StateValidator::isTerminal($estado_pedido_norm, 'pedido')) {
+        // Estados terminales solo pueden mantenerse
+        // EXCEPCIÓN: completado puede ir a devolucion si pago está aprobado
+        if ($estado_pedido_norm === 'completado' && $estado_pago_norm === 'aprobado') {
+            // Completado puede ir a devolucion según lógica de negocio (aunque la matriz no lo refleje)
+            // Esto permite procesar devoluciones de pedidos completados
+            return ['completado', 'devolucion'];
+        }
+        // Para cancelado o completado sin excepción: solo mantener estado actual
+        return [$estado_pedido_norm];
+    }
+    
+    // ========================================================================
+    // VALIDACIÓN 2: Estados Avanzados Requieren Pago Aprobado
+    // ========================================================================
+    // Estados avanzados: preparacion, en_viaje, devolucion
+    $estados_avanzados = ['preparacion', 'en_viaje', 'devolucion'];
+    
+    if (in_array($estado_pedido_norm, $estados_avanzados)) {
+        // Si pago no está aprobado, solo permitir cancelado (para corregir inconsistencia)
+        if ($estado_pago_norm !== 'aprobado') {
+            // EXCEPCIÓN: en_viaje puede cancelarse incluso si no está en la matriz base
+            // Esto permite corregir inconsistencias críticas donde el pago fue rechazado/cancelado
+            // pero el pedido quedó en viaje
+            if ($estado_pedido_norm === 'en_viaje') {
+                return ['cancelado'];
+            }
+            
+            // Obtener matriz de transiciones base
+            $transiciones_base = StateValidator::getTransitionMatrix('pedido');
+            $transiciones_permitidas = $transiciones_base[$estado_pedido_norm] ?? [];
+            
+            // Solo permitir cancelado si está en las transiciones permitidas
+            if (in_array('cancelado', $transiciones_permitidas)) {
+                return ['cancelado'];
+            }
+            // Si cancelado no está permitido, mantener estado actual (inconsistencia crítica)
+            return [$estado_pedido_norm];
+        }
+    }
+    
+    // ========================================================================
+    // VALIDACIÓN 3: Obtener Transiciones Base
+    // ========================================================================
+    // Obtener matriz de transiciones base desde StateValidator
+    $transiciones_base = StateValidator::getTransitionMatrix('pedido');
+    
+    // Obtener transiciones permitidas desde el estado actual del pedido
+    $transiciones_permitidas = [];
+    if (isset($transiciones_base[$estado_pedido_norm])) {
+        $transiciones_permitidas = $transiciones_base[$estado_pedido_norm];
+    }
+    
+    // Siempre incluir el estado actual (para mantener el mismo estado)
+    if (!in_array($estado_pedido_norm, $transiciones_permitidas)) {
+        $transiciones_permitidas[] = $estado_pedido_norm;
+    }
+    
+    // ========================================================================
+    // VALIDACIÓN 4: Filtrar según Estado del Pago
+    // ========================================================================
+    $estados_finales = [];
+    
+    // Si no hay pago o pago está pendiente/pendiente_aprobacion
+    if (!$estado_pago_norm || 
+        $estado_pago_norm === 'pendiente' || 
+        $estado_pago_norm === 'pendiente_aprobacion') {
+        // Solo permitir pendiente y cancelado
+        foreach ($transiciones_permitidas as $estado) {
+            if ($estado === 'pendiente' || $estado === 'cancelado') {
+                $estados_finales[] = $estado;
+            }
+        }
+        // Asegurar que pendiente esté disponible si el estado actual es pendiente
+        if ($estado_pedido_norm === 'pendiente' && !in_array('pendiente', $estados_finales)) {
+            $estados_finales[] = 'pendiente';
+        }
+    }
+    // Si pago está aprobado
+    elseif ($estado_pago_norm === 'aprobado') {
+        // Permitir todas las transiciones válidas según matriz
+        $estados_finales = $transiciones_permitidas;
+        
+        // EXCEPCIÓN: Si el estado actual es pendiente, no incluir pendiente en las opciones
+        // (solo preparacion y cancelado)
+        if ($estado_pedido_norm === 'pendiente') {
+            $estados_finales = array_filter($estados_finales, function($estado) {
+                return $estado !== 'pendiente';
+            });
+            // Re-indexar array
+            $estados_finales = array_values($estados_finales);
+        }
+    }
+    // Si pago está rechazado o cancelado
+    elseif ($estado_pago_norm === 'rechazado' || $estado_pago_norm === 'cancelado') {
+        // Solo permitir cancelado
+        if (in_array('cancelado', $transiciones_permitidas)) {
+            $estados_finales[] = 'cancelado';
+        }
+        // EXCEPCIÓN: Permitir cancelar desde 'en_viaje' cuando el pago está cancelado/rechazado
+        // Esto permite corregir inconsistencias donde el pago fue cancelado pero el pedido quedó en viaje
+        // (en_viaje no tiene cancelado en su matriz base, pero debe permitirse para corregir)
+        if ($estado_pedido_norm === 'en_viaje') {
+            $estados_finales[] = 'cancelado';
+        }
+        // Mantener estado actual si es cancelado
+        if ($estado_pedido_norm === 'cancelado' && !in_array('cancelado', $estados_finales)) {
+            $estados_finales[] = 'cancelado';
+        }
+    }
+    
+    // Eliminar duplicados y ordenar
+    $estados_finales = array_unique($estados_finales);
+    sort($estados_finales);
+    
+    return $estados_finales;
+}
+
+/**
  * Renderiza el formulario de estado del pedido
  * 
  * @param string $estado_actual_modal Estado actual normalizado
+ * @param string|null $estado_pago Estado normalizado del pago (opcional, para filtrar opciones)
  * @return void
  */
-function renderFormularioEstadoPedido($estado_actual_modal) {
+function renderFormularioEstadoPedido($estado_actual_modal, $estado_pago = null) {
     $info_estado_pedido_actual = obtenerInfoEstadoPedido($estado_actual_modal);
+    
+    // Obtener transiciones válidas según estado del pago
+    $transiciones_validas = obtenerTransicionesValidasPedido($estado_actual_modal, $estado_pago);
+    
+    // Obtener mapeo de estados para mostrar nombres
+    $mapeo_estados = obtenerMapeoEstadosPedido();
+    
+    // ========================================================================
+    // DETECCIÓN DE INCONSISTENCIAS
+    // ========================================================================
+    $inconsistencias = detectarInconsistenciasEstado($estado_actual_modal, $estado_pago);
+    $hay_inconsistencia = $inconsistencias['hay_inconsistencia'];
+    
+    // ========================================================================
+    // DETERMINAR MENSAJES DE RESTRICCIÓN
+    // ========================================================================
+    $estado_pago_norm = $estado_pago ? normalizarEstado($estado_pago) : null;
+    $hay_restricciones = false;
+    $mensaje_restriccion = '';
+    $tipo_restriccion = 'info'; // info, warning, danger
+    
+    // Cargar StateValidator para verificar estados terminales
+    require_once __DIR__ . '/state_validator.php';
+    
+    // Verificar si es estado terminal
+    if (StateValidator::isTerminal($estado_actual_modal, 'pedido')) {
+        $hay_restricciones = true;
+        $tipo_restriccion = 'warning';
+        if ($estado_actual_modal === 'completado' && $estado_pago_norm === 'aprobado') {
+            $mensaje_restriccion = 'Este pedido está completado. Solo puede procesarse una devolución.';
+        } else {
+            $mensaje_restriccion = 'Este pedido está en estado final y no puede modificarse.';
+        }
+    }
+    // Verificar estados avanzados sin pago aprobado
+    elseif (in_array($estado_actual_modal, ['preparacion', 'en_viaje', 'devolucion']) && 
+            $estado_pago_norm !== 'aprobado') {
+        $hay_restricciones = true;
+        $tipo_restriccion = $hay_inconsistencia && $inconsistencias['tipo'] === 'danger' ? 'danger' : 'warning';
+        $mensaje_restriccion = 'El pedido está en estado avanzado pero el pago no está aprobado. Debe cancelarse para corregir la inconsistencia.';
+    }
+    // Pago pendiente/pendiente_aprobacion
+    elseif (!$estado_pago_norm || 
+            $estado_pago_norm === 'pendiente' || 
+            $estado_pago_norm === 'pendiente_aprobacion') {
+        $hay_restricciones = true;
+        $tipo_restriccion = 'info';
+        $mensaje_restriccion = 'El pedido solo puede estar en Pendiente o Cancelado mientras el pago no esté aprobado.';
+    }
+    // Pago rechazado/cancelado
+    elseif ($estado_pago_norm === 'rechazado' || $estado_pago_norm === 'cancelado') {
+        $hay_restricciones = true;
+        $tipo_restriccion = 'warning';
+        $mensaje_restriccion = 'El pedido debe estar cancelado cuando el pago está rechazado o cancelado.';
+    }
+    
     ?>
     <div class="mb-3">
         <label class="form-label"><strong>Estado del Pedido:</strong></label>
@@ -341,16 +552,64 @@ function renderFormularioEstadoPedido($estado_actual_modal) {
                 <i class="fas fa-info-circle me-1"></i>Estado Actual: <?= htmlspecialchars($info_estado_pedido_actual['nombre']) ?>
             </span>
         </div>
+        
+        <?php if ($hay_inconsistencia): ?>
+        <div class="alert alert-<?= $inconsistencias['tipo'] === 'danger' ? 'danger' : 'warning' ?> mb-2">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong><?= $inconsistencias['severidad'] === 'CRÍTICA' ? 'INCONSISTENCIA CRÍTICA' : 'Advertencia' ?>:</strong>
+            <?= htmlspecialchars($inconsistencias['mensaje']) ?>
+            <?php if (!empty($inconsistencias['accion_sugerida'])): ?>
+            <br><small><i class="fas fa-lightbulb me-1"></i><?= htmlspecialchars($inconsistencias['accion_sugerida']) ?></small>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
+        
         <select class="form-select" name="nuevo_estado" required>
-            <option value="pendiente" <?= $estado_actual_modal === 'pendiente' ? 'selected' : '' ?>>Pendiente</option>
-            <option value="pendiente_validado_stock" <?= $estado_actual_modal === 'pendiente_validado_stock' ? 'selected' : '' ?>>Pendiente (Stock Validado)</option>
-            <option value="preparacion" <?= $estado_actual_modal === 'preparacion' ? 'selected' : '' ?>>Preparación</option>
-            <option value="en_viaje" <?= $estado_actual_modal === 'en_viaje' ? 'selected' : '' ?>>En Viaje</option>
-            <option value="completado" <?= $estado_actual_modal === 'completado' ? 'selected' : '' ?>>Completado</option>
-            <option value="devolucion" <?= $estado_actual_modal === 'devolucion' ? 'selected' : '' ?>>Devolución</option>
-            <option value="cancelado" <?= $estado_actual_modal === 'cancelado' ? 'selected' : '' ?>>Cancelado</option>
+            <?php 
+            // Ordenar opciones de forma lógica
+            $orden_estados = ['pendiente', 'preparacion', 'en_viaje', 'completado', 'devolucion', 'cancelado'];
+            $estados_ordenados = [];
+            
+            // Primero: estado actual
+            if (in_array($estado_actual_modal, $transiciones_validas)) {
+                $estados_ordenados[] = $estado_actual_modal;
+            }
+            
+            // Segundo: siguientes estados naturales (en orden lógico)
+            foreach ($orden_estados as $estado_orden) {
+                if (in_array($estado_orden, $transiciones_validas) && 
+                    $estado_orden !== $estado_actual_modal && 
+                    $estado_orden !== 'cancelado') {
+                    $estados_ordenados[] = $estado_orden;
+                }
+            }
+            
+            // Tercero: cancelar (si aplica)
+            if (in_array('cancelado', $transiciones_validas)) {
+                $estados_ordenados[] = 'cancelado';
+            }
+            
+            // Renderizar opciones ordenadas
+            foreach ($estados_ordenados as $estado_valido): 
+                $info_estado = isset($mapeo_estados[$estado_valido]) 
+                    ? $mapeo_estados[$estado_valido] 
+                    : ['nombre' => ucfirst(str_replace('_', ' ', $estado_valido))];
+            ?>
+                <option value="<?= htmlspecialchars($estado_valido) ?>" 
+                        <?= $estado_actual_modal === $estado_valido ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($info_estado['nombre']) ?>
+                </option>
+            <?php endforeach; ?>
         </select>
-        <?php if ($estado_actual_modal !== 'cancelado'): ?>
+        
+        <?php if ($hay_restricciones): ?>
+        <small class="text-<?= $tipo_restriccion ?> d-block mt-1">
+            <i class="fas fa-info-circle me-1"></i>
+            <?= htmlspecialchars($mensaje_restriccion) ?>
+        </small>
+        <?php endif; ?>
+        
+        <?php if ($estado_actual_modal !== 'cancelado' && in_array('cancelado', $transiciones_validas)): ?>
         <small class="text-muted d-block mt-1">
             <i class="fas fa-info-circle me-1"></i>
             Si cancela el pedido, el stock será restaurado automáticamente.

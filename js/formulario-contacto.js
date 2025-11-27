@@ -51,19 +51,6 @@
      */
     
     /**
-     * Valida que el texto no contenga caracteres peligrosos
-     * @param {string} texto - Texto a validar
-     * @returns {boolean} true si el texto es válido
-     */
-    function validarCaracteres(texto) {
-        // Permitir letras, números, espacios, acentos, signos de puntuación básicos
-        // Incluir # para números de pedido
-        // Excluir: < > { } [ ] | \ / & caracteres de control
-        const re = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s.,;:!?¡¿\-()"'@#]+$/;
-        return re.test(texto);
-    }
-    
-    /**
      * NOTA: Las funciones mostrarErrorCampo() y limpiarErrorCampo() están disponibles
      * en common_js_functions.php (incluido globalmente en footer.php).
      * Estas funciones consolidadas soportan creación dinámica de elementos de feedback.
@@ -180,16 +167,16 @@
         // Esto permite que los campos pre-llenados no muestren errores inicialmente
         // La validación se ejecutará cuando el usuario intente enviar el formulario
         if (nameInput) {
-            limpiarError(nameInput);
+            limpiarErrorCampo(nameInput, null);
         }
         if (emailInput) {
-            limpiarError(emailInput);
+            limpiarErrorCampo(emailInput, null);
         }
         if (asuntoSelect) {
-            limpiarError(asuntoSelect);
+            limpiarErrorCampo(asuntoSelect, null);
         }
         if (messageTextarea) {
-            limpiarError(messageTextarea);
+            limpiarErrorCampo(messageTextarea, null);
         }
     }
     

@@ -1,303 +1,211 @@
 # 🛍️ Tienda Seda y Lino
 
-E-commerce de Ropa y Sistema de gestión interno de pedidos
+Tu tienda online de ropa con sistema completo de gestión de pedidos e inventario
 
-## 🚀 Instalación Paso a Paso
+## 🚀 Instalación
 
-### 1. Descargar el código
-```bash
-git clone [URL_DEL_REPOSITORIO]
-cd tiendasedaylino```
+Para comenzar a usar la aplicación, necesitarás:
 
-O descargue el código fuente y extraiga los archivos en la carpeta correspondiente de su servidor web.
+- Un servidor web (Apache, Nginx o similar)
+- Una base de datos MySQL
+- PHP instalado
 
-### Paso 2: Configurar el Servidor Web
+### Pasos básicos
 
-#### Para WAMP (Windows):
-1. Copie la carpeta del proyecto a `C:\wamp64\www\tiendasedaylino`
-2. Inicie WAMP y verifique que Apache y MySQL estén activos (íconos en verde)
+1. **Coloca los archivos del proyecto** en la carpeta correspondiente de tu servidor web
+2. **Crea la base de datos** importando el archivo `sql/inicial.sql` desde phpMyAdmin o tu herramienta de gestión de base de datos preferida
+3. **Accede a la aplicación** desde tu navegador
 
-#### Para XAMPP:
-1. Copie la carpeta del proyecto a `C:\xampp\htdocs\tiendasedaylino` (Windows) o `/opt/lampp/htdocs/tiendasedaylino` (Linux)
-2. Inicie el panel de control de XAMPP
-3. Inicie los servicios Apache y MySQL
+### Usuario administrador inicial
 
-#### Para servidor Linux con Apache:
-1. Copie el proyecto a `/var/www/html/tiendasedaylino` o configure un virtual host
-2. Asegúrese de que Apache y MySQL estén en ejecución
-
-### Paso 3: Crear la Base de Datos
-
-Existen dos métodos para crear la base de datos:
-
-#### Método 1: Usando phpMyAdmin (Recomendado)
-
-1. Abra phpMyAdmin en su navegador (generalmente `http://localhost/phpmyadmin`)
-2. Haga clic en la pestaña "Importar"
-3. Seleccione el archivo `sql/inicial.sql`
-4. Asegúrese de que la opción "Permitir la interrupción de la importación" esté desactivada
-5. Haga clic en "Continuar" o "Ejecutar"
-6. Verifique que se haya creado la base de datos `tiendasedaylino_db` y todas las tablas
-
-#### Método 2: Usando Línea de Comandos MySQL
-
-```bash
-# Conectarse a MySQL
-mysql -u root -p
-
-# Ejecutar el script SQL
-SOURCE /ruta/completa/al/proyecto/sql/inicial.sql;
-
-# O desde la línea de comandos directamente:
-mysql -u root -p < sql/inicial.sql
-```
-
-**Nota importante**: El archivo `inicial.sql` crea automáticamente:
-- La base de datos `tiendasedaylino_db`
-- Todas las tablas necesarias con su estructura completa
-- El usuario ADMIN inicial
-
-### Paso 4: Verificar el Usuario Administrador Inicial
-
-El script `inicial.sql` crea automáticamente un usuario administrador con las siguientes credenciales:
+Al crear la base de datos, se genera automáticamente un usuario administrador con estas credenciales:
 
 - **Email**: `admin@sedaylino.com`
 - **Contraseña**: `admin@sedaylino.com`
-- **Rol**: `admin`
 
-**⚠️ IMPORTANTE**: Cambie esta contraseña inmediatamente después del primer inicio de sesión por razones de seguridad.
-```
+**⚠️ Importante**: Por seguridad, cambia esta contraseña después de tu primer inicio de sesión.
 
-### Paso 5: Configurar la Conexión a la Base de Datos
+## 🎯 ¿Qué puedes hacer?
 
-El archivo `config/database.php` detecta automáticamente si está ejecutándose en localhost o en hosting. Para desarrollo local, la configuración por defecto es:
+La aplicación te permite gestionar una tienda online completa de ropa, desde la venta hasta el control interno. Aquí te contamos las principales funcionalidades:
 
-```php
-$host = '127.0.0.1';
-$dbname = 'tiendasedaylino_db';
-$username = 'root';
-$password = '';
-$port = 3306;```
+### Para tus clientes
 
-**Si su configuración es diferente**, edite `config/database.php` y ajuste los valores según su entorno:
+**Compras online:**
+- Navegar por un catálogo completo con filtros por categoría, talle, género y color
+- Ver detalles de cada producto con todas sus variantes disponibles
+- Agregar productos al carrito y gestionar las cantidades
+- Realizar compras de forma segura con validación automática de stock disponible
+- Seguir el estado de sus pedidos en tiempo real
+- El sistema calcula automáticamente los costos de envío según la ubicación y el monto de la compra
 
-- **Usuario MySQL**: Generalmente `root` en desarrollo local
-- **Contraseña MySQL**: Generalmente vacía en WAMP/XAMPP, o la que configuró durante la instalación
-- **Puerto**: Generalmente `3306` (puerto por defecto de MySQL)
+**Cuenta personal:**
+- Registrarse y crear una cuenta
+- Gestionar su perfil y datos personales
+- Recuperar su contraseña mediante preguntas de seguridad
+- Ver el historial completo de sus pedidos
+- Cancelar o solicitar devoluciones cuando corresponda
 
-### Paso 6: Verificar Permisos de Archivos
+### Para tu equipo
 
-Asegúrese de que las siguientes carpetas tengan permisos de escritura (si está en Linux):
+**Control de inventario:**
+- Gestionar el stock de cada producto considerando talle y color
+- Registrar movimientos de stock (ventas, devoluciones, ajustes)
+- El sistema valida automáticamente que haya stock disponible antes de permitir una venta
 
-```bash
-chmod -R 755 imagenes/productos/
-chmod -R 755 uploads/```
+**Gestión de pedidos:**
+- Seguimiento completo del estado de cada pedido
+- Gestión de pagos y aprobaciones
+- Procesamiento de devoluciones con actualización automática de stock
 
-### Paso 7: Verificar la Instalación
+**Roles y permisos:**
+- Sistema de roles que define qué puede hacer cada persona en el sistema
+- Cada rol tiene acceso a las herramientas que necesita para su trabajo
+- Paneles personalizados según el tipo de usuario
 
-1. Abra su navegador y acceda a la aplicación:
-   - WAMP: `http://localhost/tiendasedaylino/`
-   - XAMPP: `http://localhost/tiendasedaylino/`
-   - Linux: `http://localhost/tiendasedaylino/` o según su configuración
+## 👥 ¿Qué puede hacer cada tipo de usuario?
 
-2. Verifique que la página de inicio se cargue correctamente
+### Cliente
 
-3. Intente iniciar sesión con las credenciales del Admin
+Si eres cliente de la tienda, puedes:
 
-4. Si el login es exitoso, será redirigido al panel de administración
+**Comprar productos:**
+- Explorar el catálogo completo con filtros para encontrar lo que buscas
+- Ver todos los detalles de cada producto, incluyendo talles y colores disponibles
+- Agregar productos a tu carrito (hasta 10 unidades de cada variante)
+- Modificar las cantidades o eliminar productos del carrito antes de comprar
+- Realizar tu compra de forma segura (necesitas estar registrado e iniciar sesión)
+- Ver todo tu historial de pedidos
 
+**Gestionar tus pedidos:**
+- Ver todos tus pedidos desde tu perfil
+- Consultar los detalles completos de cada pedido: qué productos incluye, en qué estado está y el estado del pago
+- Cancelar pedidos que aún están pendientes o en preparación
+- Marcar tus pagos como realizados cuando el pedido está pendiente
+- Solicitar devoluciones de productos en pedidos que ya fueron completados o están en camino
 
-## 🎯 Uso
-
-La aplicación incluye las siguientes funcionalidades principales:
-
-#### E-commerce
-- ✅ Catálogo de productos con filtros por categoría, talle, género y color
-- ✅ Detalle de productos con variantes (talle y color)
-- ✅ Carrito de compras con persistencia en sesión
-- ✅ Proceso de checkout completo con validación de stock
-- ✅ Gestión de pedidos con seguimiento de estados
-- ✅ Cálculo automático de costos de envío según ubicación y monto
-
-#### Gestión de Usuarios
-- ✅ Sistema de registro con validaciones de seguridad
-- ✅ Login con protección contra ataques de fuerza bruta
-- ✅ Recupero de contraseña mediante preguntas de seguridad
-- ✅ Gestión de perfiles de usuario
-- ✅ Eliminación de cuenta (soft delete)
-
-#### Gestión de Inventario
-- ✅ Control de stock por variante (talle + color)
-- ✅ Movimientos de stock (ventas, devoluciones, ajustes, ingresos)
-- ✅ Validación de stock disponible antes de ventas
-
-#### Gestión de Roles
-- ✅ Sistema de roles: Cliente, Ventas, Marketing, Admin
-- ✅ Control de acceso basado en roles (RBAC)
-- ✅ Paneles específicos por rol
-
-### Páginas Principales
-
-- **Inicio**: `index.php`
-- **Login**: `login.php`
-- **Catálogo**: `catalogo.php?categoria=X`
-- **Detalle de producto**: `detalle-producto.php?id=X`
-- **Carrito**: `carrito.php`
-- **Checkout**: `checkout.php` (requiere login)
-- **Perfil**: `perfil.php`
-- **Panel Admin**: `admin.php` (requiere rol admin)
-- **Panel Ventas**: `ventas.php` (requiere rol ventas)
-- **Panel Marketing**: `marketing.php` (requiere rol marketing)
-
-## 👥 Alcances y Límites por Rol de Usuario
-
-### Rol: Cliente
-
-#### Funcionalidades Disponibles
-
-**Navegación y Compra:**
-- Navegar por el catálogo de productos con filtros
-- Ver detalle de productos con variantes disponibles
-- Agregar productos al carrito (máximo 10 unidades por variante)
-- Modificar cantidades y eliminar productos del carrito
-- Realizar checkout y crear pedidos (requiere estar logueado)
-- Ver historial de sus propios pedidos
-
-**Gestión de Pedidos Propios:**
-- Ver todos sus pedidos en la pestaña "Mis Pedidos" del perfil
-- Ver detalles completos de cada pedido (productos, estado, pago)
-- Cancelar pedidos en estado `pendiente` o `preparacion`
-- Marcar pagos como pagados (solo si el estado es `pendiente`)
-- Solicitar devoluciones de items en pedidos `completados` o `en_viaje`
-
-**Gestión de Perfil:**
-- Actualizar datos personales (nombre, apellido, email, teléfono, fecha de nacimiento)
-- Actualizar dirección de envío completa
-- Cambiar contraseña
-- Configurar pregunta y respuesta de recupero
-- Eliminar cuenta (soft delete)
+**Tu cuenta:**
+- Actualizar tu información personal: nombre, apellido, email, teléfono y fecha de nacimiento
+- Modificar tu dirección de envío
+- Cambiar tu contraseña cuando lo necesites
+- Configurar una pregunta de seguridad para recuperar tu cuenta si olvidas la contraseña
+- Eliminar tu cuenta si lo deseas (tus datos se mantienen en el sistema para historial, pero tu cuenta queda inactiva)
 
 ---
 
-### Rol: Ventas
+### Ventas
 
-#### Funcionalidades Disponibles
+Si trabajas en el área de ventas, tienes acceso a:
 
-**Gestión de Pedidos:**
-- Ver todos los pedidos del sistema con selector de cantidad (10/50/Todos)
-- Editar estado de pedidos entre: `pendiente`, `preparacion`, `en_viaje`, `completado`, `devolucion`, `cancelado`
-- Editar información del pedido: dirección de entrega, teléfono de contacto, observaciones, total
-- Ver detalles completos de cada pedido
+**Gestionar pedidos:**
+- Ver todos los pedidos del sistema (puedes elegir cuántos ver: 10, 50 o todos)
+- Cambiar el estado de los pedidos según avancen: pendiente, preparación, en viaje, completado, devolución o cancelado
+- Editar información de los pedidos: dirección de entrega, teléfono de contacto, observaciones y total
+- Ver todos los detalles de cada pedido
 
-**Gestión de Pagos:**
-- Aprobar pagos (cambiar de `pendiente` a `aprobado`)
-  - Automáticamente descuenta stock del pedido
-  - Cambia estado del pedido a `preparacion`
-- Rechazar pagos (cambiar a `rechazado` con motivo)
-  - Restaura stock si había sido descontado
-  - Cambia estado del pedido a `cancelado` si corresponde
-- Cancelar pagos (cambiar a `cancelado`)
-  - Restaura stock si había sido descontado
-- Actualizar información de pago: monto, número de transacción, motivo de rechazo
+**Gestionar pagos:**
+- Aprobar pagos cuando el cliente haya realizado el pago
+  - El sistema automáticamente descuenta el stock de los productos vendidos
+  - El pedido pasa a estado "preparación"
+- Rechazar pagos si hay algún problema, indicando el motivo
+  - Si el stock ya había sido descontado, se restaura automáticamente
+  - El pedido se cancela si corresponde
+- Cancelar pagos cuando sea necesario
+  - El stock se restaura automáticamente si había sido descontado
+- Actualizar información de pagos: monto, número de transacción y motivos de rechazo
 
-**Gestión de Devoluciones:**
-- Procesar devoluciones de items para pedidos en estado `completado` o `en_viaje`
-- Especificar cantidad y motivo de devolución
-- El stock se restaura automáticamente mediante `Movimientos_Stock` tipo `devolucion`
+**Procesar devoluciones:**
+- Gestionar devoluciones de productos en pedidos completados o en camino
+- Especificar qué cantidad se devuelve y el motivo
+- El stock se restaura automáticamente en el sistema
 
-**Gestión de Clientes:**
-- Ver lista completa de todos los clientes (rol `cliente`)
-- Ver información detallada de cada cliente: nombre, email, teléfono, dirección, fecha de registro
-- Ver total de pedidos realizados por cada cliente
+**Ver información de clientes:**
+- Consultar la lista completa de todos los clientes registrados
+- Ver los datos de cada cliente: nombre, email, teléfono, dirección y fecha de registro
+- Conocer cuántos pedidos ha realizado cada cliente
 
-**Gestión de Métodos de Pago:**
-- Agregar nuevos métodos de pago (nombre y descripción)
-- Editar métodos de pago existentes
-- Eliminar métodos de pago (soft delete, solo si no están en uso)
+**Gestionar métodos de pago:**
+- Agregar nuevos métodos de pago disponibles para los clientes
+- Editar los métodos de pago existentes
+- Eliminar métodos de pago que ya no se usen (solo si no están asociados a ningún pedido)
 
-**Métricas y Análisis:**
-- Ver top productos más vendidos por variante (talle/color)
-- Identificar pedidos con más tiempo en un estado específico
-
----
-
-### Rol: Marketing
-
-#### Funcionalidades Disponibles
-
-**Gestión de Productos:**
-- Ver lista de productos agrupados por nombre (unificando colores y talles)
-- Editar productos existentes: nombre, descripción, precio, categoría, género
-- Crear productos nuevos con categoría y género
-- Gestionar variantes: agregar talles y colores a productos existentes
-- Gestionar stock: agregar stock inicial a variantes
-- Activar/desactivar productos (soft delete)
-
-**Gestión de Categorías:**
-- Crear categorías nuevas automáticamente al crear productos
-- Ver lista de categorías disponibles
-- Las categorías se crean automáticamente si no existen
-
-**Carga Masiva desde CSV:**
-- Subir archivo CSV para procesar múltiples productos y variantes
-- Formato CSV requerido con columnas: `nombre_producto`, `descripcion_producto`, `precio_actual`, `categoria`, `genero`, `talle`, `color`, `stock`
-- Cada fila del CSV representa una variante (talle + color)
-- Productos con mismo nombre se agrupan automáticamente
-- Validaciones automáticas de formato y datos
-
-**Gestión de Imágenes:**
-- Subir imágenes de productos: miniatura y fotos por color
-- Asociar imágenes a variantes por color del producto
-- Gestionar múltiples imágenes por producto (foto1, foto2, foto3)
-
-**Métricas y Análisis:**
-- Ver top productos más vendidos por variante (talle/color)
-- Identificar productos sin movimiento (con stock pero sin ventas en últimos 30 días)
+**Ver estadísticas:**
+- Consultar los productos más vendidos por talle y color
+- Identificar pedidos que llevan mucho tiempo en un mismo estado
 
 ---
 
-### Rol: Admin (Administrador)
+### Marketing
 
-#### Funcionalidades Disponibles
+Si trabajas en marketing, puedes gestionar todo el catálogo:
 
-**Gestión Completa de Usuarios:**
-- Crear usuarios de staff (Ventas y Marketing) con contraseña temporal generada automáticamente
-- Modificar usuarios: cambiar nombre, apellido, email, rol, contraseña
-- Cambiar roles entre: `cliente`, `ventas`, `marketing`, `admin`
-- Eliminar usuarios (soft delete, marcar `activo = 0`)
-- Ver estadísticas de usuarios por rol
+**Gestionar productos:**
+- Ver todos los productos organizados por nombre (agrupando todas sus variantes de talle y color)
+- Editar productos existentes: cambiar nombre, descripción, precio, categoría y género
+- Crear productos nuevos con su categoría y género
+- Agregar variantes a productos: nuevos talles y colores
+- Gestionar el stock inicial de cada variante
+- Activar o desactivar productos del catálogo (los productos desactivados no se eliminan, solo se ocultan)
 
-**Acceso a Todos los Paneles:**
-- Acceso completo al panel de administración
-- Acceso al panel de ventas (puede gestionar pedidos y pagos)
-- Acceso al panel de marketing (puede gestionar productos)
-- Acceso a todas las funcionalidades del sistema
+**Gestionar categorías:**
+- Las categorías se crean automáticamente cuando creas un producto nuevo
+- Ver todas las categorías disponibles en el sistema
+- Si una categoría no existe, el sistema la crea automáticamente al usarla
 
-**Estadísticas y Reportes:**
-- Ver total de usuarios por rol
-- Contadores de usuarios: Total, Admins, Staff (Ventas + Marketing), Clientes
+**Carga masiva de productos:**
+- Subir un archivo CSV para agregar muchos productos y variantes de una vez
+- El archivo debe tener columnas específicas: nombre del producto, descripción, precio, categoría, género, talle, color y stock
+- Cada fila del archivo representa una variante (una combinación de talle y color)
+- Los productos con el mismo nombre se agrupan automáticamente
+- El sistema valida automáticamente que los datos estén correctos
 
+**Gestionar imágenes:**
+- Subir imágenes de productos: foto principal y fotos por cada color disponible
+- Asociar las imágenes a las variantes según el color del producto
+- Agregar múltiples fotos por producto para mostrar diferentes ángulos
 
-- **No puede quitarse su propio rol de administrador**: Validación que previene que un admin se quite su propio rol
-- **No puede eliminarse a sí mismo**: Validación que previene auto-eliminación
-- **Debe existir al menos un administrador**: No puede eliminar o cambiar el rol del último administrador activo del sistema
+**Ver estadísticas:**
+- Consultar los productos más vendidos por talle y color
+- Identificar productos que tienen stock pero no se han vendido en los últimos 30 días
 
-#### Notas Importantes
+---
 
-- El administrador tiene acceso completo al sistema, por lo que debe manejarse con extrema precaución
-- Se recomienda cambiar la contraseña del usuario admin inicial inmediatamente después de la instalación
-- Las operaciones de eliminación de usuarios son soft delete, preservando datos históricos para auditoría
+### Administrador
+
+Como administrador, tienes acceso completo al sistema:
+
+**Gestionar usuarios:**
+- Crear usuarios para tu equipo (personal de ventas y marketing) con contraseñas temporales que se generan automáticamente
+- Modificar cualquier usuario: cambiar nombre, apellido, email, rol y contraseña
+- Asignar roles a los usuarios: cliente, ventas, marketing o administrador
+- Desactivar usuarios cuando sea necesario (los datos se mantienen en el sistema para historial)
+- Ver estadísticas de cuántos usuarios hay de cada tipo
+
+**Acceso completo:**
+- Tienes acceso a todos los paneles del sistema
+- Puedes gestionar pedidos y pagos (como el personal de ventas)
+- Puedes gestionar productos y catálogo (como el personal de marketing)
+- Tienes acceso a todas las funcionalidades disponibles
+
+**Ver estadísticas:**
+- Consultar el total de usuarios por cada rol
+- Ver contadores: total de usuarios, administradores, personal (ventas + marketing) y clientes
+
+**Protecciones del sistema:**
+- No puedes quitarte tu propio rol de administrador (para evitar bloquearte del sistema)
+- No puedes eliminarte a ti mismo (para mantener siempre al menos un administrador)
+- Debe existir al menos un administrador activo en el sistema (no puedes eliminar o cambiar el rol del último administrador)
+
+**Importante:**
+- Como administrador tienes acceso completo, así que usa este poder con responsabilidad
+- Recuerda cambiar la contraseña del usuario administrador inicial después de la instalación
+- Cuando desactivas un usuario, sus datos se mantienen en el sistema para conservar el historial
 
 
 ## 📝 Notas Importantes
 
-- Las imágenes de productos están en `imagenes/`
-- Los estilos están centralizados en `css/style.css`
-- La configuración de base de datos está en `config/database.php`
-- Compatible con WAMP, XAMPP y servidores Linux
-- Las contraseñas se almacenan como hash (nunca en texto plano)
-- El sistema implementa protección contra ataques de fuerza bruta en login y recupero de contraseña
-
+- La aplicación funciona en diferentes entornos: WAMP, XAMPP y servidores Linux
+- El sistema protege tu información y cuenta con medidas de seguridad para mantener tus datos seguros
 
 ## 📄 Licencia
 

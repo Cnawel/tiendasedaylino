@@ -51,6 +51,8 @@ require_once 'includes/queries/pedido_queries.php';
 require_once 'includes/queries/stock_queries.php';
 require_once 'includes/queries/pago_queries.php';
 require_once 'includes/sales_functions.php';
+require_once 'includes/estado_helpers.php';
+require_once 'includes/envio_functions.php'; // Necesario para parsearDireccion()
 
 // Configurar título de la página
 $titulo_pagina = 'Mi Perfil';
@@ -86,323 +88,169 @@ if (empty($preguntas_recupero)) {
 // PROCESAR FORMULARIOS
 // ============================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Procesar actualización de pregunta/respuesta de recupero
+    // Determinar acción usando switch para reducir anidación
+    $accion = null;
     if (isset($_POST['actualizar_recupero'])) {
-        $resultado = procesarActualizacionRecupero($mysqli, $id_usuario, $_POST);
-        // Guardar mensaje en sesión y redirigir (patrón Post-Redirect-Get)
-        $_SESSION['mensaje'] = $resultado['mensaje'];
-        $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
-        header('Location: perfil.php');
-        exit;
+        $accion = 'actualizar_recupero';
+    } elseif (isset($_POST['actualizar_datos'])) {
+        $accion = 'actualizar_datos';
+    } elseif (isset($_POST['cambiar_contrasena'])) {
+        $accion = 'cambiar_contrasena';
+    } elseif (isset($_POST['marcar_pago_pagado'])) {
+        $accion = 'marcar_pago_pagado';
+    } elseif (isset($_POST['eliminar_cuenta'])) {
+        $accion = 'eliminar_cuenta';
     }
-    // Procesar actualización de datos personales
-    elseif (isset($_POST['actualizar_datos'])) {
-        $resultado = procesarActualizacionDatos($mysqli, $id_usuario, $_POST);
-        // Actualizar sesión si los datos se actualizaron correctamente
-        if (!empty($resultado['datos_actualizados'])) {
-            $_SESSION['nombre'] = $resultado['datos_actualizados']['nombre'];
-            $_SESSION['apellido'] = $resultado['datos_actualizados']['apellido'];
-            $_SESSION['email'] = $resultado['datos_actualizados']['email'];
-        }
-        // Guardar mensaje en sesión y redirigir (patrón Post-Redirect-Get)
-        $_SESSION['mensaje'] = $resultado['mensaje'];
-        $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
-        header('Location: perfil.php');
-        exit;
-    }
-    // Procesar cambio de contraseña
-    elseif (isset($_POST['cambiar_contrasena'])) {
-        $resultado = procesarCambioContrasena($mysqli, $id_usuario, $_POST);
-        // Guardar mensaje en sesión y redirigir (patrón Post-Redirect-Get)
-        $_SESSION['mensaje'] = $resultado['mensaje'];
-        $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
-        header('Location: perfil.php');
-        exit;
-    }
-    // Procesar marcar pago como pagado
-    elseif (isset($_POST['marcar_pago_pagado'])) {
-        require_once __DIR__ . '/includes/queries/pago_queries.php';
-        require_once __DIR__ . '/includes/queries/pedido_queries.php';
-        require_once __DIR__ . '/includes/queries/stock_queries.php';
-        
-        $id_pago = intval($_POST['id_pago'] ?? 0);
-        $numero_transaccion = trim($_POST['numero_transaccion'] ?? '');
-        
-        if ($id_pago <= 0) {
-            $_SESSION['mensaje'] = 'ID de pago inválido';
-            $_SESSION['mensaje_tipo'] = 'danger';
+    
+    // Procesar acción usando switch
+    switch ($accion) {
+        case 'actualizar_recupero':
+            $resultado = procesarActualizacionRecupero($mysqli, $id_usuario, $_POST);
+            $_SESSION['mensaje'] = $resultado['mensaje'];
+            $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
             header('Location: perfil.php');
             exit;
-        } else {
-            // Obtener información del pago
-            $pago = obtenerPagoPorId($mysqli, $id_pago);
             
-            if (!$pago) {
-                $_SESSION['mensaje'] = 'Pago no encontrado';
-                $_SESSION['mensaje_tipo'] = 'danger';
+        case 'actualizar_datos':
+            $resultado = procesarActualizacionDatos($mysqli, $id_usuario, $_POST);
+            // Actualizar sesión si los datos se actualizaron correctamente
+            if (!empty($resultado['datos_actualizados'])) {
+                $_SESSION['nombre'] = $resultado['datos_actualizados']['nombre'];
+                $_SESSION['apellido'] = $resultado['datos_actualizados']['apellido'];
+                $_SESSION['email'] = $resultado['datos_actualizados']['email'];
+            }
+            $_SESSION['mensaje'] = $resultado['mensaje'];
+            $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
+            header('Location: perfil.php');
+            exit;
+            
+        case 'cambiar_contrasena':
+            $resultado = procesarCambioContrasena($mysqli, $id_usuario, $_POST);
+            $_SESSION['mensaje'] = $resultado['mensaje'];
+            $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
+            header('Location: perfil.php');
+            exit;
+            
+        case 'marcar_pago_pagado':
+            $id_pago = intval($_POST['id_pago'] ?? 0);
+            $numero_transaccion = trim($_POST['numero_transaccion'] ?? '');
+            
+            // Validar pago usando función helper
+            $validacion = validarPagoParaMarcarPagado($mysqli, $id_pago, $id_usuario);
+            if (!$validacion['valido']) {
+                $_SESSION['mensaje'] = $validacion['mensaje'];
+                $_SESSION['mensaje_tipo'] = $validacion['mensaje_tipo'];
                 header('Location: perfil.php');
                 exit;
-            } else {
-                // Verificar que el pedido pertenece al usuario actual
-                $pedido = obtenerPedidoPorId($mysqli, $pago['id_pedido']);
+            }
+            
+            $pago = $validacion['pago'];
+            $monto = floatval($pago['monto']);
+            
+            // Obtener estado anterior antes de actualizar
+            $estado_pago_anterior = normalizarEstado($pago['estado_pago'] ?? 'pendiente');
+            
+            // Actualizar pago completo con numero_transaccion y marcar como pendiente_aprobacion
+            // NO se descuenta stock aquí, solo cuando ventas apruebe el pago
+            try {
+                $numero_transaccion_normalizado = (!empty($numero_transaccion)) ? $numero_transaccion : null;
+                actualizarPagoCompleto($mysqli, $id_pago, 'pendiente_aprobacion', $monto, $numero_transaccion_normalizado);
                 
-                if (!$pedido || intval($pedido['id_usuario']) !== $id_usuario) {
-                    $_SESSION['mensaje'] = 'No tienes permiso para modificar este pago';
-                    $_SESSION['mensaje_tipo'] = 'danger';
-                    header('Location: perfil.php');
-                    exit;
-                } elseif ($pago['estado_pago'] !== 'pendiente') {
-                    $_SESSION['mensaje'] = 'Solo se pueden marcar como pagados los pagos pendientes';
-                    $_SESSION['mensaje_tipo'] = 'warning';
-                    header('Location: perfil.php');
-                    exit;
-                } else {
-                    // Actualizar pago completo con numero_transaccion y marcar como pendiente_aprobacion
-                    // NO se descuenta stock aquí, solo cuando ventas apruebe el pago
-                    $monto = floatval($pago['monto']);
+                // Obtener ID del pedido para el mensaje
+                $id_pedido = intval($pago['id_pedido']);
+                
+                // Mensaje simple para clientes (sin transición de estado)
+                $mensaje_exito = "Pedido #{$id_pedido} con pago confirmado. Está pendiente de aprobación por el equipo de ventas.";
+                
+                $_SESSION['mensaje'] = $mensaje_exito;
+                $_SESSION['mensaje_tipo'] = 'success';
+                header('Location: perfil.php');
+                exit;
+            } catch (Exception $e) {
+                // Loggear error MySQL si existe
+                if ($mysqli && $mysqli->error) {
+                    error_log("MySQL Error: {$mysqli->error} (Errno: {$mysqli->errno})");
+                }
+                
+                // Construir mensaje de error usando función helper
+                $error_info = construirMensajeErrorPago($e->getMessage(), $id_pago, $id_usuario);
+                $_SESSION['mensaje'] = $error_info['mensaje'];
+                $_SESSION['mensaje_tipo'] = $error_info['mensaje_tipo'];
+                header('Location: perfil.php');
+                exit;
+            }
+            break;
+            
+        case 'eliminar_cuenta':
+            try {
+                $resultado = procesarEliminacionCuenta($mysqli, $id_usuario, $_POST);
+                
+                if ($resultado['eliminado']) {
+                    // Limpiar todas las variables de sesión ANTES de destruir
+                    $_SESSION = array();
                     
-                    // Modo debug: activar para mostrar información detallada de errores
-                    $debug_mode = (ini_get('display_errors') == 1);
+                    // Destruir la sesión (debe hacerse mientras la sesión está abierta)
+                    session_destroy();
                     
-                    // Loggear información antes de procesar (para debugging)
-                    error_log("=== INICIO PROCESAR PAGO ===");
-                    error_log("ID Pago: {$id_pago}");
-                    error_log("ID Usuario: {$id_usuario}");
-                    error_log("ID Pedido: {$pago['id_pedido']}");
-                    error_log("Estado Pago Actual: {$pago['estado_pago']}");
-                    error_log("Monto: {$monto}");
-                    error_log("Número Transacción: " . ($numero_transaccion ?: '(vacío)'));
-                    error_log("Estado Pedido: " . ($pedido['estado_pedido'] ?? 'N/A'));
+                    // Cerrar sesión después de destruir
+                    session_write_close();
                     
-                    // Verificar estado de conexión a BD
-                    if ($mysqli && $mysqli->connect_error) {
-                        error_log("ERROR: Conexión BD fallida: " . $mysqli->connect_error);
+                    // Destruir la cookie de sesión si existe
+                    if (ini_get("session.use_cookies")) {
+                        $params = session_get_cookie_params();
+                        setcookie(
+                            session_name(), 
+                            '', 
+                            time() - 42000,
+                            $params["path"], 
+                            $params["domain"],
+                            $params["secure"], 
+                            $params["httponly"]
+                        );
+                    }
+                    
+                    // Limpiar cualquier buffer de salida para asegurar redirección limpia
+                    // Limpiar todos los niveles de buffer
+                    while (ob_get_level() > 0) {
+                        ob_end_clean();
+                    }
+                    
+                    // Verificar que los headers no se hayan enviado
+                    if (!headers_sent()) {
+                        // Redirigir a página de confirmación
+                        header('Location: cuenta_eliminada.php', true, 302);
+                        exit;
                     } else {
-                        error_log("Conexión BD: OK");
-                    }
-                    
-                    try {
-                        // Normalizar numero_transaccion: convertir string vacío a null
-                        $numero_transaccion_normalizado = (!empty($numero_transaccion)) ? $numero_transaccion : null;
-                        
-                        error_log("Llamando a actualizarPagoCompleto() con parámetros:");
-                        error_log("  - id_pago: {$id_pago}");
-                        error_log("  - estado_pago: 'pendiente_aprobacion'");
-                        error_log("  - monto: {$monto}");
-                        error_log("  - numero_transaccion: " . ($numero_transaccion_normalizado ?: 'null'));
-                        
-                        if (actualizarPagoCompleto($mysqli, $id_pago, 'pendiente_aprobacion', $monto, $numero_transaccion_normalizado)) {
-                            error_log("=== PAGO MARCADO COMO PENDIENTE_APROBACION EXITOSAMENTE ===");
-                            $_SESSION['mensaje'] = 'Pago marcado como pagado correctamente. Está pendiente de aprobación por el equipo de ventas.';
-                            $_SESSION['mensaje_tipo'] = 'success';
-                            header('Location: perfil.php');
-                            exit;
-                        } else {
-                            // Este caso no debería ocurrir ya que la función lanza excepciones, pero lo mantenemos por seguridad
-                            error_log("ERROR: actualizarPagoCompleto() retornó false sin lanzar excepción");
-                            error_log("MySQL Error: " . ($mysqli->error ?: 'N/A'));
-                            error_log("MySQL Errno: " . ($mysqli->errno ?: 'N/A'));
-                            $_SESSION['mensaje'] = 'Error al marcar el pago como pagado. Por favor, comunícate con nosotros para más información.';
-                            $_SESSION['mensaje_tipo'] = 'danger';
-                            header('Location: perfil.php');
-                            exit;
-                        }
-                    } catch (Exception $e) {
-                        $error_message = $e->getMessage();
-                        $error_file = $e->getFile();
-                        $error_line = $e->getLine();
-                        $error_trace = $e->getTraceAsString();
-                        
-                        // Loggear el error completo para debugging
-                        error_log("=== ERROR AL MARCAR PAGO ===");
-                        error_log("ID Pago: {$id_pago}");
-                        error_log("ID Usuario: {$id_usuario}");
-                        error_log("ID Pedido: {$pago['id_pedido']}");
-                        error_log("Mensaje Error: " . $error_message);
-                        error_log("Archivo: {$error_file}");
-                        error_log("Línea: {$error_line}");
-                        error_log("Stack Trace:");
-                        error_log($error_trace);
-                        
-                        // Capturar errores específicos de MySQL
-                        if ($mysqli) {
-                            error_log("MySQL Error: " . ($mysqli->error ?: 'N/A'));
-                            error_log("MySQL Errno: " . ($mysqli->errno ?: 'N/A'));
-                        }
-                        
-                        error_log("=== FIN ERROR ===");
-                        
-                        // Construir mensaje de error según el tipo
-                        $mensaje_usuario = '';
-                        $tipo_mensaje = 'danger';
-                        
-                        // Verificar si el error es por stock insuficiente
-                        if (strpos($error_message, 'STOCK_INSUFICIENTE') !== false) {
-                            $mensaje_usuario = 'No hay stock disponible para completar este pedido. Por favor, <a href="index.php#contacto" class="alert-link">comunícate con nosotros</a> para más información.';
-                            $tipo_mensaje = 'warning';
-                        }
-                        // Verificar si ya existe otro pago aprobado
-                        elseif (strpos($error_message, 'Ya existe otro pago aprobado') !== false) {
-                            $mensaje_usuario = 'Ya existe un pago aprobado para este pedido. No se puede aprobar otro pago.';
-                            $tipo_mensaje = 'warning';
-                        }
-                        // Verificar si el monto es inválido
-                        elseif (strpos($error_message, 'monto menor o igual a cero') !== false) {
-                            $mensaje_usuario = 'El monto del pago no es válido. Por favor, comunícate con nosotros para más información.';
-                            $tipo_mensaje = 'danger';
-                        }
-                        // Verificar si el pago no fue encontrado
-                        elseif (strpos($error_message, 'Pago no encontrado') !== false) {
-                            $mensaje_usuario = 'El pago no fue encontrado en el sistema. Por favor, recarga la página e intenta nuevamente.';
-                            $tipo_mensaje = 'danger';
-                        }
-                        // Verificar si el estado es inválido
-                        elseif (strpos($error_message, 'Estado de pago inválido') !== false) {
-                            $mensaje_usuario = 'El estado del pago no es válido. Por favor, comunícate con nosotros para más información.';
-                            $tipo_mensaje = 'danger';
-                        }
-                        // Verificar errores de base de datos
-                        elseif (strpos($error_message, 'Error al preparar') !== false || 
-                                strpos($error_message, 'Error al ejecutar') !== false ||
-                                strpos($error_message, 'Error al actualizar') !== false ||
-                                strpos($error_message, 'Error al obtener') !== false) {
-                            $mensaje_usuario = 'Error de base de datos al procesar el pago. Por favor, <a href="index.php#contacto" class="alert-link">comunícate con nosotros</a> para más información.';
-                            $tipo_mensaje = 'danger';
-                        }
-                        // Otros errores genéricos
-                        else {
-                            $mensaje_usuario = 'Error al procesar el pago. Por favor, <a href="index.php#contacto" class="alert-link">comunícate con nosotros</a> para más información.';
-                            $tipo_mensaje = 'danger';
-                        }
-                        
-                        // Si está en modo debug, agregar información detallada al mensaje
-                        if ($debug_mode) {
-                            $mensaje_usuario .= "<br><br><strong>Información de Debug:</strong><br>";
-                            $mensaje_usuario .= "<strong>Error:</strong> " . htmlspecialchars($error_message) . "<br>";
-                            $mensaje_usuario .= "<strong>Archivo:</strong> " . htmlspecialchars($error_file) . "<br>";
-                            $mensaje_usuario .= "<strong>Línea:</strong> {$error_line}<br>";
-                            if ($mysqli) {
-                                $mensaje_usuario .= "<strong>MySQL Error:</strong> " . htmlspecialchars($mysqli->error ?: 'N/A') . "<br>";
-                                $mensaje_usuario .= "<strong>MySQL Errno:</strong> " . ($mysqli->errno ?: 'N/A') . "<br>";
-                            }
-                            $mensaje_usuario .= "<strong>Stack Trace:</strong><pre style='font-size: 0.85rem; max-height: 200px; overflow-y: auto;'>" . htmlspecialchars($error_trace) . "</pre>";
-                        }
-                        
-                        $_SESSION['mensaje'] = $mensaje_usuario;
-                        $_SESSION['mensaje_tipo'] = $tipo_mensaje;
-                        
-                        // Redirigir después de procesar cualquier error
-                        header('Location: perfil.php');
+                        // Si los headers ya se enviaron, usar JavaScript para redirigir
+                        echo '<script>window.location.href = "cuenta_eliminada.php";</script>';
                         exit;
                     }
-                }
-            }
-        }
-    }
-    // Procesar cancelación de pedido
-    elseif (isset($_POST['cancelar_pedido_cliente'])) {
-        require_once __DIR__ . '/includes/queries/pedido_queries.php';
-        require_once __DIR__ . '/includes/queries/pago_queries.php';
-        require_once __DIR__ . '/includes/queries/stock_queries.php';
-        
-        $id_pedido = intval($_POST['id_pedido'] ?? 0);
-        
-        if ($id_pedido <= 0) {
-            $_SESSION['mensaje'] = 'ID de pedido inválido';
-            $_SESSION['mensaje_tipo'] = 'danger';
-            header('Location: perfil.php');
-            exit;
-        } else {
-            // Verificar que el pedido pertenece al usuario actual
-            $pedido = obtenerPedidoPorId($mysqli, $id_pedido);
-            
-            if (!$pedido || intval($pedido['id_usuario']) !== $id_usuario) {
-                $_SESSION['mensaje'] = 'No tienes permiso para cancelar este pedido';
-                $_SESSION['mensaje_tipo'] = 'danger';
-                header('Location: perfil.php');
-                exit;
-            } else {
-                $estado_actual = trim(strtolower($pedido['estado_pedido'] ?? ''));
-                
-                // Solo permitir cancelar si está en pendiente o preparacion
-                if (!in_array($estado_actual, ['pendiente', 'preparacion'])) {
-                    $_SESSION['mensaje'] = 'Solo se pueden cancelar pedidos en estado pendiente o preparación';
-                    $_SESSION['mensaje_tipo'] = 'warning';
-                    header('Location: perfil.php');
-                    exit;
                 } else {
-                    try {
-                        // Usar actualizarEstadoPedidoConValidaciones() para validaciones centralizadas
-                        // según las reglas de negocio del plan
-                        require_once __DIR__ . '/includes/queries/pedido_queries.php';
-                        if (!actualizarEstadoPedidoConValidaciones($mysqli, $id_pedido, 'cancelado', $id_usuario)) {
-                            throw new Exception('Error al cancelar el pedido');
-                        }
-                        
-                        $_SESSION['mensaje'] = 'Pedido cancelado correctamente. El stock ha sido restaurado si era necesario.';
-                        $_SESSION['mensaje_tipo'] = 'success';
-                        header('Location: perfil.php');
-                        exit;
-                    } catch (Exception $e) {
-                        $_SESSION['mensaje'] = 'Error al cancelar el pedido: ' . $e->getMessage();
-                        $_SESSION['mensaje_tipo'] = 'danger';
-                        header('Location: perfil.php');
-                        exit;
-                    }
-                }
-            }
-        }
-    }
-    // Procesar eliminación de cuenta
-    elseif (isset($_POST['eliminar_cuenta'])) {
-        try {
-            $resultado = procesarEliminacionCuenta($mysqli, $id_usuario, $_POST);
-            
-            if ($resultado['eliminado']) {
-                // Limpiar todas las variables de sesión ANTES de destruir
-                $_SESSION = array();
+                    // Guardar mensaje en sesión y redirigir (patrón Post-Redirect-Get)
+                    // IMPORTANTE: Hacer esto ANTES de cualquier output
+                    $_SESSION['mensaje'] = $resultado['mensaje'];
+                    $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
                 
-                // Destruir la sesión (debe hacerse mientras la sesión está abierta)
-                session_destroy();
-                
-                // Cerrar sesión después de destruir
-                session_write_close();
-                
-                // Destruir la cookie de sesión si existe
-                if (ini_get("session.use_cookies")) {
-                    $params = session_get_cookie_params();
-                    setcookie(
-                        session_name(), 
-                        '', 
-                        time() - 42000,
-                        $params["path"], 
-                        $params["domain"],
-                        $params["secure"], 
-                        $params["httponly"]
-                    );
-                }
-                
-                // Limpiar cualquier buffer de salida para asegurar redirección limpia
-                // Limpiar todos los niveles de buffer
+                // Limpiar buffer antes de redirigir
                 while (ob_get_level() > 0) {
                     ob_end_clean();
                 }
                 
-                // Verificar que los headers no se hayan enviado
                 if (!headers_sent()) {
-                    // Redirigir a página de confirmación
-                    header('Location: cuenta_eliminada.php', true, 302);
+                    header('Location: perfil.php', true, 302);
                     exit;
                 } else {
-                    // Si los headers ya se enviaron, usar JavaScript para redirigir
-                    echo '<script>window.location.href = "cuenta_eliminada.php";</script>';
+                    echo '<script>window.location.href = "perfil.php";</script>';
                     exit;
                 }
-            } else {
-                // Guardar mensaje en sesión y redirigir (patrón Post-Redirect-Get)
-                // IMPORTANTE: Hacer esto ANTES de cualquier output
-                $_SESSION['mensaje'] = $resultado['mensaje'];
-                $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
+                }
+            } catch (Exception $e) {
+                // Log error para debugging en hosting
+                error_log("Error en eliminación de cuenta. ID Usuario: {$id_usuario}. Error: " . $e->getMessage() . " | Archivo: " . $e->getFile() . " Línea: " . $e->getLine());
+                
+                // Guardar mensaje de error en sesión
+                $_SESSION['mensaje'] = 'Error al procesar la eliminación de cuenta. Por favor, intenta nuevamente.';
+                $_SESSION['mensaje_tipo'] = 'danger';
                 
                 // Limpiar buffer antes de redirigir
                 while (ob_get_level() > 0) {
@@ -417,29 +265,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     exit;
                 }
             }
-        } catch (Exception $e) {
-            // Log error para debugging en hosting
-            error_log("Error en eliminación de cuenta. ID Usuario: {$id_usuario}. Error: " . $e->getMessage());
-            error_log("Archivo: " . $e->getFile() . " Línea: " . $e->getLine());
+            break;
             
-            // Guardar mensaje de error en sesión
-            $_SESSION['mensaje'] = 'Error al procesar la eliminación de cuenta. Por favor, intenta nuevamente.';
-            $_SESSION['mensaje_tipo'] = 'danger';
-            
-            // Limpiar buffer antes de redirigir
-            while (ob_get_level() > 0) {
-                ob_end_clean();
-            }
-            
-            if (!headers_sent()) {
-                header('Location: perfil.php', true, 302);
-                exit;
-            } else {
-                echo '<script>window.location.href = "perfil.php";</script>';
-                exit;
-            }
-        }
-    }
+        default:
+            // Acción no reconocida, no hacer nada
+            break;
+}
 }
 
 // Obtener datos del usuario (sin contraseña por seguridad)
@@ -450,19 +281,9 @@ if (!$usuario) {
     exit;
 }
 
-// Parsear dirección en componentes (calle, número, piso) - simplificado
+// Parsear dirección en componentes (calle, número, piso) usando función centralizada
 $direccion_completa = $usuario['direccion'] ?? '';
-$direccion_parseada = ['calle' => '', 'numero' => '', 'piso' => ''];
-if (!empty($direccion_completa)) {
-    // Parseo simple: buscar primer número
-    if (preg_match('/^(.+?)\s+(\d+)(.*)$/', trim($direccion_completa), $matches)) {
-        $direccion_parseada['calle'] = trim($matches[1]);
-        $direccion_parseada['numero'] = $matches[2];
-        $direccion_parseada['piso'] = trim($matches[3]);
-    } else {
-        $direccion_parseada['calle'] = trim($direccion_completa);
-    }
-}
+$direccion_parseada = parsearDireccion($direccion_completa);
 
 // Obtener pedidos del usuario (todos los roles)
 $pedidos_usuario = [];
@@ -600,19 +421,9 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                         <strong><i class="fas fa-map-marker-alt me-2"></i>Dirección de Envío</strong>
                                         <span>
                                             <?php 
-                                            // Mostrar dirección parseada formateada
-                                            // Parseo simple de dirección
+                                            // Mostrar dirección parseada formateada usando función centralizada
                                             $direccion_completa = $usuario['direccion'] ?? '';
-                                            $dir_parseada = ['calle' => '', 'numero' => '', 'piso' => ''];
-                                            if (!empty($direccion_completa)) {
-                                                if (preg_match('/^(.+?)\s+(\d+)(.*)$/', trim($direccion_completa), $matches)) {
-                                                    $dir_parseada['calle'] = trim($matches[1]);
-                                                    $dir_parseada['numero'] = $matches[2];
-                                                    $dir_parseada['piso'] = trim($matches[3]);
-                                                } else {
-                                                    $dir_parseada['calle'] = trim($direccion_completa);
-                                                }
-                                            }
+                                            $dir_parseada = parsearDireccion($direccion_completa);
                                             $direccion_formateada = trim($dir_parseada['calle']);
                                             if (!empty($dir_parseada['numero'])) {
                                                 $direccion_formateada .= ' ' . $dir_parseada['numero'];
@@ -665,12 +476,12 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                     // Los admins SOLO tienen acceso a su panel de administración
                                     ?>
                                     <?php if (isAdmin()): ?>
-                                        <a href="admin.php" class="btn btn-danger">
+                                        <a href="admin.php" class="btn btn-secondary">
                                             <i class="fas fa-shield-alt me-2"></i>Panel de Administración
                                         </a>
                                     <?php else: ?>
                                         <?php if (isMarketing()): ?>
-                                            <a href="marketing.php" class="btn btn-warning">
+                                            <a href="marketing.php" class="btn btn-primary">
                                                 <i class="fas fa-bullhorn me-2"></i>Panel de Marketing
                                             </a>
                                         <?php endif; ?>
@@ -683,7 +494,7 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                     <a href="index.php" class="btn btn-outline-primary">
                                         <i class="fas fa-home me-2"></i>Volver al Inicio
                                     </a>
-                                    <a href="logout.php" class="btn btn-outline-danger">
+                                    <a href="logout.php" class="btn btn-outline-secondary">
                                         <i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión
                                     </a>
                                 </div>
@@ -707,7 +518,7 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                         <!-- Dirección -->
                                         <div class="col-md-6">
                                             <label for="envio_direccion_calle" class="form-label datos-envio-label">
-                                                <i class="fas fa-road me-2"></i>Dirección <span class="text-danger">*</span>
+                                                <i class="fas fa-road me-2"></i>Dirección <span class="text-secondary">*</span>
                                             </label>
                                             <input type="text" 
                                                    class="form-control datos-envio-input" 
@@ -715,15 +526,15 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                                    name="direccion_calle" 
                                                    value="<?= htmlspecialchars($direccion_parseada['calle']) ?>" 
                                                    placeholder="Ej: Av. Corrientes"
-                                                   pattern="[A-Za-z0-9 ]+"
-                                                   title="Solo se permiten letras, números y espacios"
+                                                   pattern="[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+"
+                                                   title="Solo se permiten letras (incluyendo acentos), números, espacios, guiones, apóstrofes y acentos graves"
                                                    required>
                                         </div>
                                         
                                         <!-- Número -->
                                         <div class="col-md-3">
                                             <label for="envio_direccion_numero" class="form-label datos-envio-label">
-                                                <i class="fas fa-hashtag me-2"></i>Número <span class="text-danger">*</span>
+                                                <i class="fas fa-hashtag me-2"></i>Número <span class="text-secondary">*</span>
                                             </label>
                                             <input type="text" 
                                                    class="form-control datos-envio-input" 
@@ -731,8 +542,8 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                                    name="direccion_numero" 
                                                    value="<?= htmlspecialchars($direccion_parseada['numero']) ?>" 
                                                    placeholder="Ej: 1234"
-                                                   pattern="[A-Za-z0-9 ]+"
-                                                   title="Solo se permiten letras, números y espacios"
+                                                   pattern="[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+"
+                                                   title="Solo se permiten letras (incluyendo acentos), números, espacios, guiones, apóstrofes y acentos graves"
                                                    required>
                                         </div>
                                         
@@ -747,8 +558,8 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                                    name="direccion_piso" 
                                                    value="<?= htmlspecialchars($direccion_parseada['piso']) ?>" 
                                                    placeholder="Ej: 2° A (Opcional)"
-                                                   pattern="[A-Za-z0-9 ]+"
-                                                   title="Solo se permiten letras, números y espacios">
+                                                   pattern="[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+"
+                                                   title="Solo se permiten letras (incluyendo acentos), números, espacios, guiones, apóstrofes y acentos graves">
                                         </div>
                                     </div>
                                     
@@ -757,7 +568,7 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                         <!-- Provincia -->
                                         <div class="col-md-4">
                                             <label for="envio_provincia" class="form-label datos-envio-label">
-                                                <i class="fas fa-map me-2"></i>Provincia <span class="text-danger">*</span>
+                                                <i class="fas fa-map me-2"></i>Provincia <span class="text-secondary">*</span>
                                             </label>
                                             <select class="form-select datos-envio-input" id="envio_provincia" name="provincia" required>
                                                 <option value="">Seleccionar provincia</option>
@@ -797,7 +608,7 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                         <!-- Localidad -->
                                         <div class="col-md-4">
                                             <label for="envio_localidad" class="form-label datos-envio-label">
-                                                <i class="fas fa-city me-2"></i>Localidad <span class="text-danger">*</span>
+                                                <i class="fas fa-city me-2"></i>Localidad <span class="text-secondary">*</span>
                                             </label>
                                             <input type="text" 
                                                    class="form-control datos-envio-input" 
@@ -813,7 +624,7 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                         <!-- Código Postal -->
                                         <div class="col-md-4">
                                             <label for="envio_codigo_postal" class="form-label datos-envio-label">
-                                                <i class="fas fa-mail-bulk me-2"></i>Código Postal <span class="text-danger">*</span>
+                                                <i class="fas fa-mail-bulk me-2"></i>Código Postal <span class="text-secondary">*</span>
                                             </label>
                                             <input type="text" 
                                                    class="form-control datos-envio-input" 
@@ -858,28 +669,8 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                 </div>
                             <?php else: ?>
                                 <?php
-                                // ============================================================================
-                                // MAPEOS DE ESTADOS - Definidos una vez antes del loop para evitar redundancia
-                                // ============================================================================
-                                
-                                // Mapeo de estados de pedido para mostrar badges con colores y textos
-                                $estados_pedido_map = [
-                                    'pendiente' => ['clase' => 'bg-warning', 'texto' => 'Pendiente'],
-                                    'preparacion' => ['clase' => 'bg-info', 'texto' => 'En Preparación'],
-                                    'en_viaje' => ['clase' => 'bg-primary', 'texto' => 'En Viaje'],
-                                    'completado' => ['clase' => 'bg-success', 'texto' => 'Completado'],
-                                    'devolucion' => ['clase' => 'bg-secondary', 'texto' => 'En Devolución'],
-                                    'cancelado' => ['clase' => 'bg-secondary', 'texto' => 'Cancelado']
-                                ];
-                                
-                                // Mapeo de estados de pago para mostrar badges con colores y nombres
-                                $estados_pago_map = [
-                                    'pendiente' => ['color' => 'warning', 'nombre' => 'Pendiente'],
-                                    'pendiente_aprobacion' => ['color' => 'info', 'nombre' => 'Pendiente Aprobación'],
-                                    'aprobado' => ['color' => 'success', 'nombre' => 'Aprobado'],
-                                    'rechazado' => ['color' => 'danger', 'nombre' => 'Rechazado'],
-                                    'cancelado' => ['color' => 'secondary', 'nombre' => 'Cancelado']
-                                ];
+                                // Mapeos de estados ahora se obtienen desde funciones centralizadas
+                                // Se convierten al formato necesario para este contexto
                                 ?>
                                 <div class="table-responsive">
                                     <table class="table align-middle">
@@ -901,20 +692,23 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                             $detalles_pedido = obtenerDetallesPedido($mysqli, $pedido['id_pedido']);
                                             $pago_pedido = obtenerPagoPorPedido($mysqli, $pedido['id_pedido']);
                                             
-                                            // Normalizar estado del pedido una sola vez (consolidación de variables)
-                                            $estado_pedido = trim(strtolower($pedido['estado_pedido'] ?? 'pendiente'));
+                                            // Normalizar estado del pedido usando función centralizada
+                                            $estado_pedido = normalizarEstado($pedido['estado_pedido'] ?? '');
                                             
+                                            // DESHABILITADO: Los clientes ya no pueden cancelar pedidos
+                                            // Solo el personal de VENTAS puede cancelar pedidos desde el panel de ventas
                                             // Validar si se puede cancelar el pedido
                                             // Lógica mejorada: verificar tanto el estado del pedido como el estado del pago
                                             // - El pedido debe estar en 'pendiente' o 'preparacion'
                                             // - El pago NO debe estar cancelado (si existe pago)
                                             // Nota: Si el pago está cancelado, el pedido debería estar cancelado según la lógica de negocio.
                                             // Este check previene mostrar el botón en casos de inconsistencia de datos.
-                                            $puede_cancelar_pedido = in_array($estado_pedido, ['pendiente', 'preparacion']) 
-                                                && (!$pago_pedido || $pago_pedido['estado_pago'] !== 'cancelado');
-                                            
+                                            // $puede_cancelar_pedido = in_array($estado_pedido, ['pendiente', 'preparacion']) 
+                                            //     && (!$pago_pedido || normalizarEstado($pago_pedido['estado_pago'] ?? '') !== 'cancelado');
+                                            $puede_cancelar_pedido = false; // Deshabilitado para clientes
+            
                                             // Validar si se puede marcar el pago como pagado (solo pagos pendientes)
-                                            $puede_marcar_pago = $pago_pedido && $pago_pedido['estado_pago'] === 'pendiente';
+                                            $puede_marcar_pago = $pago_pedido && normalizarEstado($pago_pedido['estado_pago'] ?? '') === 'pendiente';
                                             
                                             
                                             // Determinar si hay acciones disponibles
@@ -926,11 +720,16 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                                 $cantidad_productos += $detalle['cantidad'];
                                             }
                                             
-                                            // Obtener información de estado del pedido usando el mapeo
-                                            $info_estado_pedido = $estados_pedido_map[$estado_pedido] ?? ['clase' => 'bg-secondary', 'texto' => ucfirst($estado_pedido)];
+                                            // Obtener información de estado del pedido usando función centralizada
+                                            // Convertir al formato necesario para este contexto (clase/texto)
+                                            $info_estado_pedido_raw = obtenerInfoEstadoPedido($estado_pedido);
+                                            $info_estado_pedido = [
+                                                'clase' => 'bg-' . $info_estado_pedido_raw['color'],
+                                                'texto' => $info_estado_pedido_raw['nombre']
+                                            ];
                                             
-                                            // Obtener información de estado del pago usando el mapeo (si existe pago)
-                                            $info_estado_pago = $pago_pedido ? ($estados_pago_map[$pago_pedido['estado_pago']] ?? ['color' => 'secondary', 'nombre' => ucfirst($pago_pedido['estado_pago'])]) : null;
+                                            // Obtener información de estado del pago usando función centralizada (si existe pago)
+                                            $info_estado_pago = $pago_pedido ? obtenerInfoEstadoPago($pago_pedido['estado_pago'] ?? '') : null;
                                             ?>
                                             <tr>
                                                 <td>
@@ -951,7 +750,7 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                                         <?= htmlspecialchars($info_estado_pedido['texto']) ?>
                                                     </span>
                                                     <?php if ($hay_inconsistencia): ?>
-                                                        <br><small class="text-danger">
+                                                        <br><small class="text-secondary">
                                                             <i class="fas fa-exclamation-triangle"></i> Inconsistencia detectada
                                                         </small>
                                                     <?php endif; ?>
@@ -962,7 +761,7 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                                             <?= htmlspecialchars($info_estado_pago['nombre']) ?>
                                                         </span>
                                                         <?php if ($hay_inconsistencia): ?>
-                                                            <br><small class="text-danger">
+                                                            <br><small class="text-secondary">
                                                                 <i class="fas fa-exclamation-triangle"></i> Revisar estado
                                                             </small>
                                                         <?php endif; ?>
@@ -997,10 +796,10 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                                         <?php renderFormularioMarcarPago($pago_pedido); ?>
                                                         <?php endif; ?>
                                                         
-                                                        <!-- Botón Cancelar Pedido (solo si está pendiente o en preparación) -->
-                                                        <?php if ($puede_cancelar_pedido): ?>
-                                                        <?php renderFormularioCancelarPedido($pedido); ?>
-                                                        <?php endif; ?>
+                                                        <!-- DESHABILITADO: Botón Cancelar Pedido - Solo personal de VENTAS puede cancelar pedidos -->
+                                                        <?php // if ($puede_cancelar_pedido): ?>
+                                                        <?php // renderFormularioCancelarPedido($pedido, $pago_pedido); ?>
+                                                        <?php // endif; ?>
                                                         
                                                         <!-- Botón Reclamo/Consulta (solo si no hay más acciones disponibles) -->
                                                         <?php if (!$tiene_acciones_disponibles): ?>
@@ -1165,7 +964,7 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                         </div>
                                         
                                         <div class="d-grid gap-2">
-                                            <button type="submit" name="cambiar_contrasena" class="btn btn-warning">
+                                            <button type="submit" name="cambiar_contrasena" class="btn btn-primary">
                                                 <i class="fas fa-save me-2"></i>Cambiar Contraseña
                                             </button>
                                         </div>
@@ -1187,12 +986,12 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                 
                                 <!-- Sección Eliminar Cuenta -->
                                 <div class="mt-4">
-                                    <h5 class="mb-3 text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Eliminar Cuenta</h5>
-                                    <div class="alert alert-danger">
+                                    <h5 class="mb-3 text-secondary"><i class="fas fa-exclamation-triangle me-2"></i>Eliminar Cuenta</h5>
+                                    <div class="alert alert-secondary">
                                         <p class="mb-2"><strong>ESTE PROCESO NO TIENE VUELTA ATRAS</strong></p>
                                         <p class="mb-0 small">Al eliminar tu cuenta, esta será desactivada durante 30 días. Pasado ese período, será eliminada permanentemente. Podrás reactivarla iniciando sesión dentro de los 30 días.</p>
                                     </div>
-                                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modalEliminarCuenta">
+                                    <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#modalEliminarCuenta">
                                         <i class="fas fa-trash-alt me-2"></i>BORRAR CUENTA
                                     </button>
                                 </div>

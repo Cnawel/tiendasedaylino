@@ -205,24 +205,10 @@ include 'includes/header.php';
         
         <?php if ($mostrar_reset_formulario): ?>
         <script>
-        // Resetear formulario después de envío exitoso
-        document.addEventListener('DOMContentLoaded', function() {
-            var formulario = document.querySelector('form.formulario');
-            if (formulario) {
-                // Resetear el formulario
-                formulario.reset();
-                
-                // Limpiar cualquier valor que pueda haber quedado en los campos
-                var campos = formulario.querySelectorAll('input, textarea, select');
-                campos.forEach(function(campo) {
-                    // Solo limpiar si no viene de sesión de usuario (nombre y email pueden venir de sesión)
-                    if (campo.id !== 'name' && campo.id !== 'email') {
-                        campo.value = '';
-                    }
-                });
-            }
-        });
+        // Variable global para indicar que se debe resetear el formulario
+        window.resetearFormulario = true;
         </script>
+        <script src="js/index.js"></script>
         <?php endif; ?>
     </main>
 

@@ -95,52 +95,20 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ====================================================================
     // 2.1. Validación de teléfono según diccionario de datos
+    // Usa la función validarTelefono de common_js_functions.php
     // Longitud: 6-20 caracteres, solo [0-9, +, (, ), -]
     // ====================================================================
     const telefonoInput = document.getElementById('telefono');
     if (telefonoInput) {
-        /**
-         * NOTA: La función mostrarFeedbackValidacion() está disponible
-         * en common_js_functions.php (incluido globalmente en footer.php).
-         * Usar esta función consolidada en lugar de la función local.
-         */
-        
-        // Validación al perder el foco (blur)
-        telefonoInput.addEventListener('blur', function() {
-            const valor = this.value.trim();
-            const pattern = /^[0-9+()\-]+$/;
-            
-            // Teléfono es opcional, solo validar si tiene valor
-            if (valor) {
-                if (valor.length < 6) {
-                    mostrarFeedbackValidacion(this, false, 'El teléfono debe tener al menos 6 caracteres');
-                } else if (valor.length > 20) {
-                    mostrarFeedbackValidacion(this, false, 'El teléfono no puede exceder 20 caracteres');
-                } else if (!pattern.test(valor)) {
-                    mostrarFeedbackValidacion(this, false, 'Solo se permiten números y símbolos (+, -, paréntesis)');
-                } else {
-                    mostrarFeedbackValidacion(this, true, '');
-                }
-            } else {
-                // Si está vacío, limpiar validación
-                this.classList.remove('is-valid', 'is-invalid');
-                const feedback = this.parentElement.querySelector('.invalid-feedback');
-                if (feedback) {
-                    feedback.textContent = '';
-                    feedback.style.display = 'none';
-                }
-            }
-        });
-        
         // Filtrado en tiempo real mientras se escribe (input)
         telefonoInput.addEventListener('input', function(e) {
             const value = e.target.value;
             // Patrón para filtrar: solo permitir [0-9, +, (, ), -]
-            const validPattern = /^[0-9+()\-]*$/;
+            const validPattern = /^[0-9+()\- ]*$/;
             
             // Filtrar caracteres no permitidos
             if (!validPattern.test(value)) {
-                e.target.value = value.replace(/[^0-9+()\-]/g, '');
+                e.target.value = value.replace(/[^0-9+()\- ]/g, '');
             }
             
             // Limitar longitud máxima
@@ -158,10 +126,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
+        
+        // Validación al perder el foco usando función consolidada
+        telefonoInput.addEventListener('blur', function() {
+            if (typeof validarTelefono === 'function') {
+                // Teléfono es opcional en perfil
+                validarTelefono(this, true);
+            }
+        });
     }
     
     // ====================================================================
     // 2.2. Validación en tiempo real para nombre y apellido (formulario "Mis Datos")
+    // Usa la función validarNombreApellido de common_js_functions.php
     // ====================================================================
     const nombreInputDatos = document.getElementById('nombre');
     const apellidoInputDatos = document.getElementById('apellido');
@@ -181,23 +158,27 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!pattern.test(valor)) {
                 this.value = valor.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]/g, '');
             }
+            
+            // Limitar longitud máxima
+            if (this.value.length > 50) {
+                this.value = this.value.substring(0, 50);
+            }
         });
         
         nombreInputDatos.addEventListener('blur', function() {
             const valor = this.value.trim();
-            const pattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+$/;
             
             if (!valor) {
                 this.classList.remove('is-valid', 'is-invalid');
-            } else if (valor.length < 2) {
-                this.classList.add('is-invalid');
-                this.classList.remove('is-valid');
-            } else if (!pattern.test(valor)) {
-                this.classList.add('is-invalid');
-                this.classList.remove('is-valid');
-            } else {
-                this.classList.remove('is-invalid');
-                this.classList.add('is-valid');
+            } else if (typeof validarNombreApellido === 'function') {
+                const esValido = validarNombreApellido(valor, 2, 50);
+                if (esValido) {
+                    this.classList.remove('is-invalid');
+                    this.classList.add('is-valid');
+                } else {
+                    this.classList.add('is-invalid');
+                    this.classList.remove('is-valid');
+                }
             }
         });
     }
@@ -226,22 +207,19 @@ document.addEventListener('DOMContentLoaded', function() {
         
         apellidoInputDatos.addEventListener('blur', function() {
             const valor = this.value.trim();
-            const pattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+$/;
             
             if (!valor) {
+                // Apellido es opcional
                 this.classList.remove('is-valid', 'is-invalid');
-            } else if (valor.length < 2) {
-                this.classList.add('is-invalid');
-                this.classList.remove('is-valid');
-            } else if (valor.length > 100) {
-                this.classList.add('is-invalid');
-                this.classList.remove('is-valid');
-            } else if (!pattern.test(valor)) {
-                this.classList.add('is-invalid');
-                this.classList.remove('is-valid');
-            } else {
-                this.classList.remove('is-invalid');
-                this.classList.add('is-valid');
+            } else if (typeof validarNombreApellido === 'function') {
+                const esValido = validarNombreApellido(valor, 2, 100);
+                if (esValido) {
+                    this.classList.remove('is-invalid');
+                    this.classList.add('is-valid');
+                } else {
+                    this.classList.add('is-invalid');
+                    this.classList.remove('is-valid');
+                }
             }
         });
     }
@@ -262,77 +240,100 @@ document.addEventListener('DOMContentLoaded', function() {
             const fechaNacimientoInput = document.getElementById('fecha_nacimiento');
             
             // Validar nombre (obligatorio)
+            // Usa la función validarNombreApellido de common_js_functions.php
             if (nombreInput) {
                 const nombreValor = nombreInput.value.trim();
-                const nombrePattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+$/;
                 
                 if (!nombreValor) {
                     nombreInput.classList.add('is-invalid');
                     nombreInput.classList.remove('is-valid');
                     hayErrores = true;
-                } else if (nombreValor.length < 2) {
-                    nombreInput.classList.add('is-invalid');
-                    nombreInput.classList.remove('is-valid');
-                    hayErrores = true;
-                } else if (!nombrePattern.test(nombreValor)) {
-                    nombreInput.classList.add('is-invalid');
-                    nombreInput.classList.remove('is-valid');
-                    hayErrores = true;
+                } else if (typeof validarNombreApellido === 'function') {
+                    const esValido = validarNombreApellido(nombreValor, 2, 50);
+                    if (esValido) {
+                        nombreInput.classList.remove('is-invalid');
+                        nombreInput.classList.add('is-valid');
+                    } else {
+                        nombreInput.classList.add('is-invalid');
+                        nombreInput.classList.remove('is-valid');
+                        hayErrores = true;
+                    }
                 } else {
-                    nombreInput.classList.remove('is-invalid');
-                    nombreInput.classList.add('is-valid');
+                    // Fallback si la función no está disponible
+                    const nombrePattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+$/;
+                    if (nombreValor.length < 2 || !nombrePattern.test(nombreValor)) {
+                        nombreInput.classList.add('is-invalid');
+                        nombreInput.classList.remove('is-valid');
+                        hayErrores = true;
+                    } else {
+                        nombreInput.classList.remove('is-invalid');
+                        nombreInput.classList.add('is-valid');
+                    }
                 }
             }
             
             // Validar apellido (obligatorio)
+            // Usa la función validarNombreApellido de common_js_functions.php
             if (apellidoInput) {
                 const apellidoValor = apellidoInput.value.trim();
-                const apellidoPattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+$/;
                 
                 if (!apellidoValor) {
                     apellidoInput.classList.add('is-invalid');
                     apellidoInput.classList.remove('is-valid');
                     hayErrores = true;
-                } else if (apellidoValor.length < 2) {
-                    apellidoInput.classList.add('is-invalid');
-                    apellidoInput.classList.remove('is-valid');
-                    hayErrores = true;
-                } else if (apellidoValor.length > 100) {
-                    apellidoInput.classList.add('is-invalid');
-                    apellidoInput.classList.remove('is-valid');
-                    hayErrores = true;
-                } else if (!apellidoPattern.test(apellidoValor)) {
-                    apellidoInput.classList.add('is-invalid');
-                    apellidoInput.classList.remove('is-valid');
-                    hayErrores = true;
+                } else if (typeof validarNombreApellido === 'function') {
+                    const esValido = validarNombreApellido(apellidoValor, 2, 100);
+                    if (esValido) {
+                        apellidoInput.classList.remove('is-invalid');
+                        apellidoInput.classList.add('is-valid');
+                    } else {
+                        apellidoInput.classList.add('is-invalid');
+                        apellidoInput.classList.remove('is-valid');
+                        hayErrores = true;
+                    }
                 } else {
-                    apellidoInput.classList.remove('is-invalid');
-                    apellidoInput.classList.add('is-valid');
+                    // Fallback si la función no está disponible
+                    const apellidoPattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+$/;
+                    if (apellidoValor.length < 2 || apellidoValor.length > 100 || !apellidoPattern.test(apellidoValor)) {
+                        apellidoInput.classList.add('is-invalid');
+                        apellidoInput.classList.remove('is-valid');
+                        hayErrores = true;
+                    } else {
+                        apellidoInput.classList.remove('is-invalid');
+                        apellidoInput.classList.add('is-valid');
+                    }
                 }
             }
             
             // Validar teléfono (opcional, pero si tiene valor debe ser válido)
+            // Usa la función validarTelefono de common_js_functions.php
             if (telefonoInput) {
                 const telefonoValor = telefonoInput.value.trim();
-                const telefonoPattern = /^[0-9+()\-]+$/;
                 
                 if (telefonoValor) {
-                    // Si tiene valor, validar
-                    if (telefonoValor.length < 6) {
-                        telefonoInput.classList.add('is-invalid');
-                        telefonoInput.classList.remove('is-valid');
-                        hayErrores = true;
-                    } else if (telefonoValor.length > 20) {
-                        telefonoInput.classList.add('is-invalid');
-                        telefonoInput.classList.remove('is-valid');
-                        hayErrores = true;
-                    } else if (!telefonoPattern.test(telefonoValor)) {
-                        telefonoInput.classList.add('is-invalid');
-                        telefonoInput.classList.remove('is-valid');
-                        hayErrores = true;
+                    // Si tiene valor, validar usando función consolidada
+                    if (typeof validarTelefono === 'function') {
+                        // Validar sin mostrar feedback (solo verificar)
+                        const pattern = /^[0-9+()\- ]+$/;
+                        if (telefonoValor.length < 6 || telefonoValor.length > 20 || !pattern.test(telefonoValor)) {
+                            telefonoInput.classList.add('is-invalid');
+                            telefonoInput.classList.remove('is-valid');
+                            hayErrores = true;
+                        } else {
+                            telefonoInput.classList.remove('is-invalid');
+                            telefonoInput.classList.add('is-valid');
+                        }
                     } else {
-                        telefonoInput.classList.remove('is-invalid');
-                        telefonoInput.classList.add('is-valid');
+                        // Fallback si la función no está disponible
+                        const telefonoPattern = /^[0-9+()\-]+$/;
+                        if (telefonoValor.length < 6 || telefonoValor.length > 20 || !telefonoPattern.test(telefonoValor)) {
+                            telefonoInput.classList.add('is-invalid');
+                            telefonoInput.classList.remove('is-valid');
+                            hayErrores = true;
+                        } else {
+                            telefonoInput.classList.remove('is-invalid');
+                            telefonoInput.classList.add('is-valid');
+                        }
                     }
                 } else {
                     // Si está vacío, limpiar validación (es opcional)
@@ -550,22 +551,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Función para inicializar validación de campos de envío
     function inicializarValidacionEnvio() {
         // Validación de dirección (calle)
+        // Usa la función validarDireccion de common_js_functions.php
         const envioDireccionCalle = document.getElementById('envio_direccion_calle');
         if (envioDireccionCalle && !envioDireccionCalle.hasAttribute('data-validacion-inicializada')) {
             envioDireccionCalle.setAttribute('data-validacion-inicializada', 'true');
             
             envioDireccionCalle.addEventListener('blur', function() {
-                const valor = this.value.trim();
-                const pattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+$/;
-                
-                if (!valor) {
-                    mostrarFeedbackValidacion(this, false, 'La dirección es requerida');
-                } else if (valor.length < 2) {
-                    mostrarFeedbackValidacion(this, false, 'La dirección debe tener al menos 2 caracteres');
-                } else if (!pattern.test(valor)) {
-                    mostrarFeedbackValidacion(this, false, 'Solo se permiten letras (incluyendo acentos), números, espacios, guiones, apóstrofes y acentos graves');
-                } else {
-                    mostrarFeedbackValidacion(this, true, '');
+                if (typeof validarDireccion === 'function') {
+                    validarDireccion(this, true, 2, 'calle');
                 }
             });
             
@@ -590,20 +583,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Validación de número de dirección
+        // Usa la función validarDireccion de common_js_functions.php
         const envioDireccionNumero = document.getElementById('envio_direccion_numero');
         if (envioDireccionNumero && !envioDireccionNumero.hasAttribute('data-validacion-inicializada')) {
             envioDireccionNumero.setAttribute('data-validacion-inicializada', 'true');
             
             envioDireccionNumero.addEventListener('blur', function() {
-                const valor = this.value.trim();
-                const pattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+$/;
-                
-                if (!valor) {
-                    mostrarFeedbackValidacion(this, false, 'El número es requerido');
-                } else if (!pattern.test(valor)) {
-                    mostrarFeedbackValidacion(this, false, 'Solo se permiten letras (incluyendo acentos), números, espacios, guiones, apóstrofes y acentos graves');
-                } else {
-                    mostrarFeedbackValidacion(this, true, '');
+                if (typeof validarDireccion === 'function') {
+                    validarDireccion(this, true, 1, 'numero');
                 }
             });
             
@@ -628,19 +615,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Validación de piso/departamento
+        // Usa la función validarDireccion de common_js_functions.php
         const envioDireccionPiso = document.getElementById('envio_direccion_piso');
         if (envioDireccionPiso && !envioDireccionPiso.hasAttribute('data-validacion-inicializada')) {
             envioDireccionPiso.setAttribute('data-validacion-inicializada', 'true');
             
             envioDireccionPiso.addEventListener('blur', function() {
-                const valor = this.value.trim();
-                const pattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+$/;
-                
-                // Piso/Depto es opcional, solo validar si tiene valor
-                if (valor && !pattern.test(valor)) {
-                    mostrarFeedbackValidacion(this, false, 'Solo se permiten letras (incluyendo acentos), números, espacios, guiones, apóstrofes y acentos graves');
-                } else {
-                    mostrarFeedbackValidacion(this, true, '');
+                if (typeof validarDireccion === 'function') {
+                    // Piso/Depto es opcional
+                    validarDireccion(this, false, 1, 'piso');
                 }
             });
             
@@ -949,65 +932,51 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // ========================================================================
-    // CONFIRMACIONES PARA CANCELACIÓN DE PEDIDOS (Mejora Crítica)
+    // CONFIRMACIÓN DE CÓDIGO DE PAGO ANTES DE MARCAR PAGO
     // ========================================================================
     
     /**
-     * Intercepta el envío del formulario de cancelar pedido
-     * Muestra confirmación mejorada antes de cancelar
+     * Inicializa confirmaciones para formularios de "Marcar Pago"
+     * Intercepta el envío y muestra confirmación simple con el código de pago
      */
-    function inicializarConfirmacionesCancelacionPedido() {
-        const formulariosCancelar = document.querySelectorAll('button[name="cancelar_pedido_cliente"]');
+    function inicializarConfirmacionesMarcarPago() {
+        const formulariosMarcarPago = document.querySelectorAll('form.form-marcar-pago');
         
-        formulariosCancelar.forEach(function(boton) {
-            const formulario = boton.closest('form');
-            if (!formulario) return;
-            
+        formulariosMarcarPago.forEach(function(formulario) {
             // Evitar agregar listeners múltiples
-            if (formulario.dataset.confirmacionCancelacionInicializada === 'true') {
+            if (formulario.dataset.confirmacionInicializada === 'true') {
                 return;
             }
-            formulario.dataset.confirmacionCancelacionInicializada = 'true';
+            formulario.dataset.confirmacionInicializada = 'true';
             
             formulario.addEventListener('submit', function(e) {
                 e.preventDefault();
                 
-                // Obtener datos del pedido
-                const idPedido = formulario.querySelector('[name="id_pedido"]')?.value;
+                const inputCodigo = formulario.querySelector('[name="numero_transaccion"]');
+                const codigoPago = inputCodigo ? inputCodigo.value.trim() : '';
                 
-                // Obtener información del pedido del modal
-                const modal = formulario.closest('.modal');
-                let estadoPedido = 'pendiente';
-                let estadoPago = '';
-                
-                if (modal) {
-                    // Obtener estado del pedido del badge
-                    const badgeEstado = modal.querySelector('.badge');
-                    if (badgeEstado) {
-                        estadoPedido = badgeEstado.textContent.trim().toLowerCase();
-                    }
-                    
-                    // Intentar obtener información del pago si está disponible
-                    // (Esto puede variar según la estructura del modal)
-                    const alertInfo = modal.querySelector('.alert-info');
-                    if (alertInfo && alertInfo.textContent.includes('pago estaba aprobado')) {
-                        estadoPago = 'aprobado';
-                    }
+                // Validar que el código no esté vacío
+                if (!codigoPago) {
+                    inputCodigo.classList.add('is-invalid');
+                    inputCodigo.focus();
+                    return;
                 }
                 
-                // Enviar formulario con bloqueo de botón
-                procesarOperacionCritica(boton, function() {
+                // Limpiar errores previos
+                inputCodigo.classList.remove('is-invalid');
+                
+                // Mostrar confirmación simple con el código
+                const mensaje = 'Por favor, verifica que el código de pago sea correcto:\n\nCódigo: ' + codigoPago + '\n\n¿Confirmas que el código es correcto?';
+                
+                if (confirm(mensaje)) {
                     formulario.submit();
-                }, {
-                    textoProcesando: 'Cancelando pedido...',
-                    tiempoBloqueo: 2000
-                });
+                }
             });
         });
     }
     
     // Inicializar confirmaciones al cargar la página
-    inicializarConfirmacionesCancelacionPedido();
+    inicializarConfirmacionesMarcarPago();
     
 });
 

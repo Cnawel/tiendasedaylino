@@ -81,20 +81,35 @@ if (!$producto) {
  * Obtener TODAS las variantes del producto actual (incluyendo las sin stock)
  * Esto permite mostrar todas las opciones de talle y color disponibles
  * Consulta desde includes/queries/producto_queries.php
+ * 
+ * IMPORTANTE: Estas variantes se usan para calcular el STOCK del producto actual.
+ * El stock debe calcularse solo con las variantes de este producto específico (id_producto),
+ * no con variantes de otros productos aunque tengan el mismo nombre.
  */
 $variantes = obtenerTodasVariantesProducto($mysqli, $id_producto);
 
+// Normalizar colores de las variantes del producto actual para consistencia
+foreach ($variantes as &$variante) {
+    if (!empty($variante['color'])) {
+        $variante['color'] = ucfirst(strtolower(trim($variante['color'])));
+    }
+}
+unset($variante); // Liberar referencia
+
 /**
  * Obtener TODAS las variantes de productos con el mismo nombre_producto, categoría y género
- * Esto permite mostrar todos los talles y colores disponibles del grupo de productos
+ * Esto permite mostrar todos los talles y colores disponibles del grupo de productos en la UI
  * Solo incluye talles estándar (S, M, L, XL) para mantener consistencia con el catálogo
- * Tal como sucede en marketing.php
+ * 
+ * IMPORTANTE: Estas variantes se usan SOLO para mostrar opciones de colores disponibles en la UI.
+ * NO se usan para calcular stock - el stock se calcula solo con $variantes (del producto actual).
  * Consulta desde includes/queries/producto_queries.php
  */
 // Obtener talles estándar para filtrar
 $talles_estandar = obtenerTallesEstandar();
 
 // Obtener todas las variantes del grupo de productos usando función centralizada
+// Esto se usa solo para mostrar opciones de colores en la UI, NO para calcular stock
 $todas_variantes_completas = obtenerTodasVariantesGrupoProducto(
     $mysqli,
     $producto['nombre_producto'],
@@ -102,19 +117,6 @@ $todas_variantes_completas = obtenerTodasVariantesGrupoProducto(
     $producto['genero'],
     $talles_estandar
 );
-
-// Reemplazar las variantes del producto actual con todas las variantes del grupo de productos
-if (!empty($todas_variantes_completas)) {
-    $variantes = $todas_variantes_completas;
-} else {
-    // Normalizar colores de las variantes originales si no hay variantes del grupo
-    foreach ($variantes as &$variante) {
-        if (!empty($variante['color'])) {
-            $variante['color'] = ucfirst(strtolower(trim($variante['color'])));
-        }
-    }
-    unset($variante); // Liberar referencia
-}
 
 /**
  * Obtener todas las fotos del producto actual usando función centralizada
@@ -143,9 +145,11 @@ $fotos_grupo = obtenerFotosGrupoProducto(
 $fotos_generales = $fotos_grupo['generales'];
 $fotos_por_color = $fotos_grupo['por_color'];
 
-// Obtener colores disponibles desde todas las variantes
+// Obtener colores disponibles desde las variantes del GRUPO (para mostrar todas las opciones en UI)
+// Esto permite mostrar todos los colores disponibles del grupo de productos, no solo del producto actual
 // Normalizar colores para formato consistente (primera letra mayúscula, resto minúscula)
-$colores_disponibles = array_unique(array_column($variantes, 'color'));
+$variantes_para_colores = !empty($todas_variantes_completas) ? $todas_variantes_completas : $variantes;
+$colores_disponibles = array_unique(array_column($variantes_para_colores, 'color'));
 // Normalizar todos los colores al mismo formato
 $colores_disponibles_normalizados = [];
 foreach ($colores_disponibles as $color) {
@@ -281,9 +285,11 @@ usort($tallas_info, function($a, $b) use ($orden_tallas_estandar) {
 // Para compatibilidad, mantener array simple de talles disponibles
 $tallas = array_column($tallas_info, 'talle');
 
-// Extraer TODOS los colores únicos que existen en las variantes (incluso sin stock)
+// Extraer TODOS los colores únicos que existen en las variantes del GRUPO (para mostrar en UI)
+// Esto permite mostrar todos los colores disponibles del grupo de productos
 // Normalizar colores para formato consistente
-$colores_raw = array_unique(array_column($variantes, 'color'));
+$variantes_para_colores_ui = !empty($todas_variantes_completas) ? $todas_variantes_completas : $variantes;
+$colores_raw = array_unique(array_column($variantes_para_colores_ui, 'color'));
 $colores = [];
 foreach ($colores_raw as $color) {
     $color_normalizado = ucfirst(strtolower(trim($color)));
@@ -356,7 +362,9 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
                             <img id="imagenPrincipalLimpia" 
                                  src="<?php echo htmlspecialchars($imagenes[0]); ?>" 
                                  class="img-producto-principal" 
-                                 alt="<?php echo htmlspecialchars($producto['nombre_producto']); ?>">
+                                 alt="<?php echo htmlspecialchars($producto['nombre_producto']); ?>"
+                                 title="Clic para ver siguiente imagen"
+                                 style="cursor: pointer;">
                         </div>
                         
                         <!-- Miniaturas compactas debajo -->
@@ -382,9 +390,9 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
                         </div>
 
                         <!-- TALLE y COLOR en la misma fila -->
-                        <div class="row g-3 mb-2">
+                        <div class="row g-2 mb-2">
                             <!-- TALLE -->
-                            <div class="col-md-6">
+                            <div class="col-auto">
                                 <label class="form-label-compacto fw-bold mb-1">TALLE:</label>
                                 <div class="tallas-selector-compacto">
                                     <?php 
@@ -438,7 +446,7 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
                                     </label>
                                     <?php endforeach; ?>
                                 </div>
-                                <small class="text-muted d-block mb-2">
+                                <small class="text-muted d-block mb-0">
                                     <i class="fas fa-info-circle me-1"></i>
                                     <a href="#" data-bs-toggle="modal" data-bs-target="#guiaTallasModal">Ver guía de talles</a>
                                 </small>
@@ -446,7 +454,7 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
                             
                             <!-- COLOR -->
                             <?php if (!empty($colores)): ?>
-                            <div class="col-md-6">
+                            <div class="col-auto">
                                 <label class="form-label-compacto fw-bold mb-1">COLOR:</label>
                                 <div class="colores-selector-compacto">
                                     <?php foreach ($colores as $index => $color): ?>
@@ -736,6 +744,5 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
 
 <?php include 'includes/detalle_producto_data.php'; ?>
 <script src="js/detalle-producto.js"></script>
-<script src="includes/detalle_producto_image_navigation.js"></script>
 
 <?php include 'includes/footer.php'; render_footer(); ?>

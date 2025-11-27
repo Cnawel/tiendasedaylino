@@ -36,9 +36,14 @@ function procesarErrorStock($error_message, $contexto = []) {
         if (preg_match('/Stock disponible: (\d+), Intento de venta: (\d+)/', $error_message, $matches)) {
             $stock_disponible = $matches[1];
             $intento_venta = $matches[2];
-            $mensaje_usuario = "No hay stock suficiente para completar este pedido. Stock disponible: {$stock_disponible} unidades, Cantidad solicitada: {$intento_venta} unidades. Acción sugerida: Revisa el stock disponible en el panel de productos y ajusta la cantidad del pedido o contacta al cliente para informarle sobre la disponibilidad limitada.";
+            $mensaje_usuario = "No hay suficiente stock para completar este pedido. Stock disponible: {$stock_disponible} unidades, pero se necesitan {$intento_venta} unidades. Sugerencia: Revisa el stock disponible en el panel de productos y ajusta la cantidad del pedido, o contacta al cliente para informarle sobre la disponibilidad limitada.";
+        } elseif (preg_match('/Variante #(\d+): Tiene (\d+) unidades disponibles pero se necesitan (\d+) unidades/', $error_message, $matches)) {
+            $id_variante = $matches[1];
+            $stock_disponible = $matches[2];
+            $intento_venta = $matches[3];
+            $mensaje_usuario = "No hay suficiente stock para completar este pedido. La variante #{$id_variante} tiene {$stock_disponible} unidades disponibles pero se necesitan {$intento_venta} unidades. Sugerencia: Revisa el stock disponible o contacta al cliente para ajustar la cantidad.";
         } else {
-            $mensaje_usuario = "No hay stock suficiente para completar este pedido. Acción sugerida: Revisa el stock disponible en el panel de productos y ajusta la cantidad del pedido o contacta al cliente.";
+            $mensaje_usuario = "No hay suficiente stock para completar este pedido. Sugerencia: Revisa el stock disponible en el panel de productos y ajusta la cantidad del pedido, o contacta al cliente para informarle sobre la disponibilidad.";
         }
         $tipo_mensaje = 'warning';
     }
@@ -78,17 +83,17 @@ function procesarErrorStock($error_message, $contexto = []) {
         $tipo_mensaje = 'danger';
     }
     // Errores de transición de estado de pedido
-    elseif (strpos($error_message, 'Transición no permitida') !== false) {
+    elseif (strpos($error_message, 'Transición no permitida') !== false || strpos($error_message, 'Transición de estado') !== false) {
         // Extraer estados del mensaje si están disponibles
-        $mensaje_usuario = "La transición de estado solicitada no está permitida. " . $error_message . " Acción sugerida: Revisa el estado actual del pedido y verifica que la transición sea válida según el flujo de estados permitidos.";
+        $mensaje_usuario = "La transición de estado solicitada no está permitida. " . $error_message . " Sugerencia: Revisa el estado actual del pedido o pago y verifica que la transición sea válida según el flujo de estados permitidos. Si necesitas hacer un cambio diferente, primero ajusta el estado actual.";
         $tipo_mensaje = 'danger';
     }
     elseif (strpos($error_message, 'Estado de pedido desconocido') !== false) {
         $mensaje_usuario = "El estado del pedido no es válido. Acción sugerida: Recarga la página para obtener la información actualizada del pedido e intenta nuevamente.";
         $tipo_mensaje = 'danger';
     }
-    elseif (strpos($error_message, 'No se puede cambiar el pedido a preparación') !== false) {
-        $mensaje_usuario = $error_message . " Acción sugerida: Verifica que el pago esté aprobado antes de cambiar el pedido a preparación.";
+    elseif (strpos($error_message, 'No se puede cambiar el pedido a preparación') !== false || strpos($error_message, 'preparación') !== false) {
+        $mensaje_usuario = $error_message . " Sugerencia: Verifica que el pago esté aprobado antes de cambiar el pedido a preparación. Cuando apruebes el pago desde el panel de ventas, el pedido pasará automáticamente a preparación.";
         $tipo_mensaje = 'danger';
     }
     elseif (strpos($error_message, 'No se puede retroceder') !== false) {
@@ -99,8 +104,8 @@ function procesarErrorStock($error_message, $contexto = []) {
         $mensaje_usuario = "No se puede cambiar el estado de un pedido devuelto (estado terminal). Acción sugerida: Los pedidos devueltos son estados finales y no admiten cambios.";
         $tipo_mensaje = 'danger';
     }
-    elseif (strpos($error_message, 'PEDIDO_COMPLETADO_NO_ADMITE_CAMBIOS') !== false || strpos($error_message, 'Un pedido completado no puede cambiar de estado') !== false) {
-        $mensaje_usuario = "Un pedido completado no puede cambiar de estado (venta cerrada). Acción sugerida: Los pedidos completados son ventas cerradas y no admiten modificaciones de estado.";
+    elseif (strpos($error_message, 'PEDIDO_COMPLETADO_NO_ADMITE_CAMBIOS') !== false || strpos($error_message, 'Un pedido completado no puede cambiar de estado') !== false || strpos($error_message, 'venta cerrada') !== false) {
+        $mensaje_usuario = "Un pedido completado no puede cambiar de estado porque es una venta cerrada. Los pedidos completados son estados finales y no admiten modificaciones. Sugerencia: Si necesitas hacer cambios en un pedido completado, contacta al administrador del sistema.";
         $tipo_mensaje = 'danger';
     }
     // Error genérico - mostrar mensaje técnico pero más claro

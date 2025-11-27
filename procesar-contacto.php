@@ -3,78 +3,64 @@
  * ========================================================================
  * PROCESAR CONTACTO - Tienda Seda y Lino
  * ========================================================================
- * Procesa el formulario de contacto y envía emails mediante Mailgun SMTP
+ * Procesa el formulario de contacto y envía emails mediante Gmail SMTP
  * 
  * Funcionalidades:
  * - Valida datos del formulario
- * - Envía email usando Mailgun SMTP
+ * - Envía email usando Gmail SMTP
  * - Redirige con mensaje de éxito o error
  * ========================================================================
  */
 
-// Activar manejo de errores para debugging (en desarrollo)
-// En producción, estos errores se registrarán en el log
-error_reporting(E_ALL);
+// Manejo de errores
+// NOTA: En producción, los errores se registran en el log del servidor
+// Solo activar error_reporting en desarrollo local para debugging
+// error_reporting(E_ALL);
 ini_set('display_errors', 0); // No mostrar errores en pantalla (solo en log)
 ini_set('log_errors', 1);
 
 session_start();
 
-// Cargar configuración de Mailgun si existe
-$mailgun_path = __DIR__ . '/config/mailgun.php';
-if (file_exists($mailgun_path)) {
+// Cargar configuración de Gmail si existe
+$gmail_path = __DIR__ . '/config/gmail.php';
+if (file_exists($gmail_path)) {
     try {
-        require_once $mailgun_path;
+        require_once $gmail_path;
     } catch (Exception $e) {
-        error_log("Error al cargar mailgun.php: " . $e->getMessage());
+        error_log("Error al cargar gmail.php: " . $e->getMessage());
         // Continuar con valores por defecto
     }
 } else {
     // Definir constantes por defecto si el archivo no existe
-    if (!defined('MAILGUN_API_KEY')) define('MAILGUN_API_KEY', '');
-    if (!defined('MAILGUN_DOMAIN')) define('MAILGUN_DOMAIN', '');
-    if (!defined('MAILGUN_BASE_URL')) define('MAILGUN_BASE_URL', 'https://api.mailgun.net');
-    if (!defined('MAILGUN_FROM_EMAIL')) define('MAILGUN_FROM_EMAIL', '');
-    if (!defined('MAILGUN_FROM_NAME')) define('MAILGUN_FROM_NAME', '');
-    if (!defined('MAILGUN_CONTACT_TO_EMAIL')) define('MAILGUN_CONTACT_TO_EMAIL', '');
-    if (!defined('MAILGUN_CONTACT_TO_NAME')) define('MAILGUN_CONTACT_TO_NAME', '');
-    if (!defined('MAILGUN_ENABLED')) define('MAILGUN_ENABLED', false);
-    if (!defined('MAILGUN_SMTP_HOST')) define('MAILGUN_SMTP_HOST', 'smtp.mailgun.org');
-    if (!defined('MAILGUN_SMTP_PORT')) define('MAILGUN_SMTP_PORT', 587);
-    if (!defined('MAILGUN_SMTP_USERNAME')) define('MAILGUN_SMTP_USERNAME', '');
-    if (!defined('MAILGUN_SMTP_PASSWORD')) define('MAILGUN_SMTP_PASSWORD', '');
-    if (!defined('MAILGUN_SMTP_ENCRYPTION')) define('MAILGUN_SMTP_ENCRYPTION', 'tls');
+    if (!defined('GMAIL_SMTP_HOST')) define('GMAIL_SMTP_HOST', 'smtp.gmail.com');
+    if (!defined('GMAIL_SMTP_PORT')) define('GMAIL_SMTP_PORT', 587);
+    if (!defined('GMAIL_SMTP_USERNAME')) define('GMAIL_SMTP_USERNAME', '');
+    if (!defined('GMAIL_SMTP_PASSWORD')) define('GMAIL_SMTP_PASSWORD', '');
+    if (!defined('GMAIL_SMTP_ENCRYPTION')) define('GMAIL_SMTP_ENCRYPTION', 'tls');
+    if (!defined('GMAIL_FROM_EMAIL')) define('GMAIL_FROM_EMAIL', '');
+    if (!defined('GMAIL_FROM_NAME')) define('GMAIL_FROM_NAME', '');
+    if (!defined('GMAIL_CONTACT_TO_EMAIL')) define('GMAIL_CONTACT_TO_EMAIL', '');
+    if (!defined('GMAIL_CONTACT_TO_NAME')) define('GMAIL_CONTACT_TO_NAME', '');
+    if (!defined('GMAIL_ENABLED')) define('GMAIL_ENABLED', false);
     
     // Definir funciones por defecto si no existen
-    if (!function_exists('mailgun_esta_configurado')) {
-        function mailgun_esta_configurado() {
+    if (!function_exists('gmail_smtp_esta_configurado')) {
+        function gmail_smtp_esta_configurado() {
             return (
-                !empty(MAILGUN_API_KEY) &&
-                !empty(MAILGUN_DOMAIN) &&
-                !empty(MAILGUN_BASE_URL) &&
-                MAILGUN_API_KEY !== 'tu_api_key_aqui' &&
-                MAILGUN_DOMAIN !== 'tu_dominio_mailgun_aqui'
+                !empty(GMAIL_SMTP_HOST) &&
+                !empty(GMAIL_SMTP_PORT) &&
+                !empty(GMAIL_SMTP_USERNAME) &&
+                !empty(GMAIL_SMTP_PASSWORD) &&
+                GMAIL_SMTP_USERNAME !== 'tu_email@gmail.com' &&
+                GMAIL_SMTP_PASSWORD !== 'tu_contraseña_de_aplicacion_aqui'
             );
         }
     }
     
-    if (!function_exists('mailgun_smtp_esta_configurado')) {
-        function mailgun_smtp_esta_configurado() {
-            return (
-                !empty(MAILGUN_SMTP_HOST) &&
-                !empty(MAILGUN_SMTP_PORT) &&
-                !empty(MAILGUN_SMTP_USERNAME) &&
-                !empty(MAILGUN_SMTP_PASSWORD) &&
-                MAILGUN_SMTP_USERNAME !== 'tu_usuario_smtp_aqui' &&
-                MAILGUN_SMTP_PASSWORD !== 'tu_contraseña_smtp_aqui'
-            );
-        }
-    }
-    
-    if (!function_exists('mailgun_mensaje_configuracion')) {
-        function mailgun_mensaje_configuracion() {
-            if (!mailgun_esta_configurado()) {
-                return "⚠️ ADVERTENCIA: La configuración de Mailgun no está completa. Edita config/mailgun.php con tus credenciales de Mailgun.";
+    if (!function_exists('gmail_mensaje_configuracion')) {
+        function gmail_mensaje_configuracion() {
+            if (!gmail_smtp_esta_configurado()) {
+                return "⚠️ ADVERTENCIA: La configuración de Gmail SMTP no está completa. Edita config/gmail.php con tus credenciales de Gmail.";
             }
             return "";
         }
@@ -182,8 +168,8 @@ $text_content .= "Email: " . (!empty($email_sanitizado) ? $email_sanitizado : '(
 $text_content .= "Asunto: " . $asunto_texto . "\n";
 $text_content .= "Mensaje:\n" . (!empty($mensaje_sanitizado) ? $mensaje_sanitizado : '(sin mensaje)') . "\n";
 
-// Verificar que Mailgun SMTP esté configurado
-if (!mailgun_smtp_esta_configurado()) {
+// Verificar que Gmail SMTP esté configurado
+if (!gmail_smtp_esta_configurado()) {
     $_SESSION['mensaje_contacto'] = 'Error del servidor. Intenta más tarde.';
     $_SESSION['mensaje_contacto_tipo'] = 'danger';
     header('Location: index.php#contacto', true, 302);
@@ -192,15 +178,15 @@ if (!mailgun_smtp_esta_configurado()) {
 
 // Verificar que todas las constantes necesarias estén definidas
 $constantes_requeridas = [
-    'MAILGUN_SMTP_HOST',
-    'MAILGUN_SMTP_PORT',
-    'MAILGUN_SMTP_USERNAME',
-    'MAILGUN_SMTP_PASSWORD',
-    'MAILGUN_SMTP_ENCRYPTION',
-    'MAILGUN_FROM_EMAIL',
-    'MAILGUN_FROM_NAME',
-    'MAILGUN_CONTACT_TO_EMAIL',
-    'MAILGUN_CONTACT_TO_NAME'
+    'GMAIL_SMTP_HOST',
+    'GMAIL_SMTP_PORT',
+    'GMAIL_SMTP_USERNAME',
+    'GMAIL_SMTP_PASSWORD',
+    'GMAIL_SMTP_ENCRYPTION',
+    'GMAIL_FROM_EMAIL',
+    'GMAIL_FROM_NAME',
+    'GMAIL_CONTACT_TO_EMAIL',
+    'GMAIL_CONTACT_TO_NAME'
 ];
 
 foreach ($constantes_requeridas as $constante) {
@@ -212,19 +198,19 @@ foreach ($constantes_requeridas as $constante) {
     }
 }
 
-// Configuración de Mailgun SMTP desde archivo de config
-$smtp_host = MAILGUN_SMTP_HOST;
-$smtp_port = MAILGUN_SMTP_PORT;
-$smtp_username = trim(MAILGUN_SMTP_USERNAME); // Eliminar espacios
-$smtp_password = trim(MAILGUN_SMTP_PASSWORD); // Eliminar espacios
-$smtp_encryption = MAILGUN_SMTP_ENCRYPTION;
-$from_email = MAILGUN_FROM_EMAIL;
-$from_name = MAILGUN_FROM_NAME;
-$to_email = MAILGUN_CONTACT_TO_EMAIL;
-$to_name = MAILGUN_CONTACT_TO_NAME;
+// Configuración de Gmail SMTP desde archivo de config
+$smtp_host = GMAIL_SMTP_HOST;
+$smtp_port = GMAIL_SMTP_PORT;
+$smtp_username = trim(GMAIL_SMTP_USERNAME); // Eliminar espacios
+$smtp_password = trim(GMAIL_SMTP_PASSWORD); // Eliminar espacios
+$smtp_encryption = GMAIL_SMTP_ENCRYPTION;
+$from_email = GMAIL_FROM_EMAIL;
+$from_name = GMAIL_FROM_NAME;
+$to_email = GMAIL_CONTACT_TO_EMAIL;
+$to_name = GMAIL_CONTACT_TO_NAME;
 
 
-// Intentar enviar email con Mailgun usando SMTP
+// Intentar enviar email con Gmail usando SMTP
 try {
     // Crear instancia de PHPMailer
     $mail = new PHPMailer(true);

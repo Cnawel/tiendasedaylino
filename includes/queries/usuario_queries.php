@@ -1143,3 +1143,119 @@ function eliminarCuentaUsuario($mysqli, $id_usuario, $email) {
     return $resultado;
 }
 
+/**
+ * Actualiza los datos completos de un usuario con validación centralizada
+ * 
+ * Esta función valida todos los datos del usuario usando funciones centralizadas
+ * y luego actualiza la base de datos. Reemplaza el SQL inline de procesar-pedido.php.
+ * 
+ * VALIDACIONES APLICADAS:
+ * - validarDatosUsuario(): Valida nombre, apellido, email, teléfono
+ * - validarDireccionCompleta(): Valida dirección completa (calle + número + piso)
+ * - validarCodigoPostal(): Valida código postal
+ * - Validación de localidad y provincia (longitud y formato)
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param int $id_usuario ID del usuario a actualizar
+ * @param string $nombre Nombre del usuario
+ * @param string $apellido Apellido del usuario
+ * @param string $email Email del usuario
+ * @param string $telefono Teléfono del usuario
+ * @param string $direccion_calle Calle de la dirección
+ * @param string $direccion_numero Número de la dirección
+ * @param string $direccion_piso Piso/Departamento (opcional)
+ * @param string $localidad Localidad
+ * @param string $provincia Provincia
+ * @param string $codigo_postal Código postal
+ * @return array ['exito' => bool, 'error' => string] Error contiene mensaje si falla
+ */
+function actualizarDatosUsuarioCompleto($mysqli, $id_usuario, $nombre, $apellido, $email, $telefono, $direccion_calle, $direccion_numero, $direccion_piso, $localidad, $provincia, $codigo_postal) {
+    // Cargar funciones de validación centralizadas
+    $validation_functions_path = __DIR__ . '/../validation_functions.php';
+    if (!file_exists($validation_functions_path)) {
+        error_log("ERROR actualizarDatosUsuarioCompleto: No se pudo encontrar validation_functions.php");
+        return ['exito' => false, 'error' => 'Error de configuración del sistema.'];
+    }
+    require_once $validation_functions_path;
+    
+    // Cargar funciones de perfil para usar actualizarDatosUsuario()
+    $perfil_queries_path = __DIR__ . '/perfil_queries.php';
+    if (!file_exists($perfil_queries_path)) {
+        error_log("ERROR actualizarDatosUsuarioCompleto: No se pudo encontrar perfil_queries.php");
+        return ['exito' => false, 'error' => 'Error de configuración del sistema.'];
+    }
+    require_once $perfil_queries_path;
+    
+    // Validar datos personales (nombre, apellido, email, teléfono)
+    $validacion_datos = validarDatosUsuario($nombre, $apellido, $email, $telefono);
+    if (!$validacion_datos['valido']) {
+        $primer_error = reset($validacion_datos['errores']);
+        return ['exito' => false, 'error' => $primer_error];
+    }
+    
+    // Validar dirección completa
+    $validacion_direccion = validarDireccionCompleta($direccion_calle, $direccion_numero, $direccion_piso);
+    if (!$validacion_direccion['valido']) {
+        return ['exito' => false, 'error' => $validacion_direccion['error']];
+    }
+    
+    // Validar código postal
+    $validacion_codigo_postal = validarCodigoPostal($codigo_postal);
+    if (!$validacion_codigo_postal['valido']) {
+        return ['exito' => false, 'error' => $validacion_codigo_postal['error']];
+    }
+    
+    // Validar localidad (longitud 3-100, solo letras y espacios)
+    $localidad_trimmed = trim($localidad);
+    if (empty($localidad_trimmed)) {
+        return ['exito' => false, 'error' => 'La localidad es requerida.'];
+    }
+    if (strlen($localidad_trimmed) < 3) {
+        return ['exito' => false, 'error' => 'La localidad debe tener al menos 3 caracteres.'];
+    }
+    if (strlen($localidad_trimmed) > 100) {
+        return ['exito' => false, 'error' => 'La localidad no puede exceder 100 caracteres.'];
+    }
+    if (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/', $localidad_trimmed)) {
+        return ['exito' => false, 'error' => 'La localidad solo puede contener letras y espacios.'];
+    }
+    
+    // Validar provincia (longitud 3-100, solo letras y espacios)
+    $provincia_trimmed = trim($provincia);
+    if (empty($provincia_trimmed)) {
+        return ['exito' => false, 'error' => 'La provincia es requerida.'];
+    }
+    if (strlen($provincia_trimmed) < 3) {
+        return ['exito' => false, 'error' => 'La provincia debe tener al menos 3 caracteres.'];
+    }
+    if (strlen($provincia_trimmed) > 100) {
+        return ['exito' => false, 'error' => 'La provincia no puede exceder 100 caracteres.'];
+    }
+    if (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/', $provincia_trimmed)) {
+        return ['exito' => false, 'error' => 'La provincia solo puede contener letras y espacios.'];
+    }
+    
+    // Usar función existente de perfil_queries.php para actualizar
+    // NOTA: actualizarDatosUsuario() espera fecha_nacimiento como último parámetro (puede ser null)
+    $resultado = actualizarDatosUsuario(
+        $mysqli,
+        $id_usuario,
+        $validacion_datos['datos']['nombre'],
+        $validacion_datos['datos']['apellido'],
+        $validacion_datos['datos']['email'],
+        $validacion_datos['datos']['telefono'],
+        $validacion_direccion['direccion_completa'],
+        $localidad_trimmed,
+        $provincia_trimmed,
+        $validacion_codigo_postal['valor'],
+        null // fecha_nacimiento no se actualiza en checkout
+    );
+    
+    if (!$resultado) {
+        error_log("ERROR actualizarDatosUsuarioCompleto: No se pudo actualizar usuario ID: $id_usuario");
+        return ['exito' => false, 'error' => 'Error al actualizar los datos del usuario.'];
+    }
+    
+    return ['exito' => true, 'error' => ''];
+}
+

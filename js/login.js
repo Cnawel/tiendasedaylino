@@ -22,47 +22,24 @@ document.addEventListener('DOMContentLoaded', function() {
     // Usa la función validateEmailInput de common_js_functions.php
     // ========================================================================
     if (emailInput) {
-    emailInput.addEventListener('input', function() {
-        // Usar función consolidada de common_js_functions.php
-        if (typeof validateEmailInput === 'function') {
-            validateEmailInput(this);
-        } else {
-            // Fallback si la función no está disponible
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (this.value.trim() === '') {
-                this.classList.remove('is-valid', 'is-invalid');
-            } else if (emailRegex.test(this.value)) {
-                this.classList.remove('is-invalid');
-                this.classList.add('is-valid');
-            } else {
-                this.classList.remove('is-valid');
-                this.classList.add('is-invalid');
+        emailInput.addEventListener('input', function() {
+            // Usar función consolidada de common_js_functions.php
+            if (typeof validateEmailInput === 'function') {
+                validateEmailInput(this);
             }
-        }
-    });
-    
-    emailInput.addEventListener('blur', function() {
-        // Validar al perder el foco usando función consolidada
-        if (typeof validateEmailInput === 'function') {
-            validateEmailInput(this);
-        } else {
-            // Fallback si la función no está disponible
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (this.value.trim() === '') {
-                this.classList.remove('is-valid', 'is-invalid');
-            } else if (emailRegex.test(this.value)) {
-                this.classList.remove('is-invalid');
-                this.classList.add('is-valid');
-            } else {
-                this.classList.remove('is-valid');
-                this.classList.add('is-invalid');
+        });
+        
+        emailInput.addEventListener('blur', function() {
+            // Validar al perder el foco usando función consolidada
+            if (typeof validateEmailInput === 'function') {
+                validateEmailInput(this);
             }
-        }
-    });
+        });
     }
     
     // ========================================================================
     // Toggle mostrar/ocultar contraseña
+    // Usa la función togglePassword de common_js_functions.php
     // ========================================================================
     if (togglePasswordBtn && passwordInput) {
         // Remover listeners previos si existen
@@ -73,22 +50,11 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             e.stopPropagation();
             
-            const icon = this.querySelector('i');
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                if (icon) {
-                    icon.classList.remove('fa-eye');
-                    icon.classList.add('fa-eye-slash');
-                    this.setAttribute('aria-label', 'Ocultar contraseña');
-                }
-            } else {
-                passwordInput.type = 'password';
-                if (icon) {
-                    icon.classList.remove('fa-eye-slash');
-                    icon.classList.add('fa-eye');
-                    this.setAttribute('aria-label', 'Mostrar contraseña');
-                }
+            // Usar función consolidada de common_js_functions.php
+            if (typeof togglePassword === 'function') {
+                togglePassword(passwordInput.id || passwordInput);
             }
+            
             return false;
         });
     }

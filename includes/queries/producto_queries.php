@@ -77,40 +77,6 @@ function obtenerProductoPorId($mysqli, $id_producto) {
 }
 
 /**
- * Obtiene todas las variantes de stock de un producto (talle, color, stock)
- * Solo devuelve variantes activas (activo = 1)
- * 
- * @param mysqli $mysqli Conexión a la base de datos
- * @param int $id_producto ID del producto
- * @return array Array de variantes con talle, color y stock
- */
-function obtenerVariantesStock($mysqli, $id_producto) {
-    $sql = "
-        SELECT id_variante, talle, color, stock
-        FROM Stock_Variantes
-        WHERE id_producto = ? AND activo = 1
-        ORDER BY color, talle
-    ";
-    
-    $stmt = $mysqli->prepare($sql);
-    if (!$stmt) {
-        return [];
-    }
-    
-    $stmt->bind_param('i', $id_producto);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    $variantes = [];
-    while ($row = $result->fetch_assoc()) {
-        $variantes[] = $row;
-    }
-    
-    $stmt->close();
-    return $variantes;
-}
-
-/**
  * Obtiene TODAS las variantes activas de un producto (incluyendo las sin stock)
  * Útil para mostrar todas las opciones disponibles en detalle de producto
  * No filtra por stock, solo por activo = 1, por lo que incluye variantes con stock = 0
@@ -466,35 +432,6 @@ function obtenerProductosParaCarrito($mysqli, $ids_productos) {
     return $productos;
 }
 
-/**
- * Obtiene las fotos registradas de un producto en la base de datos
- * 
- * @param mysqli $mysqli Conexión a la base de datos
- * @param int $id_producto ID del producto
- * @return array|null Array con fotos del producto o null si no tiene fotos
- */
-function obtenerFotosProducto($mysqli, $id_producto) {
-    $sql = "
-        SELECT foto_prod_miniatura, foto1_prod, foto2_prod, foto3_prod
-        FROM Fotos_Producto
-        WHERE id_producto = ?
-        AND activo = 1
-        LIMIT 1
-    ";
-    
-    $stmt = $mysqli->prepare($sql);
-    if (!$stmt) {
-        return null;
-    }
-    
-    $stmt->bind_param('i', $id_producto);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $fotos = $result->fetch_assoc();
-    $stmt->close();
-    
-    return $fotos;
-}
 
 /**
  * Obtiene todas las fotos de un producto organizadas (generales y por color)

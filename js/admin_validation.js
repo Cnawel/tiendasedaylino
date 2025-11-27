@@ -8,6 +8,7 @@
  * - validarNombreApellido(): Valida nombre o apellido
  * - inicializarValidacionEdicion(): Inicializa validación en formularios de edición
  * - validarCoincidenciaContrasenaEdicion(): Valida coincidencia de contraseñas en edición
+ * - toggleUsuariosInactivos(): Toggle para mostrar/ocultar usuarios inactivos
  * 
  * NOTA: Las siguientes funciones están disponibles en common_js_functions.php (incluido globalmente):
  * - confirmLogout(), togglePassword(), validateEmail(), validarContrasenaUsuario(), etc.
@@ -16,6 +17,25 @@
  * @version 1.0
  * ========================================================================
  */
+
+/**
+ * Función para toggle de usuarios inactivos
+ * @param {boolean} mostrar - true para mostrar inactivos, false para ocultar
+ */
+function toggleUsuariosInactivos(mostrar) {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    if (mostrar) {
+        urlParams.set('mostrar_inactivos', '1');
+    } else {
+        urlParams.delete('mostrar_inactivos');
+    }
+    
+    // Construir URL correctamente
+    const queryString = urlParams.toString();
+    const newUrl = queryString ? 'admin.php?' + queryString : 'admin.php';
+    window.location.href = newUrl;
+}
 
 /**
  * NOTA: Las siguientes funciones están disponibles en common_js_functions.php (incluido globalmente):
@@ -28,18 +48,9 @@
  */
 
 /**
- * Valida nombre o apellido (solo letras y espacios, mínimo 2 caracteres)
- * 
- * NOTA: Existe versión PHP equivalente en admin_functions.php
- * Ambas versiones deben mantener la misma lógica de validación.
- * 
- * @param {string} valor - Valor a validar
- * @returns {boolean} - true si es válido
+ * NOTA: validarNombreApellido() está disponible en common_js_functions.php
+ * Se incluye globalmente en footer.php, usar directamente la función global
  */
-function validarNombreApellido(valor) {
-    const re = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+$/;
-    return valor.trim().length >= 2 && re.test(valor.trim());
-}
 
 /**
  * Inicializar validación en tiempo real para campos de edición cuando se abre un modal
@@ -206,8 +217,60 @@ function validarCoincidenciaContrasenaEdicion(userId) {
 // VALIDACIÓN EN TIEMPO REAL - FORMULARIO CREAR USUARIO STAFF
 // ============================================================================
 
-// Agregar listeners para validación en tiempo real
+    // Agregar listeners para validación en tiempo real
 document.addEventListener('DOMContentLoaded', function() {
+    // ========================================================================
+    // Event listeners para reemplazar onclick inline
+    // ========================================================================
+    
+    // Botones de logout con confirmación
+    const btnLogout = document.querySelectorAll('.btn-logout');
+    btnLogout.forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            if (typeof confirmLogout === 'function') {
+                if (!confirmLogout()) {
+                    e.preventDefault();
+                }
+            }
+        });
+    });
+    
+    // Select de filtro de rol - auto-submit
+    const filtroRol = document.getElementById('filtro_rol');
+    if (filtroRol) {
+        const form = filtroRol.closest('form');
+        if (form) {
+            filtroRol.addEventListener('change', function() {
+                form.submit();
+            });
+        }
+    }
+    
+    // Checkbox para mostrar usuarios inactivos
+    const checkboxInactivos = document.querySelector('[data-toggle-usuarios-inactivos]');
+    if (checkboxInactivos) {
+        checkboxInactivos.addEventListener('change', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof toggleUsuariosInactivos === 'function') {
+                toggleUsuariosInactivos(this.checked);
+            }
+        });
+    }
+    
+    // Botones toggle password
+    const btnTogglePassword = document.querySelectorAll('[data-toggle-password]');
+    btnTogglePassword.forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const inputId = this.getAttribute('data-toggle-password');
+            if (inputId && typeof togglePasswordStaff === 'function') {
+                togglePasswordStaff(inputId);
+            }
+        });
+    });
+    
+    // ========================================================================
     // Validación campo Nombre
     const nombreInput = document.getElementById('nombre_staff');
     if (nombreInput) {
@@ -478,12 +541,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Enviar formulario con bloqueo de botón
                 procesarOperacionCritica(boton, function() {
                     formulario.submit();
-                        }, {
-                            textoProcesando: 'Desactivando...',
-                            tiempoBloqueo: 2000
-                        });
-                    }
-                );
+                }, {
+                    textoProcesando: 'Desactivando...',
+                    tiempoBloqueo: 2000
+                });
             });
         });
     }

@@ -18,14 +18,6 @@ if (!file_exists($security_functions_path)) {
 }
 require_once $security_functions_path;
 
-// Cargar funciones de consultas de usuarios
-$usuario_queries_path = __DIR__ . '/includes/queries/usuario_queries.php';
-if (!file_exists($usuario_queries_path)) {
-    error_log("ERROR: No se pudo encontrar usuario_queries.php en " . $usuario_queries_path);
-    die("Error crítico: Archivo de consultas de usuario no encontrado. Por favor, contacta al administrador.");
-}
-require_once $usuario_queries_path;
-
 // Cargar funciones de consultas de perfil
 $perfil_queries_path = __DIR__ . '/includes/queries/perfil_queries.php';
 if (!file_exists($perfil_queries_path)) {
@@ -35,12 +27,13 @@ if (!file_exists($perfil_queries_path)) {
 require_once $perfil_queries_path;
 
 // Cargar funciones de administración
+// NOTA: admin_functions.php ya incluye usuario_queries.php, no es necesario incluirlo por separado
 $admin_functions_path = __DIR__ . '/includes/admin_functions.php';
 if (!file_exists($admin_functions_path)) {
     error_log("ERROR: No se pudo encontrar admin_functions.php en " . $admin_functions_path);
     die("Error crítico: Archivo de funciones de administración no encontrado. Por favor, contacta al administrador.");
 }
-require_once $admin_functions_path;
+require_once $admin_functions_path; // Incluye usuario_queries.php
 
 // Configurar título de la página
 $titulo_pagina = 'Recuperar Contraseña';
@@ -506,226 +499,6 @@ if (isset($_SESSION['recuperar_contrasena_id'])) {
     <!-- Flatpickr JS para calendario personalizado -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
-    
-    <script>
-        // ============================================================================
-        // RECUPERAR CONTRASEÑA - JavaScript para mejorar UX
-        // ============================================================================
-        
-        document.addEventListener('DOMContentLoaded', function() {
-            const validarForm = document.getElementById('validarForm');
-            const cambiarForm = document.getElementById('cambiarForm');
-            const emailInput = document.getElementById('email');
-            const respuestaRecuperoInput = document.getElementById('respuesta_recupero');
-            const nuevaContrasenaInput = document.getElementById('nueva_contrasena');
-            const confirmarContrasenaInput = document.getElementById('confirmar_contrasena');
-            const togglePasswordNueva = document.getElementById('togglePasswordNueva');
-            const togglePasswordConfirmar = document.getElementById('togglePasswordConfirmar');
-            
-            // ========================================================================
-            // Validación en tiempo real del email (Paso 1)
-            // ========================================================================
-            if (emailInput) {
-                emailInput.addEventListener('input', function() {
-                    validateEmail(this);
-                });
-                
-                emailInput.addEventListener('blur', function() {
-                    validateEmail(this);
-                });
-                
-                function validateEmail(input) {
-                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                    if (input.value.trim() === '') {
-                        input.classList.remove('is-valid', 'is-invalid');
-                    } else if (emailRegex.test(input.value)) {
-                        input.classList.remove('is-invalid');
-                        input.classList.add('is-valid');
-                    } else {
-                        input.classList.remove('is-valid');
-                        input.classList.add('is-invalid');
-                    }
-                }
-            }
-            
-            // ========================================================================
-            // Toggle mostrar/ocultar contraseñas (Paso 2)
-            // ========================================================================
-            function setupPasswordToggle(button, input) {
-                if (button && input) {
-                    button.addEventListener('click', function() {
-                        const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
-                        input.setAttribute('type', type);
-                        
-                        const icon = this.querySelector('i');
-                        if (type === 'password') {
-                            icon.classList.remove('fa-eye-slash');
-                            icon.classList.add('fa-eye');
-                            this.setAttribute('aria-label', 'Mostrar contraseña');
-                        } else {
-                            icon.classList.remove('fa-eye');
-                            icon.classList.add('fa-eye-slash');
-                            this.setAttribute('aria-label', 'Ocultar contraseña');
-                        }
-                    });
-                }
-            }
-            
-            setupPasswordToggle(togglePasswordNueva, nuevaContrasenaInput);
-            setupPasswordToggle(togglePasswordConfirmar, confirmarContrasenaInput);
-            
-            // ========================================================================
-            // Validación de confirmación de contraseña (Paso 2)
-            // ========================================================================
-            if (confirmarContrasenaInput && nuevaContrasenaInput) {
-                confirmarContrasenaInput.addEventListener('input', validatePasswordConfirm);
-                confirmarContrasenaInput.addEventListener('blur', validatePasswordConfirm);
-                nuevaContrasenaInput.addEventListener('input', validatePasswordConfirm);
-                
-                function validatePasswordConfirm() {
-                    if (confirmarContrasenaInput.value === '') {
-                        confirmarContrasenaInput.classList.remove('is-valid', 'is-invalid');
-                    } else if (nuevaContrasenaInput.value === confirmarContrasenaInput.value) {
-                        confirmarContrasenaInput.classList.remove('is-invalid');
-                        confirmarContrasenaInput.classList.add('is-valid');
-                    } else {
-                        confirmarContrasenaInput.classList.remove('is-valid');
-                        confirmarContrasenaInput.classList.add('is-invalid');
-                    }
-                }
-            }
-            
-            // ========================================================================
-            // Validación del formulario de validación (Paso 1)
-            // ========================================================================
-            if (validarForm) {
-                const validarBtn = document.getElementById('validarBtn');
-                
-                validarForm.addEventListener('submit', function(e) {
-                    let isValid = true;
-                    
-                    if (emailInput && (!emailInput.value.trim() || !emailInput.classList.contains('is-valid'))) {
-                        emailInput.classList.add('is-invalid');
-                        isValid = false;
-                    }
-                    
-                    const fechaNacimientoInput = document.getElementById('fecha_nacimiento');
-                    if (fechaNacimientoInput && !fechaNacimientoInput.value) {
-                        fechaNacimientoInput.classList.add('is-invalid');
-                        isValid = false;
-                    }
-                    
-                    const preguntaRecuperoInput = document.getElementById('pregunta_recupero');
-                    if (preguntaRecuperoInput && !preguntaRecuperoInput.value) {
-                        preguntaRecuperoInput.classList.add('is-invalid');
-                        isValid = false;
-                    }
-                    
-                    if (respuestaRecuperoInput && !respuestaRecuperoInput.value.trim()) {
-                        respuestaRecuperoInput.classList.add('is-invalid');
-                        isValid = false;
-                    }
-                    
-                    if (!isValid) {
-                        e.preventDefault();
-                        const firstError = validarForm.querySelector('.is-invalid');
-                        if (firstError) {
-                            firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            firstError.focus();
-                        }
-                        return;
-                    }
-                    
-                    // Mostrar estado de carga
-                    if (validarBtn) {
-                        const btnText = validarBtn.querySelector('.btn-text');
-                        const btnLoading = validarBtn.querySelector('.btn-loading');
-                        if (btnText && btnLoading) {
-                            btnText.classList.add('d-none');
-                            btnLoading.classList.remove('d-none');
-                            validarBtn.disabled = true;
-                        }
-                    }
-                });
-            }
-            
-            // ========================================================================
-            // Validación del formulario de cambio (Paso 2)
-            // ========================================================================
-            if (cambiarForm) {
-                const cambiarBtn = document.getElementById('cambiarBtn');
-                
-                cambiarForm.addEventListener('submit', function(e) {
-                    let isValid = true;
-                    
-                    if (nuevaContrasenaInput && (!nuevaContrasenaInput.value || nuevaContrasenaInput.value.length < 6)) {
-                        nuevaContrasenaInput.classList.add('is-invalid');
-                        isValid = false;
-                    }
-                    
-                    if (confirmarContrasenaInput && nuevaContrasenaInput && nuevaContrasenaInput.value !== confirmarContrasenaInput.value) {
-                        confirmarContrasenaInput.classList.add('is-invalid');
-                        isValid = false;
-                    }
-                    
-                    if (!isValid) {
-                        e.preventDefault();
-                        const firstError = cambiarForm.querySelector('.is-invalid');
-                        if (firstError) {
-                            firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            firstError.focus();
-                        }
-                        return;
-                    }
-                    
-                    // Mostrar estado de carga
-                    if (cambiarBtn) {
-                        const btnText = cambiarBtn.querySelector('.btn-text');
-                        const btnLoading = cambiarBtn.querySelector('.btn-loading');
-                        if (btnText && btnLoading) {
-                            btnText.classList.add('d-none');
-                            btnLoading.classList.remove('d-none');
-                            cambiarBtn.disabled = true;
-                        }
-                    }
-                });
-            }
-            
-            // ========================================================================
-            // Limpiar errores al interactuar
-            // ========================================================================
-            if (respuestaRecuperoInput) {
-                respuestaRecuperoInput.addEventListener('input', function() {
-                    if (this.value.trim()) {
-                        this.classList.remove('is-invalid');
-                    }
-                });
-            }
-            
-            if (nuevaContrasenaInput) {
-                nuevaContrasenaInput.addEventListener('input', function() {
-                    if (this.value && this.value.length >= 6) {
-                        this.classList.remove('is-invalid');
-                    }
-                });
-            }
-            
-            // ========================================================================
-            // Animación suave de entrada
-            // ========================================================================
-            const authCard = document.querySelector('.auth-card');
-            if (authCard) {
-                authCard.style.opacity = '0';
-                authCard.style.transform = 'translateY(20px)';
-                
-                setTimeout(() => {
-                    authCard.style.transition = 'all 0.5s ease';
-                    authCard.style.opacity = '1';
-                    authCard.style.transform = 'translateY(0)';
-                }, 100);
-            }
-        });
-    </script>
 
 <?php include 'includes/footer.php'; render_footer(); ?>
 

@@ -165,6 +165,9 @@ function desbloquearBoton(boton) {
  * Bloquear todos los botones de un formulario
  * Útil durante el envío de formularios
  * 
+ * NOTA: Esta función actualmente no se usa en el código, pero se mantiene
+ * para uso futuro. Es útil para bloquear formularios completos durante el envío.
+ * 
  * @param {HTMLElement|string} formulario - Elemento del formulario o selector CSS
  * @param {string} textoProcesando - Texto a mostrar en botones (opcional)
  */
@@ -200,6 +203,9 @@ function bloquearFormulario(formulario, textoProcesando = 'Procesando...') {
  * Desbloquear todos los botones de un formulario
  * Restaura el estado original del formulario
  * 
+ * NOTA: Esta función actualmente no se usa en el código, pero se mantiene
+ * para uso futuro. Úsala junto con bloquearFormulario().
+ * 
  * @param {HTMLElement|string} formulario - Elemento del formulario o selector CSS
  */
 function desbloquearFormulario(formulario) {
@@ -232,6 +238,9 @@ function desbloquearFormulario(formulario) {
 /**
  * Proteger botón contra doble click
  * Agrega un listener que previene múltiples clicks
+ * 
+ * NOTA: Esta función actualmente no se usa en el código, pero se mantiene
+ * para uso futuro. Alternativa a procesarOperacionCritica() para casos simples.
  * 
  * @param {HTMLElement|string} boton - Elemento del botón o selector CSS
  * @param {Function} callback - Función a ejecutar en el click
@@ -276,6 +285,9 @@ function protegerContraDobleClick(boton, callback, tiempoProteccion = 2000) {
 /**
  * Crear wrapper de función con bloqueo automático
  * Retorna una nueva función que bloquea el botón automáticamente
+ * 
+ * NOTA: Esta función actualmente no se usa en el código, pero se mantiene
+ * para uso futuro. Útil para crear funciones con protección automática.
  * 
  * @param {HTMLElement} boton - Elemento del botón
  * @param {Function} funcion - Función original a ejecutar

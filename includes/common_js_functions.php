@@ -173,16 +173,30 @@ function validarCoincidenciaPassword(passwordId, confirmId, errorFeedbackId, suc
  * NOTA: Existe versión PHP equivalente en admin_functions.php (validarEmail)
  * Ambas versiones deben mantener la misma lógica de validación.
  * 
+ * VALIDACIÓN CLIENTE (JavaScript): Solo para UX, no es seguridad
+ * VALIDACIÓN SERVIDOR (PHP): Siempre validar en servidor, esta es la validación definitiva
+ * PHP también valida longitud (6-150 caracteres) - esta función solo valida formato
+ * 
  * @param {string} email - Email a validar
  * @returns {boolean} True si el formato es válido
  */
 function validateEmail(email) {
+    // Patrón básico de formato (PHP usa filter_var que es más estricto)
+    // Para validación completa incluyendo longitud, usar validateEmailInput()
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(email);
 }
 
 /**
  * Valida email en un input directamente y aplica clases de validación
+ * 
+ * NOTA: Esta función debe coincidir con la validación PHP en admin_functions.php:validarEmail()
+ * PHP valida: longitud 6-150 caracteres, formato con filter_var()
+ * Esta función valida: formato básico (la longitud se valida con HTML5 maxlength)
+ * 
+ * VALIDACIÓN CLIENTE (JavaScript): Solo para UX, no es seguridad
+ * VALIDACIÓN SERVIDOR (PHP): Siempre validar en servidor, esta es la validación definitiva
+ * 
  * @param {HTMLElement} input - Elemento input a validar
  * @returns {boolean} True si el email es válido
  */
@@ -194,7 +208,23 @@ function validateEmailInput(input) {
     if (email === '') {
         input.classList.remove('is-valid', 'is-invalid');
         return false;
-    } else if (validateEmail(email)) {
+    }
+    
+    // Validar longitud como en PHP (6-150 caracteres)
+    if (email.length < 6) {
+        input.classList.remove('is-valid');
+        input.classList.add('is-invalid');
+        return false;
+    }
+    
+    if (email.length > 150) {
+        input.classList.remove('is-valid');
+        input.classList.add('is-invalid');
+        return false;
+    }
+    
+    // Validar formato
+    if (validateEmail(email)) {
         input.classList.remove('is-invalid');
         input.classList.add('is-valid');
         return true;
@@ -207,13 +237,20 @@ function validateEmailInput(input) {
 
 /**
  * Valida y limpia código postal (permite números y letras)
+ * 
+ * NOTA: Esta función debe coincidir exactamente con la validación PHP en validation_functions.php:validarCodigoPostal()
+ * Patrón PHP: /^[A-Za-z0-9 ]+$/ (coincide con este patrón JavaScript)
+ * 
+ * VALIDACIÓN CLIENTE (JavaScript): Solo para UX, no es seguridad
+ * VALIDACIÓN SERVIDOR (PHP): Siempre validar en servidor, esta es la validación definitiva
+ * 
  * @param {HTMLElement} input - Elemento input de código postal
  */
 function validarCodigoPostal(input) {
     if (!input) return;
     
     const value = input.value;
-    // Solo permitir letras, números y espacios
+    // Patrón debe coincidir exactamente con PHP: /^[A-Za-z0-9 ]+$/
     const validPattern = /^[A-Za-z0-9 ]*$/;
     
     if (!validPattern.test(value)) {
@@ -497,6 +534,146 @@ function mostrarFeedbackValidacion(input, esValido, mensaje) {
     if (input.setCustomValidity) {
         input.setCustomValidity(esValido ? '' : (mensaje || ''));
     }
+}
+
+/**
+ * Valida nombre o apellido (solo letras, espacios, apóstrofes y acentos, mínimo 2 caracteres)
+ * 
+ * NOTA: Existe versión PHP equivalente en admin_functions.php
+ * Ambas versiones deben mantener la misma lógica de validación.
+ * 
+ * @param {string} valor - Valor a validar
+ * @param {number} minLength - Longitud mínima (opcional, default: 2)
+ * @param {number} maxLength - Longitud máxima (opcional, default: 100)
+ * @returns {boolean} - true si es válido
+ */
+function validarNombreApellido(valor, minLength, maxLength) {
+    minLength = minLength || 2;
+    maxLength = maxLength || 100;
+    
+    const valorTrimmed = valor ? valor.trim() : '';
+    const re = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+$/;
+    
+    return valorTrimmed.length >= minLength && 
+           valorTrimmed.length <= maxLength && 
+           re.test(valorTrimmed);
+}
+
+/**
+ * Valida teléfono (números, espacios y símbolos: +, -, (, ), longitud 6-20 caracteres)
+ * 
+ * NOTA: Esta función debe coincidir exactamente con la validación PHP en validation_functions.php:validarTelefono()
+ * Patrón PHP: /^[0-9+\-() ]+$/ (coincide con este patrón JavaScript)
+ * 
+ * VALIDACIÓN CLIENTE (JavaScript): Solo para UX, no es seguridad
+ * VALIDACIÓN SERVIDOR (PHP): Siempre validar en servidor, esta es la validación definitiva
+ * 
+ * @param {HTMLElement} input - Elemento input de teléfono
+ * @param {boolean} esOpcional - Si es true, permite campo vacío (opcional)
+ */
+function validarTelefono(input, esOpcional) {
+    if (!input) return;
+    
+    esOpcional = esOpcional !== false; // Por defecto es opcional
+    
+    const valor = input.value.trim();
+    // Patrón debe coincidir exactamente con PHP: /^[0-9+\-() ]+$/
+    const pattern = /^[0-9+\-() ]+$/;
+    
+    // Si es opcional y está vacío, es válido
+    if (esOpcional && valor === '') {
+        input.classList.remove('is-valid', 'is-invalid');
+        if (input.setCustomValidity) {
+            input.setCustomValidity('');
+        }
+        return;
+    }
+    
+    // Si no es opcional y está vacío, es inválido
+    if (!esOpcional && valor === '') {
+        mostrarFeedbackValidacion(input, false, 'El teléfono es requerido');
+        return;
+    }
+    
+    // Validar longitud
+    if (valor.length < 6) {
+        mostrarFeedbackValidacion(input, false, 'El teléfono debe tener al menos 6 caracteres');
+        return;
+    }
+    
+    if (valor.length > 20) {
+        mostrarFeedbackValidacion(input, false, 'El teléfono no puede exceder 20 caracteres');
+        return;
+    }
+    
+    // Validar formato
+    if (!pattern.test(valor)) {
+        mostrarFeedbackValidacion(input, false, 'Solo se permiten números y símbolos (+, -, paréntesis, espacios)');
+        return;
+    }
+    
+    // Es válido
+    mostrarFeedbackValidacion(input, true, '');
+}
+
+/**
+ * Valida dirección (calle, número o piso/departamento)
+ * Permite letras (con acentos), números, espacios, guiones, apóstrofes y acentos graves
+ * 
+ * NOTA: Esta función debe coincidir exactamente con la validación PHP en validation_functions.php:validarDireccion()
+ * Patrón PHP: /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+$/ (coincide con este patrón JavaScript)
+ * 
+ * VALIDACIÓN CLIENTE (JavaScript): Solo para UX, no es seguridad
+ * VALIDACIÓN SERVIDOR (PHP): Siempre validar en servidor, esta es la validación definitiva
+ * 
+ * @param {HTMLElement} input - Elemento input de dirección
+ * @param {boolean} esRequerido - Si es true, el campo es obligatorio (default: true)
+ * @param {number} minLength - Longitud mínima (opcional, default: 2)
+ * @param {string} tipoCampo - Tipo de campo: 'calle', 'numero', 'piso' (para mensajes personalizados)
+ */
+function validarDireccion(input, esRequerido, minLength, tipoCampo) {
+    if (!input) return;
+    
+    esRequerido = esRequerido !== false; // Por defecto es requerido
+    minLength = minLength || 2;
+    tipoCampo = tipoCampo || 'dirección';
+    
+    const valor = input.value.trim();
+    // Patrón debe coincidir exactamente con PHP: /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+$/
+    const pattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+$/;
+    
+    // Si es opcional (piso/depto) y está vacío, es válido
+    if (!esRequerido && valor === '') {
+        input.classList.remove('is-valid', 'is-invalid');
+        if (input.setCustomValidity) {
+            input.setCustomValidity('');
+        }
+        return;
+    }
+    
+    // Si es requerido y está vacío, es inválido
+    if (esRequerido && valor === '') {
+        const mensaje = tipoCampo === 'calle' ? 'La dirección es requerida' : 
+                       tipoCampo === 'numero' ? 'El número es requerido' : 
+                       'La dirección es requerida';
+        mostrarFeedbackValidacion(input, false, mensaje);
+        return;
+    }
+    
+    // Validar longitud mínima
+    if (valor.length < minLength) {
+        mostrarFeedbackValidacion(input, false, 'La dirección debe tener al menos ' + minLength + ' caracteres');
+        return;
+    }
+    
+    // Validar formato
+    if (!pattern.test(valor)) {
+        mostrarFeedbackValidacion(input, false, 'Solo se permiten letras (incluyendo acentos), números, espacios, guiones, apóstrofes y acentos graves');
+        return;
+    }
+    
+    // Es válido
+    mostrarFeedbackValidacion(input, true, '');
 }
 </script>
 
