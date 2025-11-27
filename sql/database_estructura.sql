@@ -1,7 +1,10 @@
 -- =========================
 -- SQL Tienda Seda y Lino
--- Estructura completa de base de datos
+-- Estructura completa de base de datos (REFERENCIA)
 -- =========================
+-- 
+-- ⚠️ IMPORTANTE: Este archivo es SOLO para REFERENCIA.
+-- Para instalación inicial de la base de datos, usar: sql/inicial.sql
 -- 
 -- Este archivo contiene la estructura completa de la base de datos
 -- incluyendo todas las mejoras de Prioridad 1 y mejoras críticas:
@@ -13,6 +16,12 @@
 -- - Campos de auditoría (fecha_creacion, fecha_actualizacion)
 -- - Campos funcionales (sku, numero_transaccion, etc.)
 -- - UNIQUE KEY para prevenir duplicados
+-- - Triggers históricos comentados (NO se usan, solo para referencia)
+-- 
+-- DIFERENCIAS CON inicial.sql:
+-- - Este archivo NO incluye inserción de usuario admin inicial
+-- - Este archivo incluye triggers comentados para referencia histórica
+-- - inicial.sql es el archivo recomendado para instalación inicial
 -- =========================
 
 -- Configuración de codificación UTF-8
@@ -127,6 +136,14 @@ CREATE TABLE IF NOT EXISTS Stock_Variantes (
 -- =========================
 -- Tabla Pedidos
 -- =========================
+-- ORDEN LÓGICO DE ESTADOS DE PEDIDO (según flujo de negocio):
+-- 1. pendiente - Pedido creado con stock validado, esperando aprobación de pago
+--    NOTA: Todo pedido en 'pendiente' ya tiene stock validado (se valida antes de crear el pedido)
+-- 2. preparacion - Pago aprobado, stock descontado, pedido en preparación
+-- 3. en_viaje - Pedido enviado al cliente
+-- 4. completado - Pedido entregado (estado terminal en MVP)
+-- 5. devolucion - Pedido devuelto por el cliente
+-- 6. cancelado - Pedido cancelado (estado terminal)
 CREATE TABLE IF NOT EXISTS Pedidos (
     id_pedido INT AUTO_INCREMENT PRIMARY KEY,
     id_usuario INT NOT NULL,
@@ -168,6 +185,12 @@ CREATE TABLE IF NOT EXISTS Forma_Pagos (
 -- =========================
 -- Tabla Pagos
 -- =========================
+-- ORDEN LÓGICO DE ESTADOS DE PAGO (según flujo de negocio):
+-- 1. pendiente - Pago creado, no procesado
+-- 2. pendiente_aprobacion - Pago requiere aprobación manual
+-- 3. aprobado - Pago aprobado, stock descontado
+-- 4. rechazado - Pago rechazado (estado terminal)
+-- 5. cancelado - Pago cancelado (estado terminal)
 CREATE TABLE IF NOT EXISTS Pagos (
     id_pago INT AUTO_INCREMENT PRIMARY KEY,
     id_pedido INT NOT NULL,

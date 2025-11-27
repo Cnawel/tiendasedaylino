@@ -20,8 +20,7 @@ USE tiendasedaylino_db;
 -- El campo activo tiene valor DEFAULT 1, pero lo especificamos explícitamente para claridad
 INSERT INTO Forma_Pagos (id_forma_pago, nombre, descripcion, activo) VALUES
 (1, 'Transferencia Bancaria', 'Transferencia o depósito bancario. CBU: ', 1),
-(2, 'Mercado Pago', 'Tarjeta de crédito, débito o saldo en Mercado Pago. ALIAS:', 1),
-(3, 'Efectivo contra entrega', 'Paga en efectivo al recibir tu pedido. Solo disponible en CABA y GBA.', 1)
+(2, 'Mercado Pago', 'Tarjeta de crédito, débito o saldo en Mercado Pago. ALIAS:', 1)
 ON DUPLICATE KEY UPDATE 
     nombre = VALUES(nombre),
     descripcion = VALUES(descripcion),

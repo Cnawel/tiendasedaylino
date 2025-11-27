@@ -256,6 +256,19 @@ FROM Usuarios
 WHERE email = 'admin@sedaylino.com';
 
 -- =========================
+-- NOTA IMPORTANTE: TRIGGERS NO SE USAN
+-- =========================
+-- 
+-- ⚠️ ADVERTENCIA: Los triggers NO se utilizan en la aplicación.
+-- Toda la lógica de negocio se implementa en PHP en los archivos:
+-- - includes/queries/stock_queries.php (gestión de stock)
+-- - includes/queries/pago_queries.php (gestión de pagos)
+-- - includes/queries/pedido_queries.php (gestión de pedidos)
+--
+-- Para más información sobre triggers históricos (comentados), ver:
+-- - sql/database_estructura.sql (contiene triggers comentados para referencia)
+--
+-- =========================
 -- NOTAS IMPORTANTES
 -- =========================
 -- 
@@ -264,16 +277,34 @@ WHERE email = 'admin@sedaylino.com';
 -- - En versiones anteriores (MySQL 5.7, MariaDB), los CHECK se crean pero no se validan
 -- - Si usas una versión anterior, la validación se hace en PHP (ver includes/queries/)
 -- 
+-- UNIQUE Constraints:
+-- - Los campos UNIQUE (sku, numero_transaccion) permiten NULL múltiples veces
+-- - Solo valores no-NULL deben ser únicos
+-- 
 -- Lógica de Negocio (PHP):
 -- - Toda la lógica de negocio se implementa en PHP, NO en triggers SQL
 -- - Ver includes/queries/ para funciones de validación y actualización
 -- - Las funciones PHP usan transacciones y FOR UPDATE para prevenir race conditions
 -- - Validaciones: stock disponible, usuario activo, variante/producto activos, etc.
+-- - Ver docs/BUSINESS_LOGIC.md para documentación completa
 -- 
 -- Soft Delete:
 -- - Todos los campos 'activo' tienen valor DEFAULT 1 (activo por defecto)
 -- - Para "eliminar" un registro, cambiar activo = 0 en lugar de DELETE
 -- - Esto preserva datos históricos en tablas relacionadas
+-- - Las funciones PHP validan activo = 1 antes de permitir operaciones críticas
+--
+-- Validaciones de Integridad (implementadas en PHP):
+-- - Función valida stock disponible ANTES de crear movimiento de venta
+-- - Función valida ajustes negativos no causen stock negativo
+-- - Función valida usuario activo ANTES de crear pedido
+-- - Función valida categoría activa ANTES de crear producto
+-- - Función previene múltiples pagos aprobados para el mismo pedido
+-- - Función valida variante/producto activos ANTES de crear Detalle_Pedido
+-- - FOR UPDATE previene race conditions en operaciones concurrentes
+-- - CHECK constraints validan valores positivos (requiere MySQL 8.0.16+)
+-- - respuesta_recupero almacena hash (VARCHAR 255) para mayor seguridad
+-- - Todas las foreign keys tienen ON DELETE RESTRICT para prevenir eliminaciones accidentales
 -- 
 -- Seguridad:
 -- - La contraseña del usuario admin está hasheada con bcrypt (PASSWORD_DEFAULT)
