@@ -7,10 +7,10 @@
    $id = $_GET['id'];  //valor que corresponde a esa clave primaria
 
    //traemos todos los datos de la tabla para editar que corresponda al registro que se selecciono, usando la clave primaria y el id 
-   $consultar_datos = $conn->query("SELECT * FROM $tabla WHERE $pk = $id");
+   $consultar_datos = $mysqli->query("SELECT * FROM $tabla WHERE $pk = $id");
 
    //obtenemos la metadata de las columnas de la tabla
-   $obtenerColumnas = $conn->query("SHOW COLUMNS FROM $tabla");
+   $obtenerColumnas = $mysqli->query("SHOW COLUMNS FROM $tabla");
    //armamos un array asociativo con las columnas para poder acceder al tipo de dato que tiene
    $columnas = [];
    while($col = $obtenerColumnas->fetch_assoc()){
@@ -32,9 +32,9 @@
    <form action="guardar_editar.php?tabla=<?php echo $tabla ?>&pk=<?php echo $pk ?>&id=<?php echo $id ?>" method="post">
       <?php 
         //recorremos la fila que se obtuvo en el SELECT de la variable $consultar_datos
-         while($fila = $consultar_datos->fetch_assoc()){
+         while($fil = $consultar_datos->fetch_assoc()){
             //Recorremos la columna y el valor que tiene ese registro. 
-            foreach($fila as $columna => $valor){
+            foreach($fil as $columna => $valor){
 
                  //detectamos el tipo de dato que tiene esa columna para insertarlo en el input 
                   $type = $columnas[$columna]['Type'];
