@@ -45,14 +45,14 @@ require_once 'includes/perfil_components.php';
 require_once __DIR__ . '/config/database.php';
 
 // Cargar queries de perfil
-require_once 'includes/queries/usuario_queries.php'; // Necesario para verificarHashContrasena()
-require_once 'includes/queries/perfil_queries.php';
-require_once 'includes/queries/pedido_queries.php';
-require_once 'includes/queries/stock_queries.php';
-require_once 'includes/queries/pago_queries.php';
-require_once 'includes/sales_functions.php';
-require_once 'includes/estado_helpers.php';
-require_once 'includes/envio_functions.php'; // Necesario para parsearDireccion()
+require_once __DIR__ . '/includes/queries/usuario_queries.php'; // Necesario para verificarHashContrasena()
+require_once __DIR__ . '/includes/queries/perfil_queries.php';
+require_once __DIR__ . '/includes/queries/pedido_queries.php';
+require_once __DIR__ . '/includes/queries/stock_queries.php';
+require_once __DIR__ . '/includes/queries/pago_queries.php'; // Necesario para actualizarPagoCompleto()
+require_once __DIR__ . '/includes/sales_functions.php';
+require_once __DIR__ . '/includes/estado_helpers.php';
+require_once __DIR__ . '/includes/envio_functions.php'; // Necesario para parsearDireccion()
 
 // Configurar título de la página
 $titulo_pagina = 'Mi Perfil';
@@ -108,7 +108,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $resultado = procesarActualizacionRecupero($mysqli, $id_usuario, $_POST);
             $_SESSION['mensaje'] = $resultado['mensaje'];
             $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
-            header('Location: perfil.php');
+            $redirect_url = construirRedirectUrl('perfil.php');
+            header('Location: ' . $redirect_url);
             exit;
             
         case 'actualizar_datos':
@@ -121,14 +122,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $_SESSION['mensaje'] = $resultado['mensaje'];
             $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
-            header('Location: perfil.php');
+            $redirect_url = construirRedirectUrl('perfil.php');
+            header('Location: ' . $redirect_url);
             exit;
             
         case 'cambiar_contrasena':
             $resultado = procesarCambioContrasena($mysqli, $id_usuario, $_POST);
             $_SESSION['mensaje'] = $resultado['mensaje'];
             $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
-            header('Location: perfil.php');
+            $redirect_url = construirRedirectUrl('perfil.php');
+            header('Location: ' . $redirect_url);
             exit;
             
         case 'marcar_pago_pagado':
@@ -140,7 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$validacion['valido']) {
                 $_SESSION['mensaje'] = $validacion['mensaje'];
                 $_SESSION['mensaje_tipo'] = $validacion['mensaje_tipo'];
-                header('Location: perfil.php');
+                header('Location: perfil.php?tab=pedidos');
                 exit;
             }
             
@@ -153,6 +156,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Actualizar pago completo con numero_transaccion y marcar como pendiente_aprobacion
             // NO se descuenta stock aquí, solo cuando ventas apruebe el pago
             try {
+                // Verificar que la función esté disponible
+                if (!function_exists('actualizarPagoCompleto')) {
+                    throw new Exception('Función actualizarPagoCompleto no está disponible. Error de carga de archivos.');
+                }
+                
                 $numero_transaccion_normalizado = (!empty($numero_transaccion)) ? $numero_transaccion : null;
                 actualizarPagoCompleto($mysqli, $id_pago, 'pendiente_aprobacion', $monto, $numero_transaccion_normalizado);
                 
@@ -164,7 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 $_SESSION['mensaje'] = $mensaje_exito;
                 $_SESSION['mensaje_tipo'] = 'success';
-                header('Location: perfil.php');
+                header('Location: perfil.php?tab=pedidos');
                 exit;
             } catch (Exception $e) {
                 // Loggear error MySQL si existe
@@ -176,7 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error_info = construirMensajeErrorPago($e->getMessage(), $id_pago, $id_usuario);
                 $_SESSION['mensaje'] = $error_info['mensaje'];
                 $_SESSION['mensaje_tipo'] = $error_info['mensaje_tipo'];
-                header('Location: perfil.php');
+                header('Location: perfil.php?tab=pedidos');
                 exit;
             }
             break;
@@ -237,10 +245,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 
                 if (!headers_sent()) {
-                    header('Location: perfil.php', true, 302);
+                    $redirect_url = construirRedirectUrl('perfil.php');
+                    header('Location: ' . $redirect_url, true, 302);
                     exit;
                 } else {
-                    echo '<script>window.location.href = "perfil.php";</script>';
+                    $redirect_url = construirRedirectUrl('perfil.php');
+                    echo '<script>window.location.href = "' . htmlspecialchars($redirect_url) . '";</script>';
                     exit;
                 }
                 }
@@ -258,10 +268,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 
                 if (!headers_sent()) {
-                    header('Location: perfil.php', true, 302);
+                    $redirect_url = construirRedirectUrl('perfil.php');
+                    header('Location: ' . $redirect_url, true, 302);
                     exit;
                 } else {
-                    echo '<script>window.location.href = "perfil.php";</script>';
+                    $redirect_url = construirRedirectUrl('perfil.php');
+                    echo '<script>window.location.href = "' . htmlspecialchars($redirect_url) . '";</script>';
                     exit;
                 }
             }

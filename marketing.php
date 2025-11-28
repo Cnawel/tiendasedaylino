@@ -24,6 +24,7 @@ require_once __DIR__ . '/includes/queries/foto_producto_queries.php';
 require_once __DIR__ . '/includes/image_helper.php';
 require_once __DIR__ . '/includes/marketing_functions.php';
 require_once __DIR__ . '/includes/product_image_functions.php';
+require_once __DIR__ . '/includes/sales_functions.php';
 
 $id_usuario = getCurrentUserId();
 $usuario_actual = getCurrentUser();
@@ -47,7 +48,6 @@ if (isset($_SESSION['mensaje'])) {
 // ============================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['activar_producto']) || isset($_POST['desactivar_producto']))) {
     $id_producto = isset($_POST['id_producto']) ? intval($_POST['id_producto']) : 0;
-    $mostrar_inactivos_param = isset($_POST['mostrar_inactivos']) ? '&mostrar_inactivos=1' : '';
     
     if ($id_producto > 0) {
         if (isset($_POST['activar_producto'])) {
@@ -68,7 +68,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['activar_producto']) 
             }
         }
         
-        header('Location: marketing.php?tab=productos' . $mostrar_inactivos_param);
+        $params_adicionales = ['tab' => 'productos'];
+        if (isset($_POST['mostrar_inactivos']) && $_POST['mostrar_inactivos'] == '1') {
+            $params_adicionales['mostrar_inactivos'] = '1';
+        }
+        $redirect_url = construirRedirectUrl('marketing.php', $params_adicionales);
+        header('Location: ' . $redirect_url);
         exit;
     }
 }
@@ -78,7 +83,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['activar_producto']) 
 // ============================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar_producto_permanente'])) {
     $id_producto = isset($_POST['id_producto']) ? intval($_POST['id_producto']) : 0;
-    $mostrar_inactivos_param = isset($_POST['mostrar_inactivos']) ? '&mostrar_inactivos=1' : '';
     
     if ($id_producto > 0) {
         // Verificar que el producto puede eliminarse
@@ -87,7 +91,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar_producto_per
         if (!$verificacion['puede_eliminarse']) {
             $_SESSION['mensaje'] = $verificacion['razon'];
             $_SESSION['mensaje_tipo'] = 'danger';
-            header('Location: marketing.php?tab=productos' . $mostrar_inactivos_param);
+            $params_adicionales = ['tab' => 'productos'];
+            if (isset($_POST['mostrar_inactivos']) && $_POST['mostrar_inactivos'] == '1') {
+                $params_adicionales['mostrar_inactivos'] = '1';
+            }
+            $redirect_url = construirRedirectUrl('marketing.php', $params_adicionales);
+            header('Location: ' . $redirect_url);
             exit;
         }
         
@@ -102,7 +111,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar_producto_per
             $_SESSION['mensaje_tipo'] = 'danger';
         }
         
-        header('Location: marketing.php?tab=productos' . $mostrar_inactivos_param);
+        $params_adicionales = ['tab' => 'productos'];
+        if (isset($_POST['mostrar_inactivos']) && $_POST['mostrar_inactivos'] == '1') {
+            $params_adicionales['mostrar_inactivos'] = '1';
+        }
+        $redirect_url = construirRedirectUrl('marketing.php', $params_adicionales);
+        header('Location: ' . $redirect_url);
         exit;
     }
 }
@@ -159,7 +173,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['subir_foto_temporal']
         $_SESSION['mensaje_tipo'] = 'warning';
     }
     
-    header('Location: marketing.php?tab=fotos');
+    $redirect_url = construirRedirectUrl('marketing.php', ['tab' => 'fotos']);
+    header('Location: ' . $redirect_url);
     exit;
 }
 
@@ -176,7 +191,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar_foto_tempora
             $_SESSION['mensaje'] = 'Error al eliminar la foto';
             $_SESSION['mensaje_tipo'] = 'danger';
         }
-        header('Location: marketing.php?tab=fotos');
+        $redirect_url = construirRedirectUrl('marketing.php', ['tab' => 'fotos']);
+        header('Location: ' . $redirect_url);
         exit;
     }
 }
@@ -205,7 +221,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['mensaje'] = $resultado['mensaje'];
         $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
         // Redirigir a la pestaña 'agregar' para mostrar el mensaje en el tab correcto
-        header('Location: marketing.php?tab=agregar');
+        $redirect_url = construirRedirectUrl('marketing.php', ['tab' => 'agregar']);
+        header('Location: ' . $redirect_url);
         exit;
     }
 }

@@ -514,13 +514,6 @@ $monto_faltante = obtenerMontoFaltanteEnvioGratis($total_carrito);
                                     </label>
                                 </div>
                                 <?php endforeach; ?>
-                                
-                                <!-- Warning informativo sobre método de pago seleccionado -->
-                                <div id="warning-metodo-pago" class="alert alert-info alert-dismissible fade show d-none" role="alert">
-                                    <i class="fas fa-info-circle me-2"></i>
-                                    <span id="mensaje-metodo-pago"></span>
-                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                                </div>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -591,7 +584,7 @@ $monto_faltante = obtenerMontoFaltanteEnvioGratis($total_carrito);
                             <!-- Aviso de envío gratis -->
                             <div id="envio-alert">
                             <?php if (!$info_envio['es_gratis'] && $monto_faltante > 0): ?>
-                            <div class="alert alert-info mb-3 alert-compact">
+                            <div class="alert alert-info mb-3 alert-compact" style="color: #000;">
                                 <i class="fas fa-truck me-2"></i>
                                 <strong>¡Agrega $<?php echo number_format($monto_faltante, 2); ?> más y obtén envío gratis!</strong>
                                 <br>

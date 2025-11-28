@@ -179,6 +179,24 @@
     border-bottom: 1px solid var(--color-border);
 }
 
+/* Asegurar texto blanco en headers con fondo oscuro */
+.card-header.bg-dark.text-white {
+    background-color: #212529 !important;
+    color: #ffffff !important;
+}
+
+.card-header.bg-dark.text-white h5,
+.card-header.bg-dark.text-white h4,
+.card-header.bg-dark.text-white h3,
+.card-header.bg-dark.text-white h2,
+.card-header.bg-dark.text-white h1,
+.card-header.bg-dark.text-white p,
+.card-header.bg-dark.text-white span,
+.card-header.bg-dark.text-white i,
+.card-header.bg-dark.text-white strong {
+    color: #ffffff !important;
+}
+
 .card-img-wrapper {
     position: relative;
     overflow: hidden;
@@ -2186,38 +2204,42 @@ input[type="radio"]:checked + .btn-color-compacto.color-sin-stock {
 /* Botones de acción compactos */
 .btn-comprar-compacto {
     background: var(--color-blue);
-    color: var(--color-bg-white);
+    color: #ffffff !important;
     border: none;
     padding: 12px 20px;
     font-size: 1rem;
     font-weight: 600;
     border-radius: 6px;
     cursor: pointer;
-    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
     width: 100%;
 }
 
 .btn-comprar-compacto:hover {
     background: var(--color-blue-dark);
-    box-shadow: 0 3px 6px var(--color-blue);
+    box-shadow: 0 4px 8px var(--color-blue);
+    color: #ffffff !important;
+    transform: translateY(-2px);
 }
 
 .btn-carrito-compacto {
     background: var(--color-text-main);
-    color: var(--color-bg-white);
+    color: #ffffff !important;
     border: none;
     padding: 12px 20px;
     font-size: 1rem;
     font-weight: 600;
     border-radius: 6px;
     cursor: pointer;
-    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
     width: 100%;
 }
 
 .btn-carrito-compacto:hover {
     background: var(--color-black);
-    box-shadow: 0 3px 6px var(--color-shadow);
+    box-shadow: 0 4px 8px var(--color-shadow);
+    color: #ffffff !important;
+    transform: translateY(-2px);
 }
 
 /* Estilos para botones deshabilitados */
@@ -2226,11 +2248,13 @@ input[type="radio"]:checked + .btn-color-compacto.color-sin-stock {
     opacity: 0.6;
     cursor: not-allowed !important;
     pointer-events: none;
+    color: #ffffff !important;
 }
 
 .btn-comprar-compacto:disabled:hover,
 .btn-carrito-compacto:disabled:hover {
     box-shadow: none;
+    color: #ffffff !important;
 }
 
 /* Responsive para pantallas pequeñas */

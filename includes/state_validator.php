@@ -142,6 +142,12 @@ class StateValidator {
         $from_norm = self::normalizeState($from);
         $to_norm = self::normalizeState($to);
         
+        // Si el estado actual es igual al nuevo estado, permitir (no hacer nada)
+        // Esto evita errores cuando se intenta "cambiar" a un estado que ya tiene
+        if ($from_norm === $to_norm) {
+            return true;
+        }
+        
         // Obtener matriz de transiciones según tipo
         $transiciones = ($type === 'pago') ? self::$transicionesPago : self::$transicionesPedido;
         

@@ -51,10 +51,10 @@ CREATE TABLE IF NOT EXISTS Preguntas_Recupero (
 -- =========================
 CREATE TABLE IF NOT EXISTS Usuarios (
     id_usuario INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    apellido VARCHAR(100) NOT NULL,
-    email VARCHAR(150) UNIQUE NOT NULL,
-    contrasena VARCHAR(255) NOT NULL,
+    nombre VARCHAR(100) NULL COMMENT 'NULL permitido para usuarios anonimizados',
+    apellido VARCHAR(100) NULL COMMENT 'NULL permitido para usuarios anonimizados',
+    email VARCHAR(150) NULL COMMENT 'NULL permitido para usuarios anonimizados (sin UNIQUE constraint)',
+    contrasena VARCHAR(255) NULL COMMENT 'NULL permitido para usuarios anonimizados',
     rol ENUM('cliente','admin','marketing','ventas') NOT NULL DEFAULT 'cliente',
     activo TINYINT NOT NULL DEFAULT 1 COMMENT '1=activo, 0=inactivo (soft delete)',
     telefono VARCHAR(20) NULL,
@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS Usuarios (
     codigo_postal VARCHAR(10) NULL,
     fecha_registro DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Fecha de registro del usuario',
     fecha_actualizacion DATETIME NULL ON UPDATE CURRENT_TIMESTAMP COMMENT 'Fecha de última actualización',
+    deleted_at DATETIME NULL COMMENT 'Fecha de anonimización/eliminación',
     fecha_nacimiento DATE NULL COMMENT 'Fecha de nacimiento del usuario',
     pregunta_recupero INT NULL COMMENT 'ID de pregunta de recupero seleccionada',
     respuesta_recupero VARCHAR(255) NULL COMMENT 'Hash de la respuesta a la pregunta de recupero (almacenado como hash por seguridad)',
@@ -146,7 +147,7 @@ CREATE TABLE IF NOT EXISTS Stock_Variantes (
 -- 6. cancelado - Pedido cancelado (estado terminal)
 CREATE TABLE IF NOT EXISTS Pedidos (
     id_pedido INT AUTO_INCREMENT PRIMARY KEY,
-    id_usuario INT NOT NULL,
+    id_usuario INT NULL COMMENT 'NULL permitido para pedidos desvinculados de usuarios anonimizados',
     fecha_pedido DATETIME NOT NULL,
     estado_pedido ENUM('pendiente','preparacion','en_viaje','completado','devolucion','cancelado') NOT NULL DEFAULT 'pendiente',
     total DECIMAL(10,2) NULL COMMENT 'Total del pedido (calculado o cache)',
@@ -154,7 +155,7 @@ CREATE TABLE IF NOT EXISTS Pedidos (
     telefono_contacto VARCHAR(20) NULL COMMENT 'Teléfono de contacto para envío',
     observaciones VARCHAR(500) NULL COMMENT 'Notas internas o del cliente',
     fecha_actualizacion DATETIME NULL ON UPDATE CURRENT_TIMESTAMP COMMENT 'Fecha de última actualización',
-    FOREIGN KEY (id_usuario) REFERENCES Usuarios(id_usuario) ON DELETE RESTRICT ON UPDATE CASCADE
+    FOREIGN KEY (id_usuario) REFERENCES Usuarios(id_usuario) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
 -- =========================

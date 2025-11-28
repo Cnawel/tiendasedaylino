@@ -489,35 +489,27 @@ $pedido = $_SESSION['pedido_exitoso'];
                             </div>
                             <?php endif; ?>
                             
-                            <!-- Warnings informativos según método de pago -->
-                            <?php
-                            $nombre_metodo_lower = strtolower($pedido['metodo_pago'] ?? '');
-                            $mostrar_warning_aprobacion = false;
-                            $mostrar_warning_tiempo = false;
-                            $mensaje_warning = '';
-                            
-                            // Detectar métodos que requieren aprobación manual
-                            if (strpos($nombre_metodo_lower, 'transferencia') !== false || 
-                                strpos($nombre_metodo_lower, 'depósito') !== false || 
-                                strpos($nombre_metodo_lower, 'efectivo') !== false ||
-                                strpos($nombre_metodo_lower, 'manual') !== false) {
-                                $mostrar_warning_aprobacion = true;
-                                $mensaje_warning = 'Tu pago será revisado manualmente. Recibirás confirmación por email en 24-48 horas una vez que se procese el pago.';
-                            } elseif (strpos($nombre_metodo_lower, 'transferencia') !== false || 
-                                      strpos($nombre_metodo_lower, 'depósito') !== false) {
-                                $mostrar_warning_tiempo = true;
-                                $mensaje_warning = 'Los pagos por transferencia pueden tardar 24-48hs en procesarse. Te notificaremos por email cuando se confirme el pago.';
-                            }
-                            ?>
-                            
-                            <?php if ($mostrar_warning_aprobacion || $mostrar_warning_tiempo): ?>
-                            <div class="alert alert-info alert-dismissible fade show mt-3" role="alert" style="border-left: 4px solid #0dcaf0;">
-                                <i class="fas fa-info-circle me-2"></i>
-                                <strong>Próximos pasos:</strong><br>
-                                <small><?php echo htmlspecialchars($mensaje_warning); ?></small>
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            <!-- Instrucciones para realizar el pago -->
+                            <div class="alert alert-sepia-info mt-3 mb-2" style="border-left: 4px solid var(--sepia-medium);">
+                                <p class="mb-1"><strong><i class="fas fa-money-bill-wave me-2"></i>Realizá el pago:</strong></p>
+                                <p class="mb-0 small">Completá el pago usando el método seleccionado y guardá el comprobante o código de transacción.</p>
                             </div>
-                            <?php endif; ?>
+                            
+                            <!-- Instrucciones para marcar el pago desde el perfil -->
+                            <div class="alert alert-warning mt-2 mb-0" role="alert" style="background-color: #FFF3CD; border-left: 4px solid #FFC107; color: #000; border-radius: 8px;">
+                                        <h6 class="mb-2 fw-bold" style="color: #856404;">
+                                    <i class="fas fa-check-circle me-2"></i>¿Ya realizaste el pago?
+                                        </h6>
+                                <p class="mb-2 small">Para agilizar la confirmación del pedido <strong>#<?php echo str_pad($pedido['id_pedido'], 6, '0', STR_PAD_LEFT); ?></strong>, marcá tu pago como realizado:</p>
+                                <ol class="mb-2 ps-3 small">
+                                    <li>Andá a <a href="perfil.php?tab=pedidos" class="fw-bold">Mi Perfil → Mis Pedidos</a></li>
+                                    <li>Buscá el pedido <strong>#<?php echo str_pad($pedido['id_pedido'], 6, '0', STR_PAD_LEFT); ?></strong></li>
+                                    <li>Hacé clic en <strong>"Marcar Pago"</strong> e ingresá el código de transacción</li>
+                                        </ol>
+                                <p class="mb-0 small">
+                                    <i class="fas fa-lightbulb me-1"></i><strong>Tip:</strong> Tené a mano el comprobante de pago.
+                                        </p>
+                            </div>
                         </div>
                         
                         <div class="info-item">
@@ -667,7 +659,7 @@ $pedido = $_SESSION['pedido_exitoso'];
                 <i class="fas fa-home me-2"></i>
                 Volver al Inicio
             </a>
-            <a href="perfil.php" class="btn btn-outline-sepia btn-lg px-5 py-3">
+            <a href="perfil.php?tab=pedidos" class="btn btn-outline-sepia btn-lg px-5 py-3">
                 <i class="fas fa-user me-2"></i>
                 Ver Mi Perfil
             </a>

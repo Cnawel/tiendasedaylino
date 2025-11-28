@@ -523,71 +523,82 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_variantes'
             
             // Validar que talle y color no estén vacíos después de normalizar
             if ($id_variante_int > 0 && $nuevo_talle !== '' && $nuevo_color !== '' && $nuevo_stock >= 0) {
-                // Obtener datos actuales de la variante usando función centralizada
+                // Obtener datos actuales de la variante usando función centralizada (incluye activo)
                 $variante_actual = obtenerVariantePorId($mysqli, $id_variante_int);
                 
-                if ($variante_actual) {
-                    $id_producto_variante = $variante_actual['id_producto'];
-                    
-                    // Normalizar color actual para comparación
-                    $color_actual_normalizado = ucfirst(strtolower(trim($variante_actual['color'] ?? '')));
-                    $talle_actual = trim($variante_actual['talle'] ?? '');
-                    
-                    // Variable para rastrear si la variante fue desactivada
-                    $variante_desactivada = false;
-                    
-                    // Verificar si cambió el talle o color (comparar valores normalizados)
-                    if ($talle_actual !== $nuevo_talle || $color_actual_normalizado !== $nuevo_color) {
-                        // Verificar si ya existe otra variante activa con la misma combinación id_producto + talle + color
-                        // La clave única uk_variante_producto es (id_producto, talle, color)
-                        $sql_verificar = "SELECT id_variante FROM Stock_Variantes 
-                                         WHERE id_producto = ? 
-                                         AND talle = ? 
-                                         AND color = ? 
-                                         AND activo = 1 
-                                         AND id_variante != ? 
-                                         LIMIT 1";
-                        $stmt_verificar = $mysqli->prepare($sql_verificar);
-                        if ($stmt_verificar) {
-                            $stmt_verificar->bind_param('issi', $id_producto_variante, $nuevo_talle, $nuevo_color, $id_variante_int);
-                            $stmt_verificar->execute();
-                            $result_verificar = $stmt_verificar->get_result();
-                            $existe_variante = $result_verificar->num_rows > 0;
-                            $stmt_verificar->close();
-                            
-                            if ($existe_variante) {
-                                // Ya existe otra variante activa con esta combinación, marcar la actual como inactiva (soft delete)
-                                desactivarVarianteStock($mysqli, $id_variante_int);
-                                $variante_desactivada = true;
-                            } else {
-                                // No existe, actualizar talle y color usando función centralizada
-                                if (!actualizarVarianteStock($mysqli, $id_variante_int, $nuevo_talle, $nuevo_color)) {
-                                    throw new Exception('Error al actualizar talle/color de variante ID: ' . $id_variante_int);
-                                }
-                            }
-                        } else {
-                            throw new Exception('Error al preparar verificación de variante existente');
-                        }
-                    }
-                    
-                    // Actualizar stock si cambió y la variante no fue desactivada
-                    // IMPORTANTE: Los ajustes se manejan con cantidad con signo (positivo suma, negativo resta)
-                    // El trigger actualizará automáticamente el stock cuando se registre el movimiento
-                    if (!$variante_desactivada) {
-                        // Obtener stock actual después de posibles cambios de talle/color
-                        // Esto asegura que usamos el stock correcto para calcular la diferencia
-                        $variante_actualizada = obtenerVariantePorId($mysqli, $id_variante_int);
-                        $stock_actual = $variante_actualizada ? (int)$variante_actualizada['stock'] : (int)$variante_actual['stock'];
+                if (!$variante_actual) {
+                    throw new Exception('La variante ID ' . $id_variante_int . ' no existe');
+                }
+                
+                // Validar que la variante esté activa antes de actualizar
+                $variante_activa = isset($variante_actual['activo']) ? (int)$variante_actual['activo'] === 1 : true;
+                if (!$variante_activa) {
+                    throw new Exception('No se puede actualizar stock de una variante inactiva (ID: ' . $id_variante_int . ')');
+                }
+                
+                $id_producto_variante = $variante_actual['id_producto'];
+                $stock_actual = (int)$variante_actual['stock'];
+                
+                // Normalizar color actual para comparación
+                $color_actual_normalizado = ucfirst(strtolower(trim($variante_actual['color'] ?? '')));
+                $talle_actual = trim($variante_actual['talle'] ?? '');
+                
+                // Variable para rastrear si la variante fue desactivada
+                $variante_desactivada = false;
+                
+                // Verificar si cambió el talle o color (comparar valores normalizados)
+                if ($talle_actual !== $nuevo_talle || $color_actual_normalizado !== $nuevo_color) {
+                    // Verificar si ya existe otra variante activa con la misma combinación id_producto + talle + color
+                    // La clave única uk_variante_producto es (id_producto, talle, color)
+                    $sql_verificar = "SELECT id_variante FROM Stock_Variantes 
+                                     WHERE id_producto = ? 
+                                     AND talle = ? 
+                                     AND color = ? 
+                                     AND activo = 1 
+                                     AND id_variante != ? 
+                                     LIMIT 1";
+                    $stmt_verificar = $mysqli->prepare($sql_verificar);
+                    if ($stmt_verificar) {
+                        $stmt_verificar->bind_param('issi', $id_producto_variante, $nuevo_talle, $nuevo_color, $id_variante_int);
+                        $stmt_verificar->execute();
+                        $result_verificar = $stmt_verificar->get_result();
+                        $existe_variante = $result_verificar->num_rows > 0;
+                        $stmt_verificar->close();
                         
-                        $diferencia_stock = $nuevo_stock - $stock_actual;
-                        if ($diferencia_stock != 0) {
-                            require_once __DIR__ . '/includes/queries/stock_queries.php';
-                            $observacion = $diferencia_stock > 0 ? 'Ajuste positivo desde edición' : 'Ajuste negativo desde edición';
-                            // Usar la diferencia con signo para que el trigger maneje correctamente
-                            // Si diferencia es positiva, suma; si es negativa, resta
-                            if (!registrarMovimientoStock($mysqli, $id_variante_int, 'ajuste', $diferencia_stock, $id_usuario, null, $observacion, true)) {
-                                throw new Exception('Error al actualizar stock de variante ID: ' . $id_variante_int);
+                        if ($existe_variante) {
+                            // Ya existe otra variante activa con esta combinación, marcar la actual como inactiva (soft delete)
+                            desactivarVarianteStock($mysqli, $id_variante_int);
+                            $variante_desactivada = true;
+                        } else {
+                            // No existe, actualizar talle y color usando función centralizada
+                            if (!actualizarVarianteStock($mysqli, $id_variante_int, $nuevo_talle, $nuevo_color)) {
+                                throw new Exception('Error al actualizar talle/color de variante ID: ' . $id_variante_int);
                             }
+                        }
+                    } else {
+                        throw new Exception('Error al preparar verificación de variante existente');
+                    }
+                }
+                
+                // Actualizar stock si cambió y la variante no fue desactivada
+                // IMPORTANTE: Los ajustes se manejan con cantidad con signo (positivo suma, negativo resta)
+                // El stock no cambia cuando se actualiza talle/color, así que usamos el stock de la primera consulta
+                if (!$variante_desactivada) {
+                    // Calcular diferencia usando el stock de la primera consulta (no cambia con talle/color)
+                    $diferencia_stock = $nuevo_stock - $stock_actual;
+                    
+                    if ($diferencia_stock != 0) {
+                        // Validar que stock_queries.php esté incluido (ya está en línea 26, pero por seguridad)
+                        require_once __DIR__ . '/includes/queries/stock_queries.php';
+                        
+                        $observacion = $diferencia_stock > 0 ? 'Ajuste positivo desde edición' : 'Ajuste negativo desde edición';
+                        
+                        // registrarMovimientoStock() lanza excepciones, no retorna false en caso de error
+                        // Envolver en try-catch para manejo adecuado de errores
+                        try {
+                            registrarMovimientoStock($mysqli, $id_variante_int, 'ajuste', $diferencia_stock, $id_usuario, null, $observacion, true);
+                        } catch (Exception $e_stock) {
+                            throw new Exception('Error al actualizar stock de variante ID ' . $id_variante_int . ': ' . $e_stock->getMessage());
                         }
                     }
                 }
@@ -634,9 +645,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_variantes'
                     // Registrar movimiento inicial (reemplaza trg_actualizar_stock_insert)
                     // Esta función actualiza automáticamente el stock de la variante
                     if ($stock > 0) {
+                        // Validar que stock_queries.php esté incluido (ya está en línea 26, pero por seguridad)
                         require_once __DIR__ . '/includes/queries/stock_queries.php';
-                        if (!registrarMovimientoStock($mysqli, $id_variante_nueva, 'ingreso', $stock, $id_usuario, null, 'Stock inicial', true)) {
-                            throw new Exception('Error al registrar movimiento de stock para variante: ' . $talle_trim . ' ' . $color_trim);
+                        
+                        // registrarMovimientoStock() lanza excepciones, no retorna false en caso de error
+                        // Envolver en try-catch para manejo adecuado de errores
+                        try {
+                            registrarMovimientoStock($mysqli, $id_variante_nueva, 'ingreso', $stock, $id_usuario, null, 'Stock inicial', true);
+                        } catch (Exception $e_stock) {
+                            throw new Exception('Error al registrar movimiento de stock para variante ' . $talle_trim . ' ' . $color_trim . ': ' . $e_stock->getMessage());
                         }
                     }
                 }

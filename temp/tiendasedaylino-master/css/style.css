@@ -1,0 +1,2535 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap');
+
+:root {
+  /* ============================================================================
+     PALETA DE COLORES REDUCIDA - 10 COLORES ESENCIALES
+     ============================================================================ */
+  
+  /* Colores base (5) */
+  --color-primary: #8B8B7A;           /* Color principal: botones, enlaces, acentos */
+  --color-bg-white: #FFFFFF;           /* Fondos principales: tarjetas, formularios, contenido */
+  --color-bg-light: #F5F5F0;           /* Fondos secciones: hover states, backgrounds alternativos */
+  --color-text-main: #333;             /* Texto principal: títulos, contenido, elementos principales */
+  --color-border: #E8E8E5;             /* Bordes: separadores, inputs, cards, elementos visuales */
+  
+  /* Colores funcionales (3) */
+  --color-success: #28a745;            /* Éxito: validaciones, badges, estados positivos */
+  --color-danger: #dc3545;              /* Errores: alertas, acciones destructivas, estados negativos */
+  --color-warning: #ffc107;             /* Advertencias: estados pendientes, notificaciones */
+  
+  /* Colores de texto (2) */
+  --color-text-secondary: #666;        /* Texto secundario: descripciones, subtítulos */
+  --color-text-muted: #999;            /* Texto deshabilitado: placeholders, hints, texto atenuado */
+  
+  /* Variables Bootstrap compatibilidad */
+  --bs-primary: var(--color-primary);
+  --bs-secondary: var(--color-text-secondary);
+  --bs-success: var(--color-success);
+  --bs-danger: var(--color-danger);
+  --bs-warning: var(--color-warning);
+  
+  /* Variables adicionales para compatibilidad */
+  --color-text-dark: var(--color-text-main);
+  --color-bg-gray: var(--color-bg-light);
+  --gradient-bg-gray-border: var(--color-bg-light);
+  --gradient-bg-very-light: var(--color-bg-light);
+  --gradient-bg-main: var(--color-bg-white);
+  --color-border-hover: #C4C4C0;
+  --color-border-active: var(--color-primary);
+  --color-shadow: var(--color-text-main);
+  --color-blue: #4A9FD6;
+  --color-blue-dark: #3A8FC6;
+  --color-border-gray: #dee2e6;
+  
+  /* Colores de alertas (fondos) */
+  --color-alert-danger-bg: #F5C6CB;
+  --color-alert-success-bg: #C3E6CB;
+  --color-alert-warning-bg: #FFE69C;
+  
+  /* Colores grises adicionales */
+  --color-gray-light: #F5F5F5;
+  --color-gray-medium: #D4D4D0;
+  --color-gray-dark: #4A4A4A;
+  --color-black: #000;
+  --color-gray-muted: #6c757d;
+  
+  /* Overlays rgba */
+  --color-overlay-light: rgba(0, 0, 0, 0.05);
+  --color-overlay-medium: rgba(0, 0, 0, 0.08);
+  --color-overlay-white-light: rgba(255, 255, 255, 0.1);
+  --color-overlay-white-medium: rgba(255, 255, 255, 0.15);
+  --color-overlay-white-muted: rgba(255, 255, 255, 0.5);
+  --color-overlay-white-bright: rgba(255, 255, 255, 0.95);
+  --color-overlay-white-hover: rgba(255, 255, 255, 0.85);
+}
+
+/* Botones - Consolidado */
+.btn-primary,
+.boton-tarjeta,
+.boton-formulario,
+.auth-btn {
+    background: var(--color-primary);
+    border: none;
+    border-radius: 25px;
+    font-family: "Quicksand", sans-serif;
+    font-weight: 600;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 2px 8px var(--color-primary);
+}
+
+.btn-primary {
+    padding: 12px 30px;
+}
+
+.boton-tarjeta,
+.boton-formulario,
+.auth-btn {
+    font-size: 0.95em;
+    padding: 11px 28px;
+}
+
+.auth-btn {
+    width: 100%;
+}
+
+.btn-primary:hover,
+.boton-tarjeta:hover,
+.boton-formulario:hover,
+.auth-btn:hover {
+    box-shadow: 0 3px 10px var(--color-text-secondary);
+}
+
+.btn-primary:focus,
+.boton-tarjeta:focus,
+.boton-formulario:focus,
+.auth-btn:focus {
+    box-shadow: 0 0 0 0.2rem var(--color-primary);
+}
+
+/* Botones Bootstrap */
+.btn-secondary,
+.btn-success,
+.btn-danger,
+.btn-warning {
+    border: none;
+}
+
+.btn-secondary {
+    background-color: var(--color-text-secondary);
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: var(--color-text-main);
+}
+
+.btn-success {
+    background-color: var(--color-success);
+}
+
+.btn-danger {
+    background-color: var(--color-danger);
+}
+
+.btn-warning {
+    background-color: var(--color-warning);
+    color: var(--color-text-main);
+}
+
+/* Cards/Tarjetas - Consolidado */
+.card {
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-bg-white);
+    box-shadow: 0 2px 8px var(--color-text-secondary);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.card:hover {
+    box-shadow: 0 3px 8px var(--color-text-secondary);
+    border-color: var(--color-border-hover);
+}
+
+/* Tarjeta custom */
+.tarjeta {
+    text-align: center;
+    overflow: hidden;
+    position: relative;
+}
+
+.card-body {
+    padding: 1.5rem 1.25rem;
+}
+
+.card-header {
+    background: var(--color-bg-white);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.card-img-wrapper {
+    position: relative;
+    overflow: hidden;
+    background: var(--gradient-bg-very-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 175px;
+    cursor: pointer;
+}
+
+.card-img-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 10px;
+}
+
+/* Formularios - Consolidado */
+.form-control,
+.input-contacto,
+.form-select,
+.datos-envio-input {
+    font-family: "DM Sans", sans-serif;
+    border: 1.5px solid var(--color-border);
+    padding: 12px 15px;
+    background-color: var(--color-bg-white);
+    color: var(--color-text-main);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-control,
+.input-contacto,
+.form-select {
+    border-radius: 8px;
+}
+
+.datos-envio-input {
+    border-radius: 10px;
+}
+
+.form-control:focus,
+.input-contacto:focus,
+.datos-envio-input:focus,
+.form-select:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 0.2rem var(--color-primary);
+    outline: none;
+}
+
+/* Labels - Consolidado */
+.form-label,
+.label-contacto,
+.datos-envio-label {
+    font-family: "Quicksand", sans-serif;
+    font-weight: 600;
+    color: var(--color-text-main);
+    font-size: 0.95em;
+    margin-bottom: 0.5rem;
+}
+
+.datos-envio-input::placeholder {
+    color: var(--color-text-muted);
+    font-style: italic;
+    font-size: 0.9em;
+}
+
+/* Form check */
+.form-check-input {
+    border: 1.5px solid var(--color-border);
+}
+
+.form-check-input:checked {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.form-check-input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 0.2rem var(--color-primary);
+}
+
+.form-check-label {
+    font-family: "DM Sans", sans-serif;
+    color: var(--color-text-main);
+}
+
+.invalid-feedback {
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.8em;
+}
+
+/* Alertas */
+.alert {
+    border-radius: 10px;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.9em;
+    border: none;
+    padding: 12px 16px;
+}
+
+.alert-danger {
+    background-color: var(--color-alert-danger-bg);
+    color: var(--color-danger);
+}
+
+.alert-success {
+    background-color: var(--color-alert-success-bg);
+    color: var(--color-success);
+}
+
+.alert-warning {
+    background-color: var(--color-alert-warning-bg);
+    color: var(--color-warning);
+}
+
+.alert-info {
+    background-color: var(--color-border);
+    color: var(--color-primary);
+}
+
+/* ============================================================================
+   ESTILOS GENERALES
+   ============================================================================ */
+
+*{
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 90%;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-size: 0.9rem;
+}
+
+a, .tarjeta, input[type="checkbox"], input[type="radio"], label {
+    cursor: pointer;
+}
+
+/* Transiciones específicas solo donde sean necesarias */
+button, .btn {
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+a {
+    transition: color 0.2s ease;
+}
+
+a:focus, button:focus, input:focus, textarea:focus, select:focus {
+    outline: 2px solid var(--color-text-main);
+    outline-offset: 2px;
+}
+
+a:focus:not(:focus-visible), 
+button:focus:not(:focus-visible) {
+    outline: none;
+}
+
+h2, h3, h4, h5 {
+    font-family: "Quicksand", sans-serif;
+    color: var(--color-text-main);
+}
+
+h2 {
+    font-size: 1.8em;
+    font-weight: 300;
+}
+
+h3 {
+    font-size: 1.35em;
+    font-weight: 600;
+}
+
+h4 {
+    font-size: 1.17em;
+    font-weight: 600;
+}
+
+h5 {
+    font-size: 1em;
+    font-weight: 600;
+}
+
+p {
+    font-family: "DM Sans", sans-serif;
+    font-weight: 300;
+    font-size: 0.95em;
+}
+
+span {
+    font-weight: bold;
+}
+
+.secciones {
+    padding: 1% 1%;
+}
+
+.titulo-productos {
+    font-size: 3em;
+    font-family: "Quicksand", sans-serif;
+    color: var(--color-text-main);
+}
+
+.productos {
+    padding: 2.5%;
+}
+
+/* Carousel */
+.carousel {
+    max-height: 450px;
+    overflow: hidden;
+}
+
+.carousel-inner {
+    height: 100%;
+}
+
+.carousel-item {
+    height: 360px;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.carousel-item img {
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+/* Header */
+
+.nav{
+    border-bottom: 1px solid var(--color-text-main);
+}
+
+.nombre-tienda{
+    font-weight: bold;
+    font-family: "DM Sans", sans-serif;
+    font-size: 1em;
+    color: var(--color-text-main);
+}
+
+.lista-nav{
+    align-items: center;
+}
+
+.link-tienda {
+    color: var(--color-text-main);
+    font-weight: 300;
+    font-family: "Quicksand", sans-serif;
+    font-size: 1em;
+}
+
+/* Sección productos */
+
+.seccion-productos {
+    background: var(--gradient-bg-main);
+    padding: 3rem 0 4rem 0;
+}
+
+/* Sección productos compacta - Espaciado mejorado */
+.seccion-productos-compact {
+    padding: 3rem 0;
+    margin-bottom: 3.5rem;
+}
+
+.main-content-spaced {
+    margin: 0;
+    padding: 0;
+}
+
+.section-spaced {
+    margin-bottom: 2rem;
+}
+
+.section-spaced:last-child {
+    margin-bottom: 0;
+}
+
+.seccion-presentacion {
+    padding: 0.75rem 0;
+    background: var(--gradient-bg-main);
+}
+
+.texto-presentacion {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+
+.presentacion-texto {
+    font-family: "DM Sans", sans-serif;
+    font-size: 2.5rem;
+    font-weight: 600;
+    color: var(--color-text-main);
+    margin: 0;
+    line-height: 1.4;
+    letter-spacing: 0.5px;
+    display: inline-block;
+}
+
+.overlay-text {
+    color: white;
+    font-family: "Quicksand", sans-serif;
+    font-weight: 600;
+    font-size: 0.85em;
+}
+
+.titulo-tarjeta {
+    font-family: "Quicksand", sans-serif;
+    font-size: 1.25em;
+    font-weight: 600;
+    color: var(--color-text-main);
+    margin-bottom: 0.75rem;
+    letter-spacing: 0.2px;
+}
+
+.texto-tarjeta {
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.95rem;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+    letter-spacing: 0.1px;
+    margin-bottom: 1rem;
+}
+
+/* seccion contacto */
+
+.seccion-contacto {
+    background: var(--gradient-bg-main);
+    padding: 3.5rem 0;
+}
+
+.info-contacto {
+    background: var(--color-bg-white);
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px var(--color-shadow);
+}
+
+.info-item h5 {
+    font-family: "Quicksand", sans-serif;
+    font-weight: 600;
+    color: var(--color-text-main);
+    margin-bottom: 0.5rem;
+}
+
+.info-item p {
+    font-family: "DM Sans", sans-serif;
+    color: var(--color-text-secondary);
+    margin-bottom: 0;
+}
+
+.formulario-container {
+    background: var(--color-bg-white);
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px var(--color-shadow);
+}
+
+.formulario{
+    width: 100%;
+    background: transparent;
+    color: var(--color-text-main);
+    padding: 0;
+    border-radius: 0;
+    margin: 0;
+}
+
+.texto-contacto{
+    color: var(--color-text-secondary);
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.85em;
+    text-align: center;
+}
+
+/* Producto cards */
+.producto-img-wrapper {
+    height: 360px;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+}
+
+/* Precios - Consolidado */
+.precio-actual {
+    font-weight: bold;
+    color: var(--color-text-main);
+    font-family: "Quicksand", sans-serif;
+    font-size: 1.35em;
+}
+
+.precio-original {
+    font-size: 0.95em;
+    text-decoration: line-through;
+    color: var(--color-text-muted);
+}
+
+/* Estilos para página de detalle de producto */
+
+.detalle-producto {
+    background: var(--gradient-bg-main);
+    min-height: 100vh;
+    padding: 2rem 0;
+}
+
+.breadcrumb {
+    background-color: transparent;
+    padding: 0;
+}
+
+.breadcrumb a {
+    color: var(--color-primary);
+    text-decoration: none;
+}
+
+.breadcrumb a:hover {
+    color: var(--color-text-secondary);
+    text-decoration: underline;
+}
+
+/* Thumbnails - Consolidado */
+.producto-thumbnail {
+    cursor: pointer;
+    transition: opacity 0.3s ease, border-color 0.3s ease;
+    opacity: 0.7;
+    object-fit: contain;
+    background-color: var(--color-bg-light);
+    height: 80px;
+    border: 2px solid transparent;
+}
+
+.producto-thumbnail.active {
+    opacity: 1;
+    border-color: var(--color-text-main);
+    border-width: 3px;
+}
+
+.producto-thumbnail:hover {
+    opacity: 1;
+}
+
+.producto-info {
+    background: var(--color-bg-white);
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px var(--color-shadow);
+    height: 100%;
+}
+
+.producto-titulo {
+    font-family: "Quicksand", sans-serif;
+    font-weight: 600;
+    color: var(--color-text-main);
+}
+
+/* Footer */
+
+.footer-completo {
+    background: var(--color-bg-light);
+    color: var(--color-text-secondary);
+    margin-top: 4rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.footer-titulo {
+    font-family: "Quicksand", sans-serif;
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--color-primary);
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.footer-texto {
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.9em;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+}
+
+.footer-texto-small {
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.85em;
+    color: var(--color-text-secondary);
+}
+
+.footer-lista {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* Footer links - Consolidado */
+.footer-link,
+.footer-link-small {
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    font-family: "DM Sans", sans-serif;
+    transition: color 0.2s ease;
+    display: inline-block;
+}
+
+.footer-link {
+    font-size: 0.9em;
+}
+
+.footer-link-small {
+    font-size: 0.85em;
+}
+
+.footer-link:hover {
+    color: var(--color-primary);
+}
+
+.footer-link-small:hover {
+    text-decoration: underline;
+}
+
+.footer-link i {
+    color: var(--color-text-secondary);
+    transition: color 0.2s ease;
+}
+
+.footer-link:hover i {
+    color: var(--color-primary);
+}
+
+.footer-redes {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.footer-red-social {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    background: var(--color-bg-white);
+    border: 1.5px solid var(--color-border);
+    border-radius: 50%;
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: 1.1em;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.footer-red-social:hover {
+    background-color: var(--color-primary);
+    color: var(--color-bg-white);
+}
+
+.footer-red-social i {
+    margin: 0;
+}
+
+.footer-divider {
+    border: 0;
+    height: 1px;
+    background: var(--color-border);
+    margin: 0;
+}
+
+.footer-copyright {
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.85em;
+    color: var(--color-text-secondary);
+}
+
+
+/* Autenticación */
+
+.auth-page {
+    min-height: 100vh;
+    background: var(--gradient-bg-main);
+    display: flex;
+    align-items: center;
+    padding: 2rem 0;
+}
+
+.auth-container {
+    max-width: 450px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.auth-card {
+    background: var(--color-bg-light);
+    border: 1.5px solid var(--color-border);
+    border-radius: 18px;
+    padding: 2.7rem 2.25rem;
+    box-shadow: 0 4px 12px var(--color-text-secondary);
+    transition: box-shadow 0.2s ease;
+}
+
+.auth-card:hover {
+    box-shadow: 0 8px 20px var(--color-text-secondary);
+}
+
+.auth-logo {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.auth-logo h2 {
+    font-family: "DM Sans", sans-serif;
+    font-weight: bold;
+    font-size: 1.8em;
+    color: var(--color-text-main);
+    margin-bottom: 0.5rem;
+}
+
+.auth-logo p {
+    font-family: "DM Sans", sans-serif;
+    color: var(--color-text-secondary);
+    font-size: 0.88em;
+}
+
+.auth-title {
+    font-family: "Quicksand", sans-serif;
+    font-size: 1.62em;
+    font-weight: 600;
+    color: var(--color-text-main);
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.auth-links {
+    text-align: center;
+    margin-top: 1.5rem;
+}
+
+.auth-links a {
+    color: var(--color-primary);
+    text-decoration: none;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.9em;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.auth-links a:hover {
+    color: var(--color-text-secondary);
+    text-decoration: underline;
+}
+
+.auth-divider {
+    text-align: center;
+    margin: 1rem 0;
+    color: var(--color-text-muted);
+    font-size: 0.85em;
+}
+
+.password-input-wrapper {
+    position: relative;
+}
+
+.password-input-wrapper input {
+    padding-right: 45px;
+}
+
+.btn-toggle-password {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    margin-top: -12px;
+    background: transparent;
+    border: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 5px;
+    z-index: 10;
+}
+
+.btn-toggle-password:hover {
+    color: var(--color-text-main);
+    background-color: var(--color-gray-light);
+}
+
+.btn-toggle-password:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-text-main);
+    transition: box-shadow 0.15s ease;
+}
+
+.btn-toggle-password i {
+    font-size: 1em;
+}
+
+.password-strength {
+    margin-top: 8px;
+}
+
+.strength-meter {
+    height: 5px;
+    background-color: var(--color-border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+
+.strength-meter-fill {
+    height: 100%;
+    width: 0%;
+    transition: width 0.2s ease;
+    border-radius: 10px;
+}
+
+.strength-text {
+    display: block;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.8em;
+    font-weight: 600;
+    margin-top: 3px;
+}
+
+/* Auth form - Consolidado */
+.auth-form .form-control.is-valid {
+    border-color: var(--color-success);
+    padding-right: 45px;
+    background-image: none;
+}
+
+.auth-form .form-control.is-invalid {
+    border-color: var(--color-danger);
+    padding-right: 45px;
+    background-image: none;
+}
+
+.auth-form .valid-feedback,
+.auth-form .invalid-feedback {
+    display: none;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.8em;
+    margin-top: 5px;
+}
+
+.auth-form .valid-feedback {
+    color: var(--color-success);
+}
+
+.auth-form .invalid-feedback {
+    color: var(--color-danger);
+}
+
+.auth-form .form-control.is-valid ~ .valid-feedback {
+    display: block;
+}
+
+.auth-form .form-control.is-invalid ~ .invalid-feedback,
+.auth-form .form-check-input.is-invalid ~ .invalid-feedback {
+    display: block;
+}
+
+.auth-form .form-check-input {
+    cursor: pointer;
+    border: 2px solid var(--color-border);
+    width: 1.2em;
+    height: 1.2em;
+}
+
+.auth-form .form-check-input:checked {
+    background-color: var(--color-text-main);
+    border-color: var(--color-text-main);
+}
+
+.auth-form .form-check-input:focus {
+    border-color: var(--color-text-main);
+    box-shadow: 0 0 0 0.2rem var(--color-text-main);
+}
+
+.auth-form .form-check-label {
+    cursor: pointer;
+    user-select: none;
+}
+
+.auth-form .form-label i {
+    color: var(--color-text-secondary);
+    font-size: 0.9em;
+}
+
+.auth-form .form-text {
+    font-size: 0.8em;
+    color: var(--color-text-muted);
+    margin-top: 5px;
+    display: block;
+}
+
+.auth-form input[type="email"]:focus,
+.auth-form input[type="password"]:focus {
+    outline: none;
+}
+
+.auth-btn .btn-text,
+.auth-btn .btn-loading {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.auth-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+    border-width: 0.15em;
+}
+
+.btn-scroll-top {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 45px;
+    height: 45px;
+    background-color: var(--color-text-main);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 1.2em;
+    cursor: pointer;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease;
+    z-index: 1000;
+    box-shadow: 0 4px 12px var(--color-shadow);
+}
+
+.btn-scroll-top.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.btn-scroll-top:hover {
+    background-color: var(--color-text-secondary);
+    box-shadow: 0 6px 16px var(--color-shadow);
+}
+
+.nav-link.link-tienda {
+    position: relative;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.nav-link.link-tienda.active-page {
+    font-weight: 600;
+    color: var(--color-text-main);
+    background-color: var(--color-border);
+    box-shadow: 0 2px 8px var(--color-primary);
+}
+
+.nav-link.link-tienda:hover {
+    background-color: var(--color-border);
+    box-shadow: 0 3px 10px var(--color-primary);
+}
+
+.nav-link.link-tienda.active-page:hover {
+    background-color: var(--color-border);
+    box-shadow: 0 4px 12px var(--color-primary);
+}
+
+.navbar {
+    transition: box-shadow 0.3s ease, background-color 0.3s ease;
+}
+
+.navbar.scrolled {
+    box-shadow: 0 2px 10px var(--color-shadow);
+    background-color: var(--color-bg-white);
+}
+
+*:focus-visible {
+    outline: 2px solid var(--color-blue);
+    outline-offset: 3px;
+    border-radius: 4px;
+}
+
+select.form-control, select.input-contacto {
+    background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"%3e%3cpolyline points="6 9 12 15 18 9"%3e%3c/polyline%3e%3c/svg%3e');
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    padding-right: 40px;
+}
+
+img:not([src]) {
+    background: var(--color-bg-light);
+    background-size: 200% 100%;
+}
+
+/* Imágenes - Consolidado */
+.carousel-item img,
+.producto-img-lista,
+.d-block.w-100 {
+    max-width: 100%;
+    max-height: 600px;
+    object-fit: contain;
+    object-position: center;
+}
+
+img[src*="avatar-usuario.png"],
+img[src*="iconos/"],
+.nav-link img {
+    max-width: 40px;
+    max-height: 40px;
+    object-fit: contain;
+}
+
+.perfil-page {
+    min-height: 100vh;
+    background: var(--color-bg-light);
+    padding: 2.7rem 0;
+}
+
+.perfil-header {
+    text-align: center;
+    margin-bottom: 2.7rem;
+}
+
+.perfil-header h2 {
+    font-family: "Quicksand", sans-serif;
+    font-size: 2.25em;
+    font-weight: 600;
+    color: var(--color-text-main);
+    margin-bottom: 0.5rem;
+}
+
+.perfil-header p {
+    font-family: "DM Sans", sans-serif;
+    color: var(--color-text-secondary);
+    font-size: 1em;
+}
+
+.perfil-card {
+    background: var(--color-bg-white);
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 10px 30px var(--color-shadow);
+    margin-bottom: 2rem;
+    transition: box-shadow 0.3s ease;
+}
+
+.perfil-card:hover {
+    box-shadow: 0 8px 25px var(--color-shadow);
+}
+
+.perfil-card h4 {
+    font-family: "Quicksand", sans-serif;
+    font-size: 1.5em;
+    font-weight: 600;
+    color: var(--color-text-main);
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--color-bg-light);
+}
+
+.perfil-info-item {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background-color: var(--color-bg-light);
+    border-radius: 10px;
+    border-left: 4px solid var(--color-text-main);
+}
+
+.perfil-info-item strong {
+    font-family: "Quicksand", sans-serif;
+    font-weight: 600;
+    color: var(--color-text-main);
+    display: block;
+    margin-bottom: 0.3rem;
+    font-size: 0.95em;
+}
+
+.perfil-info-item span {
+    font-family: "DM Sans", sans-serif;
+    color: var(--color-text-secondary);
+    font-size: 1em;
+}
+
+/* Datos de envío */
+.datos-envio-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--color-border);
+}
+
+.datos-envio-header h5 {
+    font-family: "Quicksand", sans-serif;
+    font-size: 1.35em;
+    font-weight: 600;
+    color: var(--color-text-main);
+    margin-bottom: 0.5rem;
+}
+
+.datos-envio-header h5 i {
+    color: var(--color-primary);
+}
+
+.datos-envio-header small {
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.9em;
+    color: var(--color-text-secondary);
+    display: block;
+    margin-top: 0.25rem;
+}
+
+.datos-envio-fields {
+    margin-top: 1rem;
+}
+
+.datos-envio-label {
+    font-family: "Quicksand", sans-serif;
+    font-weight: 600;
+    font-size: 0.95em;
+    color: var(--color-text-main);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.datos-envio-label i {
+    color: var(--color-primary);
+    font-size: 0.9em;
+    width: 20px;
+}
+
+.datos-envio-input.form-select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23333' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 16px 12px;
+    padding-right: 2.5rem;
+}
+
+.btn-perfil-home {
+    background-color: var(--color-bg-white);
+    border: 2px solid var(--color-text-main);
+    color: var(--color-text-main);
+    font-family: "Quicksand", sans-serif;
+    font-weight: 600;
+    padding: 10px 25px;
+    border-radius: 20px;
+    transition: background-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-perfil-home:hover {
+    background-color: var(--color-text-main);
+    color: white;
+    box-shadow: 0 3px 10px var(--color-shadow);
+}
+
+/* Nosotros */
+
+.nosotros-icono {
+    display: inline-block;
+    width: 80px;
+    height: 80px;
+    background: var(--gradient-bg-gray-border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    transition: box-shadow 0.3s ease;
+    box-shadow: 0 4px 15px var(--color-shadow);
+}
+
+.nosotros-icono:hover {
+    box-shadow: 0 5px 15px var(--color-shadow);
+}
+
+/* Términos */
+.terminos-page {
+    min-height: 100vh;
+    background: var(--gradient-bg-gray-border);
+    padding: 2.7rem 0;
+}
+
+.terminos-container {
+    background: var(--color-bg-white);
+    border-radius: 18px;
+    padding: 2.7rem;
+    box-shadow: 0 10px 30px var(--color-shadow);
+}
+
+.terminos-container h1 {
+    font-family: "Quicksand", sans-serif;
+    font-size: 2.25em;
+    font-weight: 600;
+    color: var(--color-text-main);
+    margin-bottom: 1.5rem;
+}
+
+.terminos-container h4 {
+    font-family: "Quicksand", sans-serif;
+    font-size: 1.17em;
+    font-weight: 600;
+    color: var(--color-text-main);
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+}
+
+.terminos-container p,
+.terminos-container li {
+    font-family: "DM Sans", sans-serif;
+    color: var(--color-text-secondary);
+    font-size: 0.95em;
+    line-height: 1.7;
+}
+
+.terminos-container ul {
+    margin-bottom: 1.5rem;
+}
+
+.form-check-label-custom {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88em;
+    color: var(--color-text-secondary);
+}
+
+.form-check-label-custom a {
+    color: var(--color-text-main);
+    font-weight: 600;
+}
+
+.sticky-card {
+    position: sticky;
+    top: 20px;
+}
+
+.carrito-scroll {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.producto-imagen-carrito {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+}
+
+.card-img-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    background: var(--color-bg-light);
+}
+
+.badge.bg-danger {
+    font-size: 0.75rem;
+    padding: 6px 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    box-shadow: 0 2px 4px var(--color-shadow);
+}
+
+.card.position-relative {
+    transition: box-shadow 0.3s ease;
+}
+
+.card.position-relative:hover {
+    box-shadow: 0 6px 20px var(--color-shadow);
+}
+
+.card.tarjeta {
+    border-radius: 8px;
+    border: 1.5px solid var(--color-border);
+    transition: border-color 0.3s ease;
+    background: var(--color-bg-light);
+}
+
+.card.tarjeta:hover {
+    border-color: var(--color-gray-medium);
+}
+
+.precio-catalogo span {
+    color: var(--color-primary);
+}
+
+.nombre-producto-catalogo strong {
+    color: var(--color-text-secondary);
+}
+
+.nombre-producto-catalogo small {
+    color: var(--color-text-secondary);
+}
+
+.categorias-bar {
+    background: var(--color-bg-light);
+    border-bottom: 1px solid var(--color-border);
+    padding: 0.75rem 0;
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    margin: 0;
+}
+
+.categoria-opciones-bar {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+}
+
+.categoria-opcion-bar {
+    padding: 0.6rem 1.2rem;
+    border: 1.5px solid var(--color-border-hover);
+    background-color: var(--color-bg-white);
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    border-radius: 20px;
+    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    white-space: nowrap;
+    box-shadow: 0 2px 4px var(--color-text-secondary);
+}
+
+.categoria-opcion-bar:hover {
+    background: var(--gradient-bg-main);
+    border-color: var(--color-border-hover);
+    color: var(--color-text-secondary);
+    box-shadow: 0 3px 6px var(--color-text-secondary);
+}
+
+.categoria-opcion-bar.active {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--color-bg-white);
+    box-shadow: 0 3px 8px var(--color-text-secondary);
+}
+
+/* ============================================
+   CATÁLOGO SIDEBAR - FILTROS COMPACTOS
+   ============================================ */
+
+.catalogo-sidebar {
+    background: var(--color-bg-light);
+    border: 1.5px solid var(--color-border);
+    border-radius: 12px;
+    padding: 0.75rem;
+    position: sticky;
+    top: 80px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    box-shadow: 0 4px 12px var(--color-text-secondary);
+}
+
+.filtro-titulo {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.25rem;
+    margin-top: 0;
+}
+
+/* Filtros compactos */
+.filtros-sidebar {
+    padding-top: 0;
+}
+
+.filtro-grupo-compacto {
+    margin-bottom: 0.5rem;
+}
+
+.filtro-opciones-compactas {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+/* ============================================
+   NUEVOS ESTILOS - CHECKBOXES VISIBLES
+   ============================================ */
+
+.filtro-header {
+    border-bottom: 2px solid var(--color-border);
+    padding-bottom: 0.4rem;
+    margin-bottom: 0.5rem;
+}
+
+.filtro-header-titulo {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    margin: 0;
+    display: flex;
+    align-items: center;
+}
+
+.filtro-divider {
+    border: 0;
+    border-top: 1px solid var(--color-border);
+    margin: 0.5rem 0;
+}
+
+/* Opción de filtro con checkbox visible */
+.filtro-option-checkbox {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 0.35rem 0.4rem;
+    background-color: var(--color-bg-white);
+    color: var(--color-text-secondary);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    font-size: 0.8rem;
+    font-weight: 500;
+    user-select: none;
+    margin: 0;
+    gap: 0.4rem;
+}
+
+.filtro-option-checkbox:hover {
+    background-color: var(--color-bg-gray);
+    color: var(--color-text-secondary);
+}
+
+.filtro-option-checkbox.active {
+    background-color: var(--color-bg-light);
+    color: var(--color-text-secondary);
+}
+
+/* Checkbox personalizado visible */
+.filtro-checkbox-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.filtro-checkbox-custom {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    min-height: 18px;
+    border: 2px solid var(--color-border-hover);
+    background-color: var(--color-bg-white);
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+    flex-shrink: 0;
+}
+
+.filtro-checkbox-input:checked + .filtro-checkbox-custom {
+    background-color: var(--color-text-secondary);
+    border-color: var(--color-text-secondary);
+}
+
+.filtro-checkbox-input:checked + .filtro-checkbox-custom::after {
+    content: '✓';
+    color: var(--color-bg-white);
+    font-size: 0.75rem;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.filtro-checkbox-input:focus + .filtro-checkbox-custom {
+    box-shadow: 0 0 0 3px var(--color-gray-dark);
+}
+
+/* Texto del filtro */
+.filtro-texto-checkbox {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-grow: 1;
+    gap: 0.5rem;
+}
+
+.filtro-count-checkbox {
+    font-size: 0.75rem;
+    opacity: 0.7;
+    font-weight: 400;
+    margin-left: auto;
+}
+
+.filtro-option-checkbox.active .filtro-count-checkbox {
+    opacity: 0.9;
+}
+
+/* Círculo de color para opciones de color */
+.filtro-color-circle {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    min-height: 16px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+    box-shadow: 0 1px 3px var(--color-shadow);
+}
+
+.color-option-checkbox {
+    padding-right: 0.5rem;
+}
+
+.btn-limpiar-compact {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.4rem 0.75rem;
+    background: var(--gradient-bg-very-light);
+    color: var(--color-primary);
+    border: 1.5px solid var(--color-border);
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.75rem;
+    font-weight: 500;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    width: 100%;
+    justify-content: center;
+}
+
+.btn-limpiar-compact:hover {
+    background: var(--color-bg-light);
+    color: var(--color-text-secondary);
+    border-color: var(--color-gray-medium);
+}
+
+/* ============================================================================
+   MEDIA QUERIES CONSOLIDADAS
+   ============================================================================ */
+
+/* Móviles pequeños (max-width: 576px) */
+@media (max-width: 576px) {
+    .carousel-hero,
+    .carousel-hero .carousel-item {
+        height: 300px;
+    }
+    
+    .carousel-indicators {
+        margin-bottom: 0.75rem;
+    }
+    
+    .carousel-indicators button {
+        width: 8px;
+        height: 8px;
+        margin: 0 3px;
+    }
+    
+    .carousel-indicators button.active {
+        width: 10px;
+        height: 10px;
+    }
+    
+    .section-spaced,
+    .carousel-section-compact,
+    .seccion-presentacion,
+    .seccion-productos-compact {
+        padding: 1.5rem 0;
+        margin-bottom: 2rem;
+    }
+    
+    .carousel-section-compact {
+        padding: 1rem 0;
+    }
+    
+    .card-img-container {
+        height: 220px;
+    }
+    
+    .badge.bg-danger {
+        font-size: 0.65rem;
+        padding: 4px 8px;
+        margin: 4px;
+    }
+    
+    .badge.position-absolute {
+        font-size: 0.7rem;
+    }
+}
+
+/* Tablets y móviles (max-width: 768px) */
+@media (max-width: 768px) {
+    .carousel-hero,
+    .carousel-hero .carousel-item {
+        height: 400px;
+    }
+    
+    .carousel-indicators {
+        margin-bottom: 1rem;
+    }
+    
+    .carousel-indicators button {
+        width: 10px;
+        height: 10px;
+    }
+    
+    .carousel-indicators button.active {
+        width: 12px;
+        height: 12px;
+    }
+    
+    .section-spaced,
+    .carousel-section-compact,
+    .seccion-presentacion,
+    .seccion-productos-compact {
+        padding: 2rem 0;
+        margin-bottom: 2.5rem;
+    }
+    
+    .carousel-section-compact {
+        padding: 1.5rem 0;
+    }
+    
+    /* Contacto */
+    .seccion-contacto .container {
+        padding: 0 15px;
+    }
+    
+    .formulario-container,
+    .info-contacto {
+        padding: 1.5rem;
+    }
+    
+    /* Productos */
+    .producto-img-wrapper {
+        height: 250px;
+    }
+    
+    .producto-info {
+        margin-top: 1rem;
+    }
+    
+    .producto-img-lista {
+        height: 180px;
+    }
+    
+    .detalle-producto {
+        padding: 0.9rem 0;
+    }
+    
+    /* Imágenes */
+    .card-img-wrapper {
+        height: 140px;
+    }
+    
+    .card-img-wrapper .card-img-top {
+        max-height: 130px;
+    }
+    
+    .carousel-item img,
+    .producto-img-lista,
+    .d-block.w-100 {
+        max-height: 400px;
+    }
+    
+    /* Footer */
+    .footer-completo .col-md-6 {
+        text-align: center;
+    }
+    
+    .footer-titulo {
+        font-size: 1em;
+    }
+    
+    .footer-redes {
+        justify-content: center;
+    }
+    
+    .footer-link {
+        font-size: 0.85em;
+    }
+    
+    /* Datos de envío */
+    .datos-envio-section {
+        padding: 1.25rem;
+        margin-top: 1.5rem;
+    }
+    
+    .datos-envio-header h5 {
+        font-size: 1.2em;
+    }
+    
+    .datos-envio-input {
+        padding: 10px 12px;
+        font-size: 0.9em;
+    }
+    
+    .producto-info {
+        padding: 1rem;
+    }
+    
+    /* Nosotros */
+    .nosotros-icono {
+        width: 70px;
+        height: 70px;
+    }
+    
+    .nosotros-icono i {
+        font-size: 2rem;
+    }
+    
+    /* Auth y Perfil */
+    .auth-card {
+        padding: 1.8rem 1.35rem;
+    }
+    
+    .perfil-page {
+        padding: 1.8rem 0;
+    }
+    
+    
+    .terminos-container {
+        padding: 1.8rem 1.35rem;
+    }
+    
+    /* Categorías */
+    .categoria-opciones-bar {
+        gap: 0.35rem;
+    }
+    
+    .categoria-opcion-bar {
+        font-size: 0.75rem;
+        padding: 0.5rem 1rem;
+    }
+    
+    /* Catálogo sidebar */
+    .catalogo-sidebar {
+        padding: 0.75rem;
+    }
+    
+    .filtro-titulo {
+        font-size: 0.7rem;
+    }
+    
+    .filtro-header-titulo {
+        font-size: 0.9rem;
+    }
+    
+    
+    .filtro-option-checkbox {
+        font-size: 0.8rem;
+        padding: 0.5rem 0.6rem;
+    }
+    
+    .filtro-checkbox-custom {
+        width: 16px;
+        height: 16px;
+        min-width: 16px;
+        min-height: 16px;
+    }
+    
+    .filtro-color-circle {
+        width: 14px;
+        height: 14px;
+        min-width: 14px;
+        min-height: 14px;
+    }
+}
+
+/* Móviles muy pequeños (max-width: 480px) */
+@media (max-width: 480px) {
+    .card-img-wrapper {
+        height: 120px;
+    }
+    
+    .card-img-wrapper .card-img-top {
+        max-height: 110px;
+    }
+    
+    .carousel-item img,
+    .producto-img-lista,
+    .d-block.w-100 {
+        max-height: 300px;
+    }
+}
+
+/* Tablets (min-width: 577px) and (max-width: 991px) */
+@media (min-width: 577px) and (max-width: 991px) {
+    .card-img-container {
+        height: 260px;
+    }
+}
+
+/* Desktop (min-width: 992px) */
+@media (min-width: 992px) {
+    .producto-info {
+        padding: 1.5rem;
+    }
+    
+    .card-img-container {
+        height: 280px;
+    }
+}
+
+/* Tablets (max-width: 991px) - Catálogo */
+@media (max-width: 991px) {
+    .catalogo-sidebar {
+        position: static;
+        max-height: none;
+        margin-bottom: 1rem;
+    }
+    
+    
+    .filtro-opciones-compactas {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+    
+    .filtro-option-checkbox {
+        flex: 1;
+        min-width: auto;
+        justify-content: flex-start;
+    }
+}
+
+/* ========================================================================
+ * === DETALLE PRODUCTO ===
+ * ESTILOS COMPACTOS PARA DETALLE DE PRODUCTO - UX/UI Mejorada
+ * ======================================================================== */
+
+/* Row del detalle producto - Evitar altura excesiva */
+.detalle-producto-row {
+    min-height: auto;
+    align-items: flex-start;
+}
+
+/* Contenedor principal compacto */
+.producto-galeria-compacta {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    width: 100%;
+}
+
+/* Imagen principal compacta */
+.imagen-principal-compacta {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    width: 100%;
+    min-height: 300px;
+    max-height: 500px;
+    overflow: hidden;
+    background: var(--color-bg-light);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.img-producto-principal,
+#imagenPrincipalLimpia {
+    max-width: 100%;
+    max-height: 480px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    object-position: center center;
+    display: block;
+    transition: opacity 0.3s ease;
+}
+
+.img-producto-principal {
+    border-radius: 8px;
+    margin: 0 auto;
+}
+
+#imagenPrincipalLimpia {
+    position: relative;
+}
+
+/* Miniaturas compactas */
+.thumbnails-compactos {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+.thumbnail-compacto {
+    width: 60px;
+    height: 60px;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    background: var(--color-bg-white);
+}
+
+.thumbnail-compacto:hover {
+    border-color: var(--color-text-main);
+}
+
+.thumbnail-compacto.active {
+    border-color: var(--color-text-main);
+    box-shadow: 0 0 0 2px var(--color-shadow);
+}
+
+.thumbnail-compacto img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Información del producto compacta */
+.producto-info-compacta {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+    background: var(--color-bg-white);
+    border-radius: 8px;
+}
+
+.producto-titulo-compacto {
+    font-size: 1.925rem;
+    font-weight: 600;
+    color: var(--color-text-main);
+    line-height: 1.3;
+    margin-bottom: 10px;
+}
+
+.producto-precio-compacto {
+    margin-bottom: 15px;
+}
+
+.precio-actual-compacto {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--color-blue);
+}
+
+/* Selectores compactos */
+.form-label-compacto {
+    font-size: 0.9rem;
+    margin-bottom: 6px;
+    display: block;
+}
+
+.tallas-selector-compacto,
+.colores-selector-compacto {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+/* Asegurar que TALLE y COLOR se vean bien en fila */
+@media (max-width: 767px) {
+    .row.g-3 > .col-md-6 {
+        margin-bottom: 1rem;
+    }
+}
+
+.btn-talla-compacto,
+.btn-color-compacto {
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    border: 1.5px solid var(--color-border-gray);
+    border-radius: 4px;
+    background: var(--color-bg-white);
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.btn-talla-compacto:hover,
+.btn-color-compacto:hover {
+    border-color: var(--color-text-main);
+    background: var(--color-bg-light);
+}
+
+input[type="radio"]:checked + .btn-talla-compacto,
+input[type="radio"]:checked + .btn-color-compacto {
+    background: var(--color-text-main);
+    color: var(--color-bg-white);
+    border-color: var(--color-text-main);
+}
+
+/* Talle/Color sin stock - tachado */
+.btn-talla-compacto.talla-sin-stock,
+.btn-color-compacto.color-sin-stock {
+    position: relative;
+    opacity: 0.7;
+    text-decoration: line-through;
+    text-decoration-color: var(--color-black);
+}
+
+/* Mantener estilo cuando está seleccionado incluso si no tiene stock */
+input[type="radio"]:checked + .btn-talla-compacto.talla-sin-stock,
+input[type="radio"]:checked + .btn-color-compacto.color-sin-stock {
+    background: var(--color-text-main);
+    color: var(--color-bg-white);
+    border-color: var(--color-text-main);
+    opacity: 1;
+    text-decoration: line-through;
+    text-decoration-color: var(--color-bg-white);
+}
+
+/* Indicador de stock compacto */
+.stock-indicador-compacto {
+    padding: 8px 12px;
+    border-radius: 4px;
+    background: var(--color-bg-light);
+    border-left: 3px solid var(--color-gray-muted);
+}
+
+.stock-indicador-compacto .text-success {
+    color: var(--color-blue) !important;
+}
+
+.stock-indicador-compacto .text-danger {
+    color: var(--color-danger) !important;
+}
+
+.stock-indicador-compacto .text-warning {
+    color: var(--color-warning) !important;
+}
+
+/* Selector de cantidad compacto */
+.cantidad-selector-compacto {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-cantidad-compacto {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid var(--color-border-gray);
+    background: var(--color-bg-white);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.btn-cantidad-compacto:hover {
+    background: var(--color-bg-light);
+    border-color: var(--color-text-main);
+}
+
+.form-control-cantidad-compacto {
+    width: 60px;
+    text-align: center;
+    border: 1.5px solid var(--color-border-gray);
+    border-radius: 4px;
+    padding: 6px;
+    font-size: 0.9rem;
+}
+
+/* Botones de acción compactos */
+.btn-comprar-compacto {
+    background: var(--color-blue);
+    color: var(--color-bg-white);
+    border: none;
+    padding: 12px 20px;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    width: 100%;
+}
+
+.btn-comprar-compacto:hover {
+    background: var(--color-blue-dark);
+    box-shadow: 0 3px 6px var(--color-blue);
+}
+
+.btn-carrito-compacto {
+    background: var(--color-text-main);
+    color: var(--color-bg-white);
+    border: none;
+    padding: 12px 20px;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    width: 100%;
+}
+
+.btn-carrito-compacto:hover {
+    background: var(--color-black);
+    box-shadow: 0 3px 6px var(--color-shadow);
+}
+
+/* Estilos para botones deshabilitados */
+.btn-comprar-compacto:disabled,
+.btn-carrito-compacto:disabled {
+    opacity: 0.6;
+    cursor: not-allowed !important;
+    pointer-events: none;
+}
+
+.btn-comprar-compacto:disabled:hover,
+.btn-carrito-compacto:disabled:hover {
+    box-shadow: none;
+}
+
+/* Responsive para pantallas pequeñas */
+@media (max-width: 768px) {
+    .imagen-principal-compacta {
+        min-height: 250px;
+        max-height: 400px;
+    }
+    
+    .img-producto-principal,
+    #imagenPrincipalLimpia {
+        max-height: 380px;
+    }
+    
+    .producto-titulo-compacto {
+        font-size: 1.54rem;
+    }
+    
+    .precio-actual-compacto {
+        font-size: 1.44rem;
+    }
+    
+    .detalle-producto .container {
+        padding: 10px;
+    }
+}
+
+/* Ajustes de altura de viewport */
+@media (max-height: 900px) {
+    .imagen-principal-compacta {
+        min-height: 250px;
+        max-height: 450px;
+    }
+    
+    .img-producto-principal,
+    #imagenPrincipalLimpia {
+        max-height: 430px;
+    }
+    
+    .producto-info-compacta {
+        padding: 10px;
+    }
+    
+    .producto-titulo-compacto {
+        font-size: 1.65rem;
+        margin-bottom: 8px;
+    }
+    
+    .precio-actual-compacto {
+        font-size: 1.575rem;
+    }
+    
+    .breadcrumb {
+        padding: 0.35rem 0;
+        margin-bottom: 8px;
+    }
+}
+
+@media (max-height: 750px) {
+    .detalle-producto .container {
+        margin-top: 0 !important;
+    }
+    
+    .imagen-principal-compacta {
+        min-height: 200px;
+        max-height: 350px;
+    }
+    
+    .img-producto-principal,
+    #imagenPrincipalLimpia {
+        max-height: 330px;
+    }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+    .imagen-principal-compacta {
+        max-height: 480px;
+    }
+    
+    .img-producto-principal,
+    #imagenPrincipalLimpia {
+        max-height: 460px;
+    }
+}
+
+/* ========================================================================
+   ESTILOS PARA TARJETAS COMPACTAS DE CATEGORÍAS (index.php)
+   ========================================================================
+   Diseño optimizado para mostrar imágenes de categorías ocupando toda la tarjeta
+   */
+
+/* Tarjeta compacta de categoría */
+.tarjeta-compact {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* Header compacto de la tarjeta */
+.card-header-compact {
+    padding: 1rem;
+    background: var(--color-bg-white);
+    border-bottom: 1px solid var(--color-border);
+    flex-shrink: 0;
+    z-index: 2;
+}
+
+.card-header-compact .titulo-tarjeta {
+    font-size: 1.15em;
+    margin-bottom: 0;
+    text-align: center;
+    font-weight: 700;
+    color: var(--color-text-main);
+}
+
+/* Wrapper de imagen compacto - ocupa todo el espacio disponible */
+.card-img-wrapper-compact {
+    position: relative;
+    overflow: hidden;
+    flex: 1 1 auto;
+    min-height: 350px;
+    height: 350px;
+    background: var(--color-bg-light);
+    padding: 0 !important;
+    margin: 0;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+}
+
+/* Sobrescribir completamente los estilos generales de card-img-wrapper */
+.tarjeta-compact .card-img-wrapper-compact {
+    position: relative !important;
+    display: block !important;
+}
+
+/* Imagen dentro del wrapper compacto - ocupa toda la tarjeta sin padding */
+.card-img-wrapper-compact img,
+.card-img-wrapper-compact .card-img-top {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    object-position: center;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block;
+    border-radius: 0;
+}
+
+/* Efecto hover para destacar imágenes */
+.tarjeta-compact:hover {
+    box-shadow: 0 5px 15px var(--color-shadow) !important;
+}
+
+/* Overlay para hover en tarjetas compactas - simplificado */
+.card-img-wrapper-compact .card-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--color-shadow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 1;
+}
+
+.card-img-wrapper-compact:hover .card-overlay {
+    opacity: 1;
+}
+
+.card-img-wrapper-compact .overlay-text {
+    color: white;
+    font-family: "Quicksand", sans-serif;
+    font-weight: 700;
+    font-size: 1.2em;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    z-index: 2;
+}
+
+
+/* Responsive para tarjetas compactas */
+/* Selector común para imágenes en todos los breakpoints */
+.card-img-wrapper-compact img,
+.card-img-wrapper-compact .card-img-top {
+    height: 100% !important;
+}
+
+@media (max-width: 991px) {
+    .card-img-wrapper-compact {
+        min-height: 280px !important;
+        height: 280px !important;
+    }
+}
+
+@media (max-width: 767px) {
+    .card-img-wrapper-compact {
+        min-height: 220px !important;
+        height: 220px !important;
+    }
+    
+    .card-header-compact {
+        padding: 0.5rem 0.75rem;
+    }
+    
+    .card-header-compact .titulo-tarjeta {
+        font-size: 1em;
+    }
+}
+
+@media (max-width: 480px) {
+    .card-img-wrapper-compact {
+        min-height: 200px !important;
+        height: 200px !important;
+    }
+}
+
+/* ============================================================================
+   ESTILOS PARA CHECKOUT - Alertas compactas
+   ============================================================================ */
+.alert-compact {
+    padding: 0.75rem;
+    font-size: 0.875rem;
+}
+
+/* ============================================================================
+   ESTILOS PARA CATÁLOGO - Tarjetas de producto
+   ============================================================================ */
+.catalogo-card-img-container {
+    height: 280px;
+    overflow: hidden;
+    background-color: var(--color-bg-light);
+}
+
+.catalogo-card-img {
+    object-fit: contain;
+    padding: 10px;
+    transition: transform 0.3s ease;
+}
+
+.catalogo-card-body {
+    background-color: var(--color-bg-white);
+}
+
+.catalogo-precio {
+    font-size: 1.05rem;
+    color: var(--color-text-main);
+}
+
+.catalogo-nombre-producto {
+    font-size: 0.95rem;
+}
+
+.catalogo-color-texto {
+    font-size: 0.8rem;
+}
+
+/* ============================================================================
+   ESTILOS PARA ORDENAMIENTO DE TABLAS - Bootstrap 5 Compatible
+   ============================================================================ */
+
+/* Headers ordenables */
+table.sortable-table thead th.sortable {
+    position: relative;
+    user-select: none;
+    transition: background-color 0.2s ease;
+}
+
+table.sortable-table thead th.sortable:hover {
+    background-color: var(--color-overlay-light);
+}
+
+table.sortable-table thead th.sortable.table-hover-sort {
+    background-color: var(--color-overlay-medium);
+}
+
+/* Contenedor del texto y flecha */
+table.sortable-table thead th.sortable .sortable-text {
+    display: inline-block;
+}
+
+/* Flecha de ordenamiento */
+table.sortable-table thead th.sortable .sort-arrow {
+    display: inline-block;
+    margin-left: 0.3rem;
+    color: var(--color-text-muted);
+    font-size: 0.5rem;
+    opacity: 0.5;
+    transition: color 0.2s ease, opacity 0.2s ease;
+    vertical-align: middle;
+    line-height: 1;
+}
+
+table.sortable-table thead th.sortable .sort-arrow i {
+    font-size: 0.55rem;
+    line-height: 1;
+    display: inline-block;
+}
+
+/* Estado ascendente */
+table.sortable-table thead th.sortable.sort-asc .sort-arrow {
+    color: var(--color-primary);
+    opacity: 1;
+}
+
+/* Estado descendente */
+table.sortable-table thead th.sortable.sort-desc .sort-arrow {
+    color: var(--color-primary);
+    opacity: 1;
+}
+
+/* Hover en headers ordenables */
+table.sortable-table thead th.sortable:hover .sort-arrow {
+    color: var(--color-primary);
+    opacity: 0.8;
+}
+
+/* Cursor pointer para indicar que es clickeable */
+table.sortable-table thead th.sortable {
+    cursor: pointer;
+}
+
+/* Estilo para tablas con tema oscuro (Bootstrap table-dark) */
+table.sortable-table thead.table-dark th.sortable:hover {
+    background-color: var(--color-overlay-white-light);
+}
+
+table.sortable-table thead.table-dark th.sortable.table-hover-sort {
+    background-color: var(--color-overlay-white-medium);
+}
+
+table.sortable-table thead.table-dark th.sortable .sort-arrow {
+    color: var(--color-overlay-white-muted);
+    opacity: 0.7;
+}
+
+table.sortable-table thead.table-dark th.sortable.sort-asc .sort-arrow,
+table.sortable-table thead.table-dark th.sortable.sort-desc .sort-arrow {
+    color: var(--color-overlay-white-bright);
+    opacity: 1;
+}
+
+table.sortable-table thead.table-dark th.sortable:hover .sort-arrow {
+    color: var(--color-overlay-white-hover);
+    opacity: 0.9;
+}

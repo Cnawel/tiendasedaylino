@@ -429,17 +429,18 @@ function actualizarEstadoPago($mysqli, $id_pago, $nuevo_estado, $motivo_rechazo 
             }
         }
         
-        // Cuando el pago se rechaza o cancela, cambiar pedido a cancelado
-        // IMPORTANTE: Verificar que el pedido NO esté ya cancelado para evitar actualizaciones duplicadas
-        // NOTA: Pedidos completados están protegidos por validación previa (línea 333-340)
-        // NOTA: 'preparacion' no es un estado de pago válido, solo 'pendiente' y 'pendiente_aprobacion' pueden cancelarse/rechazarse
+        // Cuando el pago se rechaza o cancela, cambiar pedido a cancelado (CANCELACIÓN INTELIGENTE)
+        // REGLA: Cancelar pedido SOLO si está en estados iniciales (pendiente, preparacion)
+        // NO cancelar si está en completado (venta cerrada) o en_viaje (ya fue enviado)
+        // IMPORTANTE: No importa el estado anterior del pago, solo importa el estado actual del pedido
         if (in_array($nuevo_estado, ['rechazado', 'cancelado']) 
             && $estado_anterior !== $nuevo_estado 
             && $estado_pedido_actual !== 'cancelado'  // Evitar cancelar pedido si ya está cancelado
             && $estado_pedido_actual !== 'completado'  // Pedidos completados no se pueden cancelar
-            && in_array($estado_anterior, ['pendiente', 'pendiente_aprobacion'])) {
+            && $estado_pedido_actual !== 'en_viaje'    // Pedidos en viaje no se pueden cancelar automáticamente
+            && in_array($estado_pedido_actual, ['pendiente', 'preparacion'])) {  // Solo estados iniciales
             
-            error_log("actualizarEstadoPago: Cancelando pedido #{$id_pedido} debido a pago {$nuevo_estado} (estado anterior: {$estado_anterior})");
+            error_log("actualizarEstadoPago: Cancelando pedido #{$id_pedido} debido a pago {$nuevo_estado} (estado anterior pago: {$estado_anterior}, estado pedido: {$estado_pedido_actual})");
             
             // Si el pago estaba aprobado, SIEMPRE restaurar stock (sin importar el estado del pedido)
             // porque el stock se descontó cuando se aprobó el pago
@@ -449,29 +450,27 @@ function actualizarEstadoPago($mysqli, $id_pago, $nuevo_estado, $motivo_rechazo 
                 revertirStockPedido($mysqli, $id_pedido, null, "Pago " . $nuevo_estado);
             }
             
-            // Solo actualizar el pedido si no está ya cancelado y está en un estado que permite cancelación
-            // NOTA: Pedidos en recorrido activo (preparacion, en_viaje, completado, devolucion) NO pueden cancelarse
-            // según la matriz de estados. Solo estados iniciales pueden cancelarse.
-            if ($estado_pedido_actual !== 'cancelado' && puedeCancelarPedido($estado_pedido_actual)) {
-                $sql_pedido = "
-                    UPDATE Pedidos 
-                    SET estado_pedido = 'cancelado',
-                        fecha_actualizacion = NOW()
-                    WHERE id_pedido = ?
-                ";
-                
-                $stmt_pedido = $mysqli->prepare($sql_pedido);
-                if ($stmt_pedido) {
-                    $stmt_pedido->bind_param('i', $id_pedido);
-                    if ($stmt_pedido->execute()) {
-                        error_log("actualizarEstadoPago: Pedido #{$id_pedido} cancelado exitosamente");
-                    } else {
-                        error_log("actualizarEstadoPago: Error al cancelar pedido #{$id_pedido} - " . $stmt_pedido->error);
-                    }
-                    $stmt_pedido->close();
+            // Actualizar estado del pedido a 'cancelado'
+            $sql_pedido = "
+                UPDATE Pedidos 
+                SET estado_pedido = 'cancelado',
+                    fecha_actualizacion = NOW()
+                WHERE id_pedido = ?
+            ";
+            
+            $stmt_pedido = $mysqli->prepare($sql_pedido);
+            if ($stmt_pedido) {
+                $stmt_pedido->bind_param('i', $id_pedido);
+                if ($stmt_pedido->execute()) {
+                    error_log("actualizarEstadoPago: Pedido #{$id_pedido} cancelado exitosamente");
+                } else {
+                    error_log("actualizarEstadoPago: Error al cancelar pedido #{$id_pedido} - " . $stmt_pedido->error);
                 }
-            } else {
-                error_log("actualizarEstadoPago: Pedido #{$id_pedido} ya está cancelado, omitiendo actualización");
+                $stmt_pedido->close();
+            }
+        } else {
+            if (in_array($nuevo_estado, ['rechazado', 'cancelado']) && $estado_anterior !== $nuevo_estado) {
+                error_log("actualizarEstadoPago: NO se cancela pedido #{$id_pedido} porque está en estado '{$estado_pedido_actual}' (solo se cancelan pedidos en pendiente o preparacion)");
             }
         }
         
@@ -1061,31 +1060,10 @@ function _aprobarPagoConValidaciones($mysqli, $id_pago, $pago_bloqueado, $id_ped
         }
     }
     
-    // Si hay errores de stock, rechazar pago con motivo
+    // Si hay errores de stock, lanzar excepción sin cambiar el estado del pago
+    // El usuario debe decidir qué hacer (rechazar manualmente, ajustar stock, etc.)
     if (!empty($errores_stock)) {
-        $motivo_sin_stock = 'Sin stock: ' . implode('; ', $errores_stock);
-        
-        $sql_rechazar = "
-            UPDATE Pagos 
-            SET estado_pago = 'rechazado',
-                motivo_rechazo = ?,
-                fecha_actualizacion = NOW()
-            WHERE id_pago = ?
-        ";
-        
-        $stmt_rechazar = $mysqli->prepare($sql_rechazar);
-        if (!$stmt_rechazar) {
-            throw new Exception('Error al preparar rechazo de pago: ' . $mysqli->error);
-        }
-        $stmt_rechazar->bind_param('si', $motivo_sin_stock, $id_pago);
-        if (!$stmt_rechazar->execute()) {
-            $error_msg = $stmt_rechazar->error;
-            $stmt_rechazar->close();
-            throw new Exception('Error al rechazar pago por falta de stock: ' . $error_msg);
-        }
-        $stmt_rechazar->close();
-        
-        $mysqli->commit();
+        $mysqli->rollback();
         throw new Exception('STOCK_INSUFICIENTE: ' . implode('; ', $errores_stock));
     }
     
@@ -1206,12 +1184,15 @@ function _rechazarOCancelarPago($mysqli, $id_pago, $nuevo_estado_pago, $motivo_r
     }
     $stmt_actualizar_pago->close();
     
-    // Continuar con la lógica de cancelación solo si el pedido no está cancelado ni completado
+    // CANCELACIÓN INTELIGENTE: Cancelar pedido SOLO si está en estados iniciales
+    // REGLA: Cancelar pedido SOLO si está en pendiente o preparacion
+    // NO cancelar si está en completado (venta cerrada) o en_viaje (ya fue enviado)
     if ($estado_pedido_actual !== 'cancelado'  
         && $estado_pedido_actual !== 'completado'
-        && in_array($estado_pedido_actual, ['pendiente', 'preparacion', 'en_viaje'])) {
+        && $estado_pedido_actual !== 'en_viaje'
+        && in_array($estado_pedido_actual, ['pendiente', 'preparacion'])) {
     
-        error_log("actualizarEstadoPagoConPedido: Cancelando pedido #{$id_pedido} debido a pago {$nuevo_estado_pago} (estado anterior: {$estado_pago_anterior})");
+        error_log("actualizarEstadoPagoConPedido: Cancelando pedido #{$id_pedido} debido a pago {$nuevo_estado_pago} (estado anterior pago: {$estado_pago_anterior}, estado pedido: {$estado_pedido_actual})");
         
         // Restaurar stock si había sido descontado (si el pago estaba aprobado)
         if ($estado_pago_anterior === 'aprobado') {
@@ -1242,7 +1223,11 @@ function _rechazarOCancelarPago($mysqli, $id_pago, $nuevo_estado_pago, $motivo_r
         $stmt_actualizar_pedido->close();
         error_log("actualizarEstadoPagoConPedido: Pedido #{$id_pedido} cancelado exitosamente");
     } else {
-        error_log("actualizarEstadoPagoConPedido: Pedido #{$id_pedido} ya está cancelado o no está en estado cancelable, omitiendo cancelación de pedido");
+        if ($estado_pedido_actual !== 'cancelado') {
+            error_log("actualizarEstadoPagoConPedido: NO se cancela pedido #{$id_pedido} porque está en estado '{$estado_pedido_actual}' (solo se cancelan pedidos en pendiente o preparacion)");
+        } else {
+            error_log("actualizarEstadoPagoConPedido: Pedido #{$id_pedido} ya está cancelado, omitiendo cancelación de pedido");
+        }
     }
 }
 

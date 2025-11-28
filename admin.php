@@ -54,6 +54,7 @@ require_once __DIR__ . '/includes/password_functions.php';
 require_once __DIR__ . '/includes/queries/usuario_queries.php';
 require_once __DIR__ . '/includes/queries/pedido_queries.php';
 require_once __DIR__ . '/includes/admin_functions.php';
+require_once __DIR__ . '/includes/sales_functions.php';
 
 // Verificar que el usuario esté logueado y sea admin
 requireAdmin();
@@ -127,7 +128,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($resultado !== false) {
         $_SESSION['mensaje'] = $resultado['mensaje'];
         $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
-        header('Location: admin.php');
+        $redirect_url = construirRedirectUrl('admin.php');
+        header('Location: ' . $redirect_url);
         exit;
     }
 }
@@ -384,11 +386,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                     <div class="d-flex align-items-center">
                                         
                                         <div>
-                                            <strong><?= htmlspecialchars($user['nombre'] . ' ' . $user['apellido']) ?></strong>
+                                            <strong><?= htmlspecialchars(($user['nombre'] ?? '') . ' ' . ($user['apellido'] ?? '')) ?></strong>
+                                            <?php if (($user['nombre'] ?? null) === null && ($user['apellido'] ?? null) === null): ?>
+                                                <span class="badge bg-secondary ms-2">Usuario Eliminado</span>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                 </td>
-                                <td><?= htmlspecialchars($user['email']) ?></td>
+                                <td><?= htmlspecialchars($user['email'] ?? 'Usuario eliminado') ?></td>
                                 <td>
                                     <?php 
                                     $rol_lower = strtolower($user['rol']);
@@ -447,8 +452,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                                                        class="form-control edit-field" 
                                                                        name="edit_nombre" 
                                                                        id="edit_nombre_<?= $user['id_usuario'] ?>"
-                                                                       value="<?= htmlspecialchars($user['nombre']) ?>" 
-                                                                       required
+                                                                       value="<?= htmlspecialchars($user['nombre'] ?? '') ?>" 
+                                                                       <?= ($user['nombre'] ?? null) === null ? '' : 'required' ?>
                                                                        minlength="2"
                                                                        maxlength="100"
                                                                        pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+">
@@ -461,8 +466,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                                                        class="form-control edit-field" 
                                                                        name="edit_apellido" 
                                                                        id="edit_apellido_<?= $user['id_usuario'] ?>"
-                                                                       value="<?= htmlspecialchars($user['apellido']) ?>" 
-                                                                       required
+                                                                       value="<?= htmlspecialchars($user['apellido'] ?? '') ?>" 
+                                                                       <?= ($user['apellido'] ?? null) === null ? '' : 'required' ?>
                                                                        minlength="2"
                                                                        maxlength="100"
                                                                        pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+">
@@ -476,8 +481,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                                                    class="form-control edit-field" 
                                                                    name="edit_email" 
                                                                    id="edit_email_<?= $user['id_usuario'] ?>"
-                                                                   value="<?= htmlspecialchars($user['email']) ?>" 
-                                                                   required
+                                                                   value="<?= htmlspecialchars($user['email'] ?? '') ?>" 
+                                                                   <?= ($user['email'] ?? null) === null ? '' : 'required' ?>
                                                                    maxlength="150">
                                                             <div class="invalid-feedback">Ingresa un email válido.</div>
                                                             <div class="valid-feedback">¡Email válido!</div>
@@ -597,7 +602,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                             <div class="modal-content">
                                                 <div class="modal-header bg-danger text-white">
                                                     <h5 class="modal-title">
-                                                        <i class="fas fa-exclamation-triangle me-2"></i>Eliminar Usuario Permanentemente
+                                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                                        <?php if ($total_pedidos_usuario > 0): ?>
+                                                            Eliminar Usuario
+                                                        <?php else: ?>
+                                                            Eliminar Usuario Permanentemente
+                                                        <?php endif; ?>
                                                     </h5>
                                                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                                 </div>
@@ -608,48 +618,59 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                                                 <i class="fas fa-exclamation-triangle me-2"></i><strong>¡ADVERTENCIA!</strong>
                                                             </h6>
                                                             <p class="mb-2">
-                                                                Estás a punto de <strong>eliminar permanentemente</strong> al usuario 
-                                                                <strong><?= htmlspecialchars($user['nombre'] . ' ' . $user['apellido']) ?></strong>.
+                                                                <?php if ($total_pedidos_usuario > 0): ?>
+                                                                    Estás a punto de <strong>eliminar</strong> al usuario 
+                                                                    <strong><?= htmlspecialchars(($user['nombre'] ?? 'Usuario') . ' ' . ($user['apellido'] ?? 'Eliminado')) ?></strong>.
+                                                                <?php else: ?>
+                                                                    Estás a punto de <strong>eliminar permanentemente</strong> al usuario 
+                                                                    <strong><?= htmlspecialchars(($user['nombre'] ?? 'Usuario') . ' ' . ($user['apellido'] ?? 'Eliminado')) ?></strong>.
+                                                                <?php endif; ?>
                                                             </p>
                                                             <hr>
                                                             <p class="mb-0">
-                                                                <strong>Esta acción es IRREVERSIBLE.</strong> El usuario será borrado completamente 
-                                                                de la base de datos. Los pedidos y pagos asociados se mantendrán en el sistema.
+                                                                <strong>Esta acción es IRREVERSIBLE.</strong>
+                                                                <?php if ($total_pedidos_usuario > 0): ?>
+                                                                    Todos los datos personales serán eliminados permanentemente. Los pedidos y pagos se conservarán desvinculados para contabilidad.
+                                                                <?php else: ?>
+                                                                    El usuario será borrado completamente de la base de datos.
+                                                                <?php endif; ?>
                                                             </p>
                                                         </div>
                                                         
                                                         <?php if ($total_pedidos_usuario > 0): ?>
                                                         <div class="alert alert-warning">
-                                                            <i class="fas fa-shopping-bag me-2"></i>
-                                                            <strong>Atención:</strong> Este usuario tiene <strong><?= $total_pedidos_usuario ?> pedido(s)</strong> asociado(s). 
-                                                            Si procedes, el usuario se eliminará pero los pedidos y pagos se mantendrán en el sistema.
+                                                            <h6 class="alert-heading">
+                                                                <i class="fas fa-user-shield me-2"></i><strong>Eliminación de Usuario</strong>
+                                                            </h6>
+                                                            <p class="mb-2">
+                                                                Este usuario tiene <strong><?= $total_pedidos_usuario ?> pedido(s)</strong> asociado(s).
+                                                            </p>
+                                                            <p class="mb-0">
+                                                                <strong>Se eliminarán:</strong> Todos los datos personales (nombre, apellido, email, teléfono, dirección, contraseña) serán eliminados permanentemente.
+                                                                <br><br>
+                                                                <strong>Se conservarán:</strong> Los pedidos y pagos se mantendrán en el sistema para contabilidad, pero desvinculados del usuario eliminado.
+                                                            </p>
                                                         </div>
                                                         <?php else: ?>
                                                         <div class="alert alert-info">
                                                             <i class="fas fa-info-circle me-2"></i>
-                                                            Este usuario no tiene pedidos asociados.
+                                                            Este usuario no tiene pedidos asociados. La eliminación es permanente e irreversible.
                                                         </div>
                                                         <?php endif; ?>
                                                         
                                                         <input type="hidden" name="del_user_id" value="<?= $user['id_usuario'] ?>">
-                                                        
-                                                        <?php if ($total_pedidos_usuario > 0): ?>
-                                                        <div class="mb-3">
-                                                            <div class="form-check">
-                                                                <input class="form-check-input" type="checkbox" name="confirmar_eliminar_con_pedidos" value="1" id="confirmar_eliminar_<?= $user['id_usuario'] ?>" required>
-                                                                <label class="form-check-label" for="confirmar_eliminar_<?= $user['id_usuario'] ?>">
-                                                                    <strong>Confirmo que entiendo las consecuencias</strong> y deseo eliminar permanentemente este usuario 
-                                                                    con <?= $total_pedidos_usuario ?> pedido(s) asociado(s).
-                                                                </label>
-                                                            </div>
-                                                        </div>
-                                                        <?php endif; ?>
                                                     </div>
                                                     <div class="modal-footer">
                                                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                        <?php if ($total_pedidos_usuario > 0): ?>
+                                                        <button type="submit" name="eliminar_usuario_fisico" class="btn btn-danger">
+                                                            <i class="fas fa-trash-alt me-1"></i>Eliminar Usuario
+                                                        </button>
+                                                        <?php else: ?>
                                                         <button type="submit" name="eliminar_usuario_fisico" class="btn btn-danger">
                                                             <i class="fas fa-trash-alt me-1"></i>Eliminar Permanentemente
                                                         </button>
+                                                        <?php endif; ?>
                                                     </div>
                                                 </form>
                                             </div>
@@ -830,9 +851,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                     </td>
                                     <td><?= $historial['id_usuario'] ?></td>
                                     <td>
-                                        <strong><?= htmlspecialchars($historial['nombre'] . ' ' . $historial['apellido']) ?></strong>
+                                        <strong><?= htmlspecialchars(($historial['nombre'] ?? 'Usuario') . ' ' . ($historial['apellido'] ?? 'Eliminado')) ?></strong>
+                                        <?php if (($historial['nombre'] ?? null) === null && ($historial['apellido'] ?? null) === null): ?>
+                                            <span class="badge bg-secondary ms-1">Eliminado</span>
+                                        <?php endif; ?>
                                     </td>
-                                    <td><?= htmlspecialchars($historial['email']) ?></td>
+                                    <td><?= htmlspecialchars($historial['email'] ?? 'Usuario eliminado') ?></td>
                                     <td>
                                         <?php 
                                         $rol_lower = strtolower($historial['rol']);

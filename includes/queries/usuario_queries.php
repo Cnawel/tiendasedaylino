@@ -1259,3 +1259,124 @@ function actualizarDatosUsuarioCompleto($mysqli, $id_usuario, $nombre, $apellido
     return ['exito' => true, 'error' => ''];
 }
 
+/**
+ * Desvincula los pedidos de un usuario (establece id_usuario = NULL)
+ * 
+ * Esta función desvincula los pedidos de un usuario antes de anonimizarlo.
+ * Los pedidos se conservan en el sistema pero ya no están asociados al usuario.
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param int $id_usuario ID del usuario cuyos pedidos se desvincularán
+ * @return bool True si se desvincularon correctamente, false en caso contrario
+ */
+function desvincularPedidosUsuario($mysqli, $id_usuario) {
+    $sql = "UPDATE Pedidos SET id_usuario = NULL WHERE id_usuario = ?";
+    
+    $stmt = $mysqli->prepare($sql);
+    if (!$stmt) {
+        error_log("ERROR desvincularPedidosUsuario: No se pudo preparar consulta - " . $mysqli->error . " (Código: " . $mysqli->errno . ")");
+        return false;
+    }
+    
+    $stmt->bind_param('i', $id_usuario);
+    $resultado = $stmt->execute();
+    if (!$resultado) {
+        error_log("ERROR desvincularPedidosUsuario: No se pudo ejecutar consulta - " . $stmt->error . " (Código: " . $stmt->errno . ")");
+    }
+    $stmt->close();
+    
+    return $resultado;
+}
+
+/**
+ * Anonimiza un usuario eliminando todos sus datos personales
+ * 
+ * Esta función anonimiza un usuario estableciendo todos los datos personales a NULL
+ * y marcando la fecha de eliminación. El registro del usuario se mantiene en la base
+ * de datos pero sin información que permita identificarlo.
+ * 
+ * Datos que se anonimizan (se establecen a NULL):
+ * - nombre, apellido, email, telefono
+ * - direccion, localidad, provincia, codigo_postal
+ * - contrasena, pregunta_recupero, respuesta_recupero
+ * - fecha_nacimiento
+ * 
+ * También establece:
+ * - activo = 0
+ * - deleted_at = NOW()
+ * - fecha_actualizacion = NOW()
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param int $id_usuario ID del usuario a anonimizar
+ * @return bool True si se anonimizó correctamente, false en caso contrario
+ */
+function anonimizarUsuario($mysqli, $id_usuario) {
+    // Asegurar que la conexión esté configurada con charset UTF-8
+    configurarConexionBD($mysqli);
+    
+    $sql = "UPDATE Usuarios SET 
+                nombre = NULL,
+                apellido = NULL,
+                email = NULL,
+                contrasena = NULL,
+                telefono = NULL,
+                direccion = NULL,
+                localidad = NULL,
+                provincia = NULL,
+                codigo_postal = NULL,
+                fecha_nacimiento = NULL,
+                pregunta_recupero = NULL,
+                respuesta_recupero = NULL,
+                activo = 0,
+                deleted_at = NOW(),
+                fecha_actualizacion = NOW()
+            WHERE id_usuario = ?";
+    
+    $stmt = $mysqli->prepare($sql);
+    if (!$stmt) {
+        error_log("ERROR anonimizarUsuario: No se pudo preparar consulta - " . $mysqli->error . " (Código: " . $mysqli->errno . ")");
+        return false;
+    }
+    
+    $stmt->bind_param('i', $id_usuario);
+    $resultado = $stmt->execute();
+    if (!$resultado) {
+        error_log("ERROR anonimizarUsuario: No se pudo ejecutar consulta - " . $stmt->error . " (Código: " . $stmt->errno . ")");
+    }
+    $stmt->close();
+    
+    return $resultado;
+}
+
+/**
+ * Verifica si un usuario ya está anonimizado
+ * 
+ * Esta función verifica si un usuario ya fue anonimizado previamente
+ * comprobando si tiene deleted_at establecido.
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param int $id_usuario ID del usuario a verificar
+ * @return bool True si el usuario ya está anonimizado, false en caso contrario
+ */
+function verificarUsuarioAnonimizado($mysqli, $id_usuario) {
+    $sql = "SELECT deleted_at FROM Usuarios WHERE id_usuario = ? LIMIT 1";
+    
+    $stmt = $mysqli->prepare($sql);
+    if (!$stmt) {
+        return false;
+    }
+    
+    $stmt->bind_param('i', $id_usuario);
+    if (!$stmt->execute()) {
+        error_log("ERROR verificarUsuarioAnonimizado: No se pudo ejecutar consulta - " . $stmt->error);
+        $stmt->close();
+        return false;
+    }
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $stmt->close();
+    
+    // Si deleted_at no es NULL, el usuario ya está anonimizado
+    return !empty($row['deleted_at']);
+}
+

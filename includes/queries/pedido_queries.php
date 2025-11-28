@@ -974,24 +974,43 @@ function _validarRetrocesosIlógicos($estado_anterior, $estado_nuevo) {
     $estado_anterior_norm = strtolower(trim($estado_anterior));
     $estado_nuevo_norm = strtolower(trim($estado_nuevo));
     
+    // Si es el mismo estado, permitir (mantener estado actual)
+    if ($estado_anterior_norm === $estado_nuevo_norm) {
+        return;
+    }
+    
+    // Definir orden lógico de estados (de menor a mayor)
+    $orden_estados = ['pendiente', 'preparacion', 'en_viaje', 'completado'];
+    $posicion_anterior = array_search($estado_anterior_norm, $orden_estados);
+    $posicion_nuevo = array_search($estado_nuevo_norm, $orden_estados);
+    
+    // Si ambos estados están en el orden lógico, verificar que no sea retroceso
+    if ($posicion_anterior !== false && $posicion_nuevo !== false) {
+        if ($posicion_nuevo < $posicion_anterior) {
+            throw new Exception("No se puede retroceder desde '{$estado_anterior_norm}' a '{$estado_nuevo_norm}'. Los pedidos solo pueden avanzar hacia estados finales.");
+        }
+    }
+    
+    // Validaciones específicas adicionales para casos especiales
+    
     // Bloquear retroceso: preparacion → pendiente
     if ($estado_anterior_norm === 'preparacion' && $estado_nuevo_norm === 'pendiente') {
         throw new Exception('No se puede retroceder un pedido de preparación a pendiente. Si el pago cambió de estado, el pedido debe cancelarse en lugar de retroceder.');
     }
     
-    // Bloquear retroceso: en_viaje → preparacion
-    if ($estado_anterior_norm === 'en_viaje' && $estado_nuevo_norm === 'preparacion') {
-        throw new Exception('No se puede retroceder un pedido en viaje a preparación');
+    // Bloquear retroceso: en_viaje → preparacion o pendiente
+    if ($estado_anterior_norm === 'en_viaje' && in_array($estado_nuevo_norm, ['preparacion', 'pendiente'])) {
+        throw new Exception('No se puede retroceder un pedido en viaje. Solo puede avanzar a "Completado" o "Devolución".');
     }
     
-    // Bloquear retroceso: completado → preparacion o en_viaje
-    if ($estado_anterior_norm === 'completado' && in_array($estado_nuevo_norm, ['preparacion', 'en_viaje'])) {
-        throw new Exception('No se puede retroceder un pedido completado');
+    // Bloquear retroceso: completado → cualquier estado anterior (excepto devolucion)
+    if ($estado_anterior_norm === 'completado' && $estado_nuevo_norm !== 'devolucion' && $estado_nuevo_norm !== 'completado') {
+        throw new Exception('No se puede retroceder un pedido completado. Solo se permite "Devolución" si el pago está aprobado.');
     }
     
-    // Bloquear cambio desde devolucion (estado terminal)
-    if ($estado_anterior_norm === 'devolucion') {
-        throw new Exception('No se puede cambiar el estado de un pedido devuelto (estado terminal)');
+    // Bloquear cambio desde devolucion (estado terminal, solo puede ir a cancelado)
+    if ($estado_anterior_norm === 'devolucion' && $estado_nuevo_norm !== 'cancelado' && $estado_nuevo_norm !== 'devolucion') {
+        throw new Exception('No se puede cambiar el estado de un pedido devuelto (estado terminal). Solo puede cancelarse.');
     }
 }
 

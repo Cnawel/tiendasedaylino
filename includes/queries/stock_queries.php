@@ -1302,10 +1302,15 @@ function insertarVarianteStock($mysqli, $id_producto, $talle, $color, $stock_ini
  * 
  * @param mysqli $mysqli Conexión a la base de datos
  * @param int $id_variante ID de la variante
- * @return array|null Array con datos de la variante o null si no existe
+ * @param bool $solo_activas Si true, solo retorna variantes activas (activo = 1)
+ * @return array|null Array con datos de la variante (incluye 'activo') o null si no existe
  */
-function obtenerVariantePorId($mysqli, $id_variante) {
-    $sql = "SELECT id_producto, talle, color, stock FROM Stock_Variantes WHERE id_variante = ?";
+function obtenerVariantePorId($mysqli, $id_variante, $solo_activas = false) {
+    $sql = "SELECT id_producto, talle, color, stock, activo FROM Stock_Variantes WHERE id_variante = ?";
+    
+    if ($solo_activas) {
+        $sql .= " AND activo = 1";
+    }
     
     $stmt = $mysqli->prepare($sql);
     if (!$stmt) {

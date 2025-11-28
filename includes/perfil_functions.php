@@ -685,6 +685,11 @@ function validarPagoParaMarcarPagado($mysqli, $id_pago, $id_usuario) {
     require_once __DIR__ . '/queries/pago_queries.php';
     require_once __DIR__ . '/queries/pedido_queries.php';
     
+    // Cargar función de normalización de estados si no está disponible
+    if (!function_exists('normalizarEstado')) {
+        require_once __DIR__ . '/estado_helpers.php';
+    }
+    
     // Validar ID de pago
     if ($id_pago <= 0) {
         return [
@@ -720,8 +725,9 @@ function validarPagoParaMarcarPagado($mysqli, $id_pago, $id_usuario) {
         ];
     }
     
-    // Validar estado del pago
-    if ($pago['estado_pago'] !== 'pendiente') {
+    // Validar estado del pago usando normalización para comparación consistente
+    $estado_pago_normalizado = normalizarEstado($pago['estado_pago'] ?? '');
+    if ($estado_pago_normalizado !== 'pendiente') {
         return [
             'valido' => false,
             'mensaje' => 'Solo se pueden marcar como pagados los pagos pendientes',

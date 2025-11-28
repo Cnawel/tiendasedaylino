@@ -628,37 +628,57 @@ function procesarEliminacionUsuario($mysqli, $post, $id_usuario_actual) {
     }
     
     // ============================================================================
-    // ACCIÓN 3: ELIMINAR USUARIO FÍSICAMENTE (Hard Delete)
+    // ACCIÓN 3: ELIMINAR USUARIO FÍSICAMENTE (Hard Delete) O ANONIMIZAR
     // ============================================================================
     if ($accion_eliminar) {
-        // Contar pedidos del usuario
-        $total_pedidos = contarPedidosUsuario($mysqli, $del_user_id);
+        // Verificar si el usuario ya está anonimizado
+        $ya_anonimizado = verificarUsuarioAnonimizado($mysqli, $del_user_id);
         
-        // Si tiene pedidos, verificar confirmación explícita
-        if ($total_pedidos > 0) {
-            $confirmacion = isset($post['confirmar_eliminar_con_pedidos']) && $post['confirmar_eliminar_con_pedidos'] === '1';
+        // Si ya está anonimizado, eliminar definitivamente (hard delete)
+        // Los pedidos ya fueron desvinculados en la anonimización anterior
+        if ($ya_anonimizado) {
+            // Desasociar movimientos de stock antes de eliminar
+            anularUsuarioEnMovimientosStock($mysqli, $del_user_id);
             
-            if (!$confirmacion) {
-                // Retornar mensaje especial que indica que se necesita confirmación
-                return [
-                    'mensaje' => 'confirmar_eliminar',
-                    'mensaje_tipo' => 'warning',
-                    'usuario_id' => $del_user_id,
-                    'total_pedidos' => $total_pedidos
-                ];
+            // Hard delete: eliminar físicamente de la base de datos
+            if (eliminarUsuarioFisicamente($mysqli, $del_user_id)) {
+                return ['mensaje' => 'Usuario eliminado permanentemente del sistema', 'mensaje_tipo' => 'success'];
+            } else {
+                return ['mensaje' => 'Error al eliminar usuario', 'mensaje_tipo' => 'danger'];
             }
         }
         
+        // Si no está anonimizado, verificar si tiene pedidos
+        $total_pedidos = contarPedidosUsuario($mysqli, $del_user_id);
+        
+        // Si tiene pedidos, anonimizar en lugar de eliminar físicamente
+        if ($total_pedidos > 0) {
+            // Desvincular pedidos primero (establecer id_usuario = NULL)
+            if (!desvincularPedidosUsuario($mysqli, $del_user_id)) {
+                return ['mensaje' => 'Error al desvincular pedidos del usuario', 'mensaje_tipo' => 'danger'];
+            }
+            
+            // Desasociar movimientos de stock
+            anularUsuarioEnMovimientosStock($mysqli, $del_user_id);
+            
+            // Anonimizar usuario (elimina datos personales pero mantiene registro)
+            if (anonimizarUsuario($mysqli, $del_user_id)) {
+                return [
+                    'mensaje' => 'Usuario eliminado correctamente. Los datos personales fueron eliminados pero se conservan los pedidos (' . $total_pedidos . ') para contabilidad.',
+                    'mensaje_tipo' => 'success'
+                ];
+            } else {
+                return ['mensaje' => 'Error al eliminar usuario', 'mensaje_tipo' => 'danger'];
+            }
+        }
+        
+        // Si no tiene pedidos y no está anonimizado, eliminar físicamente (hard delete)
         // Desasociar movimientos de stock antes de eliminar
         anularUsuarioEnMovimientosStock($mysqli, $del_user_id);
         
         // Hard delete: eliminar físicamente de la base de datos
         if (eliminarUsuarioFisicamente($mysqli, $del_user_id)) {
-            $mensaje = 'Usuario eliminado permanentemente del sistema';
-            if ($total_pedidos > 0) {
-                $mensaje .= '. Los pedidos y pagos asociados se mantienen en el sistema.';
-            }
-            return ['mensaje' => $mensaje, 'mensaje_tipo' => 'success'];
+            return ['mensaje' => 'Usuario eliminado permanentemente del sistema', 'mensaje_tipo' => 'success'];
         } else {
             return ['mensaje' => 'Error al eliminar usuario', 'mensaje_tipo' => 'danger'];
         }

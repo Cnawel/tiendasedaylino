@@ -369,8 +369,40 @@ function obtenerTransicionesValidasPedido($estado_pedido_actual, $estado_pago = 
             // Esto permite procesar devoluciones de pedidos completados
             return ['completado', 'devolucion'];
         }
-        // Para cancelado o completado sin excepción: solo mantener estado actual
+        // Para cancelado: solo mantener estado actual (no puede cambiar)
         return [$estado_pedido_norm];
+    }
+    
+    // ========================================================================
+    // VALIDACIÓN 1.5: Estados Finales (en_viaje y completado) - BLOQUEAR RETROCESOS
+    // ========================================================================
+    // en_viaje y completado son estados finales del ciclo, NO pueden retroceder
+    if ($estado_pedido_norm === 'en_viaje') {
+        // en_viaje solo puede ir a completado o devolucion (NO retrocesos)
+        $transiciones_base = StateValidator::getTransitionMatrix('pedido');
+        $transiciones_permitidas = $transiciones_base[$estado_pedido_norm] ?? [];
+        
+        // Solo permitir transiciones hacia adelante (completado, devolucion)
+        // NO permitir retrocesos a preparacion o pendiente
+        $estados_finales = array_filter($transiciones_permitidas, function($estado) {
+            // Solo permitir completado y devolucion
+            return in_array($estado, ['completado', 'devolucion']);
+        });
+        
+        // Siempre incluir el estado actual
+        if (!in_array($estado_pedido_norm, $estados_finales)) {
+            $estados_finales[] = $estado_pedido_norm;
+        }
+        
+        // Si pago no está aprobado, solo permitir mantener estado actual o cancelar (para corregir inconsistencia)
+        if ($estado_pago_norm !== 'aprobado') {
+            // Permitir cancelado para corregir inconsistencias
+            if (!in_array('cancelado', $estados_finales)) {
+                $estados_finales[] = 'cancelado';
+            }
+        }
+        
+        return array_values(array_unique($estados_finales));
     }
     
     // ========================================================================
@@ -645,7 +677,45 @@ function renderFormularioPago($id_pedido, $pago_modal) {
 }
 
 /**
+ * Obtiene las transiciones válidas de estado de pago según el estado actual
+ * 
+ * Filtra las transiciones permitidas según la matriz de estados usando StateValidator.
+ * 
+ * @param string $estado_pago_actual Estado actual normalizado del pago
+ * @return array Array de estados válidos para transición (incluye el estado actual)
+ */
+function obtenerTransicionesValidasPago($estado_pago_actual) {
+    // Cargar StateValidator si no está disponible
+    require_once __DIR__ . '/state_validator.php';
+    
+    // Normalizar estado
+    $estado_pago_norm = normalizarEstado($estado_pago_actual);
+    
+    // Obtener matriz de transiciones base desde StateValidator
+    $transiciones_base = StateValidator::getTransitionMatrix('pago');
+    
+    // Obtener transiciones permitidas desde el estado actual
+    $transiciones_permitidas = [];
+    if (isset($transiciones_base[$estado_pago_norm])) {
+        $transiciones_permitidas = $transiciones_base[$estado_pago_norm];
+    }
+    
+    // Siempre incluir el estado actual (para mantener el mismo estado)
+    if (!in_array($estado_pago_norm, $transiciones_permitidas)) {
+        $transiciones_permitidas[] = $estado_pago_norm;
+    }
+    
+    // Eliminar duplicados y ordenar
+    $transiciones_permitidas = array_unique($transiciones_permitidas);
+    sort($transiciones_permitidas);
+    
+    return $transiciones_permitidas;
+}
+
+/**
  * Renderiza el selector de estado del pago
+ * 
+ * Solo muestra opciones válidas según las transiciones permitidas desde el estado actual.
  * 
  * @param int $id_pedido ID del pedido
  * @param string $estado_pago_actual_modal Estado actual normalizado del pago
@@ -653,6 +723,12 @@ function renderFormularioPago($id_pedido, $pago_modal) {
  * @return void
  */
 function renderFormularioEstadoPago($id_pedido, $estado_pago_actual_modal, $info_estado_pago_actual) {
+    // Obtener transiciones válidas según el estado actual
+    $transiciones_validas = obtenerTransicionesValidasPago($estado_pago_actual_modal);
+    
+    // Obtener mapeo de estados para mostrar nombres
+    $mapeo_estados = obtenerMapeoEstadosPago();
+    
     ?>
     <div class="mb-3">
         <label class="form-label"><strong>Estado del Pago:</strong></label>
@@ -663,11 +739,35 @@ function renderFormularioEstadoPago($id_pedido, $estado_pago_actual_modal, $info
         </div>
         <select class="form-select" name="nuevo_estado_pago" id="nuevo_estado_pago_<?= $id_pedido ?>">
             <option value="">-- Mantener estado actual --</option>
-            <option value="pendiente" <?= $estado_pago_actual_modal === 'pendiente' ? 'selected' : '' ?>>Pendiente</option>
-            <option value="pendiente_aprobacion" <?= $estado_pago_actual_modal === 'pendiente_aprobacion' ? 'selected' : '' ?>>Pendiente Aprobación</option>
-            <option value="aprobado" <?= $estado_pago_actual_modal === 'aprobado' ? 'selected' : '' ?>>Aprobado</option>
-            <option value="rechazado" <?= $estado_pago_actual_modal === 'rechazado' ? 'selected' : '' ?>>Rechazado</option>
-            <option value="cancelado" <?= $estado_pago_actual_modal === 'cancelado' ? 'selected' : '' ?>>Cancelado</option>
+            <?php
+            // Ordenar opciones de forma lógica
+            $orden_estados = ['pendiente', 'pendiente_aprobacion', 'aprobado', 'rechazado', 'cancelado'];
+            $estados_ordenados = [];
+            
+            // Primero: estado actual
+            if (in_array($estado_pago_actual_modal, $transiciones_validas)) {
+                $estados_ordenados[] = $estado_pago_actual_modal;
+            }
+            
+            // Segundo: siguientes estados naturales (en orden lógico)
+            foreach ($orden_estados as $estado_orden) {
+                if (in_array($estado_orden, $transiciones_validas) && 
+                    $estado_orden !== $estado_pago_actual_modal) {
+                    $estados_ordenados[] = $estado_orden;
+                }
+            }
+            
+            // Renderizar opciones ordenadas
+            foreach ($estados_ordenados as $estado_valido): 
+                $info_estado = isset($mapeo_estados[$estado_valido]) 
+                    ? $mapeo_estados[$estado_valido] 
+                    : ['nombre' => ucfirst(str_replace('_', ' ', $estado_valido))];
+            ?>
+                <option value="<?= htmlspecialchars($estado_valido) ?>" 
+                        <?= $estado_pago_actual_modal === $estado_valido ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($info_estado['nombre']) ?>
+                </option>
+            <?php endforeach; ?>
         </select>
         <small class="text-muted d-block mt-1">
             <i class="fas fa-info-circle me-1"></i>

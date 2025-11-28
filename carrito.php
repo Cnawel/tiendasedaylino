@@ -499,7 +499,7 @@ $monto_faltante_carrito = obtenerMontoFaltanteEnvioGratis($total_carrito);
                         <!-- Aviso de envío gratis -->
                         <div id="carrito-envio-alert">
                         <?php if (!$info_envio_carrito['es_gratis'] && $monto_faltante_carrito > 0): ?>
-                        <div class="alert alert-info mb-3 py-2" style="font-size: 0.8rem; border-left: 4px solid #0dcaf0;">
+                        <div class="alert alert-info mb-3 py-2" style="font-size: 0.8rem; border-left: 4px solid #0dcaf0; color: #000;">
                             <div class="d-flex align-items-start">
                                 <i class="fas fa-truck me-2 mt-1"></i>
                                 <div>
