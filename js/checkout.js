@@ -288,7 +288,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } else if (esCabaGba) {
                 const montoFaltante = montoMinimoGratis - subtotal;
                 if (montoFaltante > 0) {
-                    alertHTML = '<div class="alert alert-info mb-3 alert-compact">' +
+                    alertHTML = '<div class="alert alert-info mb-3 alert-compact" style="color: #000;">' +
                         '<i class="fas fa-truck me-2"></i>' +
                         '<strong>¡Agrega $' + montoFaltante.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' más y obtén envío gratis!</strong><br>' +
                         '<small>En compras superiores a $' + montoMinimoGratis.toLocaleString('es-AR') + ' en CABA y GBA</small>' +
@@ -319,67 +319,7 @@ document.addEventListener('DOMContentLoaded', function() {
         recalcularEnvio();
     }
     
-    // Mostrar warnings informativos según método de pago seleccionado
-    const warningMetodoPago = document.getElementById('warning-metodo-pago');
-    const mensajeMetodoPago = document.getElementById('mensaje-metodo-pago');
-    const radiosFormaPago = document.querySelectorAll('input[name="id_forma_pago"]');
-    
-    /**
-     * Determina el mensaje de warning según el método de pago
-     * @param {string} nombreMetodo - Nombre del método de pago
-     * @returns {string|null} Mensaje de warning o null si no hay warning
-     */
-    function obtenerMensajeMetodoPago(nombreMetodo) {
-        if (!nombreMetodo) return null;
-        
-        const nombreLower = nombreMetodo.toLowerCase();
-        
-        // Detectar métodos que requieren aprobación manual
-        if (nombreLower.includes('transferencia') || nombreLower.includes('depósito') || 
-            nombreLower.includes('efectivo') || nombreLower.includes('manual')) {
-            return 'Tu pago será revisado manualmente. Recibirás confirmación por email en 24-48 horas.';
-        }
-        
-        // Detectar métodos con tiempo de procesamiento específico
-        if (nombreLower.includes('transferencia') || nombreLower.includes('depósito')) {
-            return 'Los pagos por transferencia pueden tardar 24-48hs en procesarse.';
-        }
-        
-        // Métodos de pago inmediato (tarjeta, etc.) no requieren warning
-        return null;
-    }
-    
-    /**
-     * Actualiza el warning del método de pago según la selección
-     */
-    function actualizarWarningMetodoPago() {
-        if (!warningMetodoPago || !mensajeMetodoPago) return;
-        
-        const radioSeleccionado = document.querySelector('input[name="id_forma_pago"]:checked');
-        
-        if (radioSeleccionado) {
-            const nombreMetodo = radioSeleccionado.getAttribute('data-forma-pago-nombre');
-            const mensaje = obtenerMensajeMetodoPago(nombreMetodo);
-            
-            if (mensaje) {
-                mensajeMetodoPago.textContent = mensaje;
-                warningMetodoPago.classList.remove('d-none');
-            } else {
-                warningMetodoPago.classList.add('d-none');
-            }
-        } else {
-            warningMetodoPago.classList.add('d-none');
-        }
-    }
-    
-    // Agregar event listeners a todos los radios de método de pago
-    if (radiosFormaPago.length > 0) {
-        radiosFormaPago.forEach(function(radio) {
-            radio.addEventListener('change', actualizarWarningMetodoPago);
-        });
-        
-        // Mostrar warning inicial si hay un método seleccionado por defecto
-        actualizarWarningMetodoPago();
-    }
+    // Mensaje fijo de pago manual - ya no se usa lógica dinámica
+    // El mensaje ahora es fijo y siempre visible en el HTML
 });
 

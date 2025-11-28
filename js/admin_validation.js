@@ -20,10 +20,28 @@
 
 /**
  * Función para toggle de usuarios inactivos
+ * Preserva la pestaña activa actual
  * @param {boolean} mostrar - true para mostrar inactivos, false para ocultar
  */
 function toggleUsuariosInactivos(mostrar) {
     const urlParams = new URLSearchParams(window.location.search);
+    
+    // Preservar pestaña activa si existe
+    const tabActiva = urlParams.get('tab');
+    if (!tabActiva) {
+        // Si no hay pestaña en URL, intentar detectar la pestaña activa visualmente
+        const tabButtonActivo = document.querySelector('.nav-link.active[data-bs-toggle="tab"]');
+        if (tabButtonActivo) {
+            const target = tabButtonActivo.getAttribute('data-bs-target');
+            if (target) {
+                const tabId = target.replace('#', '');
+                const tabsValidos = ['usuarios', 'crear-usuario', 'historial-usuarios'];
+                if (tabsValidos.includes(tabId)) {
+                    urlParams.set('tab', tabId);
+                }
+            }
+        }
+    }
     
     if (mostrar) {
         urlParams.set('mostrar_inactivos', '1');

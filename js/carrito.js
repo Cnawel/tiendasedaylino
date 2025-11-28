@@ -129,7 +129,7 @@ function actualizarResumenCarrito(datos) {
                 '</div>' +
                 '</div>';
         } else if (datos.monto_faltante > 0) {
-            alertHTML = '<div class="alert alert-info mb-3 py-2" style="font-size: 0.8rem; border-left: 4px solid #0dcaf0;">' +
+            alertHTML = '<div class="alert alert-info mb-3 py-2" style="font-size: 0.8rem; border-left: 4px solid #0dcaf0; color: #000;">' +
                 '<div class="d-flex align-items-start">' +
                 '<i class="fas fa-truck me-2 mt-1"></i>' +
                 '<div>' +

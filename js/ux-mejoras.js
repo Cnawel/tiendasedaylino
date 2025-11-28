@@ -386,5 +386,132 @@
         }
     };
     
+    // ====================================================================
+    // PRESERVAR PESTAÑA ACTIVA EN FORMULARIOS DE DASHBOARD
+    // ====================================================================
+    /**
+     * Intercepta formularios en paneles del dashboard para preservar la pestaña activa
+     * Detecta automáticamente la pestaña activa y la agrega al action del formulario
+     */
+    function initPreservarPestañaActiva() {
+        // Lista de páginas del dashboard que tienen pestañas
+        const paginasDashboard = ['admin.php', 'marketing.php', 'ventas.php', 'perfil.php'];
+        
+        // Verificar si estamos en una página del dashboard
+        const currentPage = window.location.pathname.split('/').pop();
+        if (!paginasDashboard.includes(currentPage)) {
+            return; // No es un dashboard, salir
+        }
+        
+        // Mapeo de páginas a sus pestañas válidas
+        const tabsValidos = {
+            'admin.php': ['usuarios', 'crear-usuario', 'historial-usuarios'],
+            'marketing.php': ['productos', 'csv', 'agregar', 'fotos', 'metricas'],
+            'ventas.php': ['pedidos', 'clientes', 'metodos-pago', 'metricas'],
+            'perfil.php': ['datos', 'envio', 'pedidos', 'contrasena']
+        };
+        
+        const tabsValidosParaPagina = tabsValidos[currentPage] || [];
+        
+        /**
+         * Obtiene la pestaña activa actual
+         * @returns {string|null} ID de la pestaña activa o null
+         */
+        function obtenerPestañaActiva() {
+            // Primero intentar obtener desde parámetro URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const tabParam = urlParams.get('tab');
+            if (tabParam && tabsValidosParaPagina.includes(tabParam)) {
+                return tabParam;
+            }
+            
+            // Si no hay en URL, buscar pestaña activa visualmente
+            const tabButtonActivo = document.querySelector('.nav-link.active[data-bs-toggle="tab"]');
+            if (tabButtonActivo) {
+                const target = tabButtonActivo.getAttribute('data-bs-target');
+                if (target) {
+                    // Extraer ID de pestaña del target (ej: #productos -> productos)
+                    const tabId = target.replace('#', '');
+                    if (tabsValidosParaPagina.includes(tabId)) {
+                        return tabId;
+                    }
+                }
+            }
+            
+            // Si no se encuentra, retornar null (no se preservará pestaña)
+            return null;
+        }
+        
+        /**
+         * Agrega parámetro tab al action del formulario
+         * @param {HTMLFormElement} form - Formulario a modificar
+         */
+        function agregarTabAlFormulario(form) {
+            const tabActiva = obtenerPestañaActiva();
+            if (!tabActiva) {
+                return; // No hay pestaña activa, no hacer nada
+            }
+            
+            // Obtener action actual
+            let action = form.getAttribute('action') || '';
+            
+            // Si el action está vacío, usar la página actual
+            if (!action || action.trim() === '') {
+                action = currentPage;
+            }
+            
+            // Si el action no es relativo a la página actual, no modificar
+            if (!action.includes(currentPage) && !action.startsWith('?') && !action.startsWith('/')) {
+                return;
+            }
+            
+            // Construir URL con parámetro tab
+            let newAction;
+            if (action.startsWith('?')) {
+                // Action es solo query string
+                const params = new URLSearchParams(action.substring(1));
+                params.set('tab', tabActiva);
+                newAction = currentPage + '?' + params.toString();
+            } else if (action.startsWith('/') || action.includes('://')) {
+                // Action es absoluto o URL completa
+                try {
+                    const url = new URL(action, window.location.origin);
+                    url.searchParams.set('tab', tabActiva);
+                    newAction = url.pathname + (url.search ? url.search : '');
+                } catch (e) {
+                    // Si falla, usar método simple
+                    const separator = action.includes('?') ? '&' : '?';
+                    newAction = action + separator + 'tab=' + encodeURIComponent(tabActiva);
+                }
+            } else {
+                // Action es relativo a la página actual
+                const separator = action.includes('?') ? '&' : '?';
+                newAction = action + separator + 'tab=' + encodeURIComponent(tabActiva);
+            }
+            
+            form.setAttribute('action', newAction);
+        }
+        
+        // Interceptar todos los formularios en la página
+        document.addEventListener('submit', function(e) {
+            const form = e.target;
+            if (form.tagName === 'FORM') {
+                // Verificar que el formulario no tenga ya un handler personalizado
+                // (evitar conflictos con otros scripts)
+                if (!form.dataset.tabPreserved) {
+                    agregarTabAlFormulario(form);
+                    form.dataset.tabPreserved = 'true';
+                }
+            }
+        }, true); // Usar capture phase para interceptar antes que otros handlers
+    }
+    
+    // Inicializar cuando el DOM esté listo
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initPreservarPestañaActiva);
+    } else {
+        initPreservarPestañaActiva();
+    }
+    
 })();
 

@@ -6,7 +6,30 @@
  * Usa funciones de common_js_functions.php
  * ========================================================================
  */
-document.addEventListener('DOMContentLoaded', function() {
+
+// Log inmediato para verificar que el archivo se carga
+try {
+    console.log('[Perfil] Script perfil.js cargado - Timestamp:', new Date().toISOString());
+} catch(e) {
+    // Si console no está disponible, intentar alert
+    if (typeof alert !== 'undefined') {
+        alert('Perfil.js cargado pero console no disponible');
+    }
+}
+
+// Verificar si el DOM ya está listo
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('[Perfil] DOMContentLoaded ejecutado');
+        inicializarPerfil();
+    });
+} else {
+    // DOM ya está listo
+    console.log('[Perfil] DOM ya está listo, ejecutando inmediatamente');
+    inicializarPerfil();
+}
+
+function inicializarPerfil() {
     // ====================================================================
     // 1. Event listeners para botones de toggle password
     // Reemplaza onclick inline, usa la función togglePassword de common_js_functions.php
@@ -940,17 +963,59 @@ document.addEventListener('DOMContentLoaded', function() {
      * Intercepta el envío y muestra confirmación simple con el código de pago
      */
     function inicializarConfirmacionesMarcarPago() {
-        const formulariosMarcarPago = document.querySelectorAll('form.form-marcar-pago');
+        // Buscar formularios de múltiples formas para asegurar que se encuentren
+        let formulariosMarcarPago = document.querySelectorAll('form.form-marcar-pago');
         
-        formulariosMarcarPago.forEach(function(formulario) {
+        // Si no se encuentran, intentar buscar por el botón dentro del formulario
+        if (formulariosMarcarPago.length === 0) {
+            const botonesMarcarPago = document.querySelectorAll('button[name="marcar_pago_pagado"]');
+            console.log('[Perfil] No se encontraron formularios con clase, buscando por botón. Botones encontrados:', botonesMarcarPago.length);
+            botonesMarcarPago.forEach(function(boton) {
+                const form = boton.closest('form');
+                if (form && !form.dataset.confirmacionInicializada) {
+                    // Agregar la clase si no la tiene
+                    if (!form.classList.contains('form-marcar-pago')) {
+                        form.classList.add('form-marcar-pago');
+                        console.log('[Perfil] Agregada clase form-marcar-pago al formulario');
+                    }
+                    formulariosMarcarPago = document.querySelectorAll('form.form-marcar-pago');
+                }
+            });
+        }
+        
+        // Log para depuración
+        console.log('[Perfil] Buscando formularios de marcar pago...');
+        console.log('[Perfil] Formularios encontrados:', formulariosMarcarPago.length);
+        
+        if (formulariosMarcarPago.length === 0) {
+            console.warn('[Perfil] No se encontraron formularios de marcar pago');
+            // Intentar buscar de otra forma para debug
+            const todosFormularios = document.querySelectorAll('form');
+            console.log('[Perfil] Total de formularios en la página:', todosFormularios.length);
+            todosFormularios.forEach(function(form, index) {
+                console.log('[Perfil] Formulario', index, ':', form.className, 'action:', form.action, 'botones:', form.querySelectorAll('button').length);
+            });
+        }
+        
+        formulariosMarcarPago.forEach(function(formulario, index) {
             // Evitar agregar listeners múltiples
             if (formulario.dataset.confirmacionInicializada === 'true') {
+                console.log('[Perfil] Formulario', index, 'ya inicializado, saltando');
                 return;
             }
             formulario.dataset.confirmacionInicializada = 'true';
+            console.log('[Perfil] Inicializando formulario', index, 'ID pago:', formulario.dataset.idPago);
             
-            formulario.addEventListener('submit', function(e) {
+            // Crear función nombrada para poder remover el listener después
+            const submitHandler = function(e) {
+                // Si el formulario ya tiene la marca de permitir envío, no hacer nada
+                if (formulario.dataset.allowSubmit === 'true') {
+                    return true;
+                }
+                
+                // Prevenir el envío por defecto para mostrar confirmación
                 e.preventDefault();
+                e.stopPropagation();
                 
                 const inputCodigo = formulario.querySelector('[name="numero_transaccion"]');
                 const codigoPago = inputCodigo ? inputCodigo.value.trim() : '';
@@ -959,7 +1024,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!codigoPago) {
                     inputCodigo.classList.add('is-invalid');
                     inputCodigo.focus();
-                    return;
+                    return false;
                 }
                 
                 // Limpiar errores previos
@@ -968,15 +1033,179 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Mostrar confirmación simple con el código
                 const mensaje = 'Por favor, verifica que el código de pago sea correcto:\n\nCódigo: ' + codigoPago + '\n\n¿Confirmas que el código es correcto?';
                 
-                if (confirm(mensaje)) {
-                    formulario.submit();
+                if (!confirm(mensaje)) {
+                    return false;
                 }
-            });
+                
+                // Agregar parámetro para mantener la pestaña activa
+                const formAction = formulario.getAttribute('action') || '';
+                const separator = formAction.includes('?') ? '&' : '?';
+                formulario.setAttribute('action', formAction + separator + 'tab=pedidos');
+                
+                // PROBLEMA: formulario.submit() NO incluye el botón submit en el POST
+                // SOLUCIÓN: Agregar un input hidden con la acción antes de enviar
+                let actionInput = formulario.querySelector('input[name="marcar_pago_pagado"]');
+                if (!actionInput) {
+                    actionInput = document.createElement('input');
+                    actionInput.type = 'hidden';
+                    actionInput.name = 'marcar_pago_pagado';
+                    actionInput.value = '1';
+                    formulario.appendChild(actionInput);
+                }
+                
+                // Marcar que se permite el envío ANTES de remover el listener
+                formulario.dataset.allowSubmit = 'true';
+                
+                // Remover el listener para evitar que se ejecute de nuevo
+                formulario.removeEventListener('submit', submitHandler);
+                
+                // Enviar el formulario directamente usando submit()
+                formulario.submit();
+                
+                return false;
+            };
+            
+            formulario.addEventListener('submit', submitHandler);
+            
+            // También agregar listener al botón como fallback para debug
+            const submitButton = formulario.querySelector('button[name="marcar_pago_pagado"]');
+            if (submitButton) {
+                submitButton.addEventListener('click', function(e) {
+                    console.log('[Perfil] Click en botón Marcar Pago detectado');
+                    // No prevenir el default aquí, dejar que el submit handler lo maneje
+                });
+            } else {
+                console.warn('[Perfil] No se encontró el botón submit en el formulario');
+            }
         });
     }
     
     // Inicializar confirmaciones al cargar la página
-    inicializarConfirmacionesMarcarPago();
+    try {
+        console.log('[Perfil] Iniciando inicialización de formularios de marcar pago...');
+        inicializarConfirmacionesMarcarPago();
+    } catch (error) {
+        console.error('[Perfil] Error al inicializar formularios de marcar pago:', error);
+    }
     
-});
+    // ========================================================================
+    // RE-INICIALIZAR CONFIRMACIONES CUANDO SE MUESTRA LA PESTAÑA DE PEDIDOS
+    // ========================================================================
+    // Los formularios de "Marcar Pago" están dentro de la pestaña #pedidos
+    // que puede no estar visible al cargar la página, por lo que necesitamos
+    // re-inicializar cuando se muestre la pestaña
+    const pedidosTab = document.getElementById('pedidos-tab');
+    if (pedidosTab) {
+        // Usar el evento de Bootstrap tabs para re-inicializar cuando se muestre la pestaña
+        pedidosTab.addEventListener('shown.bs.tab', function() {
+            // Esperar un momento para que el DOM se actualice completamente
+            setTimeout(function() {
+                inicializarConfirmacionesMarcarPago();
+            }, 100);
+        });
+        
+        // Si Bootstrap no está cargado, esperar a que se cargue
+        if (!verificarBootstrapCargado()) {
+            let bootstrapCheckInterval = setInterval(function() {
+                if (verificarBootstrapCargado()) {
+                    clearInterval(bootstrapCheckInterval);
+                    // El listener ya está agregado arriba, Bootstrap lo manejará
+                }
+            }, 100);
+            
+            // Limpiar el intervalo después de 5 segundos si Bootstrap no se carga
+            setTimeout(function() {
+                clearInterval(bootstrapCheckInterval);
+            }, 5000);
+        }
+    }
+    
+    // También usar MutationObserver como fallback para detectar cuando la pestaña se muestra
+    const pedidosPane = document.getElementById('pedidos');
+    if (pedidosPane) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (pedidosPane.classList.contains('active') && pedidosPane.classList.contains('show')) {
+                        setTimeout(function() {
+                            inicializarConfirmacionesMarcarPago();
+                        }, 100);
+                    }
+                }
+            });
+        });
+        
+        // Observar cambios en el tab-pane de pedidos
+        observer.observe(pedidosPane, {
+            attributes: true,
+            attributeFilter: ['class']
+        });
+    }
+    
+    // ========================================================================
+    // ACTIVAR PESTAÑA SEGÚN PARÁMETRO URL (solo en perfil.php)
+    // ========================================================================
+    if (window.location.pathname.includes('perfil.php')) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get('tab');
+        
+        if (tabParam) {
+            const tabsValidos = ['datos', 'envio', 'pedidos', 'contrasena'];
+            if (tabsValidos.includes(tabParam)) {
+                // Activar pestaña usando Bootstrap
+                const tabButton = document.getElementById(tabParam + '-tab');
+                if (tabButton && typeof bootstrap !== 'undefined') {
+                    // Si es la pestaña de pedidos, inicializar formularios después de activarla
+                    if (tabParam === 'pedidos') {
+                        // Agregar listener ANTES de activar la pestaña
+                        tabButton.addEventListener('shown.bs.tab', function() {
+                            console.log('[Perfil] Pestaña pedidos activada, inicializando formularios...');
+                            setTimeout(function() {
+                                inicializarConfirmacionesMarcarPago();
+                            }, 200);
+                        }, { once: true });
+                    }
+                    
+                    // Activar la pestaña
+                    const tab = new bootstrap.Tab(tabButton);
+                    tab.show();
+                } else if (tabButton) {
+                    // Si Bootstrap no está disponible, esperar a que se cargue
+                    console.log('[Perfil] Esperando a que Bootstrap se cargue...');
+                    let bootstrapCheckInterval = setInterval(function() {
+                        if (typeof bootstrap !== 'undefined' && bootstrap && bootstrap.Tab) {
+                            clearInterval(bootstrapCheckInterval);
+                            if (tabParam === 'pedidos') {
+                                tabButton.addEventListener('shown.bs.tab', function() {
+                                    console.log('[Perfil] Pestaña pedidos activada, inicializando formularios...');
+                                    setTimeout(function() {
+                                        inicializarConfirmacionesMarcarPago();
+                                    }, 200);
+                                }, { once: true });
+                            }
+                            const tab = new bootstrap.Tab(tabButton);
+                            tab.show();
+                        }
+                    }, 100);
+                    
+                    setTimeout(function() {
+                        clearInterval(bootstrapCheckInterval);
+                    }, 5000);
+                }
+            }
+        } else {
+            // Si no hay parámetro tab pero estamos en perfil.php, inicializar de todas formas
+            // (por si la pestaña de pedidos ya está activa por defecto)
+            setTimeout(function() {
+                inicializarConfirmacionesMarcarPago();
+            }, 500);
+        }
+    } else {
+        // Si no estamos en perfil.php pero el código se ejecuta, inicializar de todas formas
+        setTimeout(function() {
+            inicializarConfirmacionesMarcarPago();
+        }, 500);
+    }
+    
+}
 
