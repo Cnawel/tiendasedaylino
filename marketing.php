@@ -25,23 +25,20 @@ require_once __DIR__ . '/includes/image_helper.php';
 require_once __DIR__ . '/includes/marketing_functions.php';
 require_once __DIR__ . '/includes/product_image_functions.php';
 require_once __DIR__ . '/includes/sales_functions.php';
+require_once __DIR__ . '/includes/admin_functions.php';
+require_once __DIR__ . '/includes/dashboard_functions.php';
+require_once __DIR__ . '/includes/security_functions.php';
 
 $id_usuario = getCurrentUserId();
 $usuario_actual = getCurrentUser();
 require_once __DIR__ . '/config/database.php';
 
 $titulo_pagina = 'Panel de Marketing';
-$mensaje = '';
-$mensaje_tipo = '';
 
-// Capturar mensajes de sesión
-if (isset($_SESSION['mensaje'])) {
-    $mensaje = $_SESSION['mensaje'];
-    $mensaje_tipo = isset($_SESSION['mensaje_tipo']) ? $_SESSION['mensaje_tipo'] : 'success';
-    // Limpiar mensaje de sesión después de leerlo
-    unset($_SESSION['mensaje']);
-    unset($_SESSION['mensaje_tipo']);
-}
+// Capturar mensajes de sesión usando función centralizada
+$resultado_mensaje = obtenerMensajeSession();
+$mensaje = $resultado_mensaje['mensaje'];
+$mensaje_tipo = $resultado_mensaje['mensaje_tipo'];
 
 // ============================================================================
 // PROCESAR ACTIVACIÓN/DESACTIVACIÓN DE PRODUCTO
@@ -192,6 +189,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar_foto_tempora
             $_SESSION['mensaje_tipo'] = 'danger';
         }
         $redirect_url = construirRedirectUrl('marketing.php', ['tab' => 'fotos']);
+        header('Location: ' . $redirect_url);
+        exit;
+    }
+}
+
+// ============================================================================
+// PROCESAR ELIMINACIÓN DE CATEGORÍA
+// ============================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar_categoria'])) {
+    $id_categoria = isset($_POST['id_categoria']) ? intval($_POST['id_categoria']) : 0;
+    
+    if ($id_categoria > 0) {
+        // Verificar que la categoría puede eliminarse
+        $verificacion = verificarCategoriaPuedeEliminarse($mysqli, $id_categoria);
+        
+        if (!$verificacion['puede_eliminarse']) {
+            $_SESSION['mensaje'] = $verificacion['razon'];
+            $_SESSION['mensaje_tipo'] = 'danger';
+            $redirect_url = construirRedirectUrl('marketing.php', ['tab' => 'categorias']);
+            header('Location: ' . $redirect_url);
+            exit;
+        }
+        
+        // Intentar eliminar permanentemente la categoría
+        if (eliminarCategoriaPermanentemente($mysqli, $id_categoria)) {
+            $_SESSION['mensaje'] = 'Categoría eliminada permanentemente';
+            $_SESSION['mensaje_tipo'] = 'success';
+        } else {
+            $_SESSION['mensaje'] = 'Error al eliminar la categoría';
+            $_SESSION['mensaje_tipo'] = 'danger';
+        }
+        
+        $redirect_url = construirRedirectUrl('marketing.php', ['tab' => 'categorias']);
         header('Location: ' . $redirect_url);
         exit;
     }
@@ -415,7 +445,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
     <?php
     // Detectar pestaña activa desde parámetro URL
     $tab_activo = isset($_GET['tab']) ? $_GET['tab'] : 'productos';
-    $tabs_validos = ['productos', 'csv', 'agregar', 'metricas', 'fotos'];
+    $tabs_validos = ['productos', 'csv', 'agregar', 'categorias', 'metricas', 'fotos'];
     if (!in_array($tab_activo, $tabs_validos)) {
         $tab_activo = 'productos';
     }
@@ -436,6 +466,11 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
         <li class="nav-item" role="presentation">
             <button class="nav-link <?= $tab_activo === 'agregar' ? 'active' : '' ?>" id="agregar-tab" data-bs-toggle="tab" data-bs-target="#agregar" type="button" role="tab">
                 <i class="fas fa-plus me-2"></i>Agregar Producto
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link <?= $tab_activo === 'categorias' ? 'active' : '' ?>" id="categorias-tab" data-bs-toggle="tab" data-bs-target="#categorias" type="button" role="tab">
+                <i class="fas fa-tags me-2"></i>Categorías
             </button>
         </li>
         <li class="nav-item" role="presentation">
@@ -548,7 +583,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                         <?php if (!empty($producto['talles_array'])): ?>
                                             <div class="d-flex flex-wrap gap-1">
                                                 <?php foreach ($producto['talles_array'] as $talle): ?>
-                                                    <span class="badge bg-secondary" style="font-size: 0.85em; padding: 0.3em 0.6em;">
+                                                    <span class="badge bg-secondary badge-talles">
                                                         <?= htmlspecialchars($talle) ?>
                                                     </span>
                                                 <?php endforeach; ?>
@@ -561,13 +596,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                         <?php if (!empty($producto['colores_array'])): ?>
                                             <div class="d-flex flex-wrap gap-2">
                                                 <?php foreach ($producto['colores_array'] as $color): ?>
-                                                    <span class="badge rounded-pill bg-secondary" 
-                                                          style="color: #000000; 
-                                                                 border: 1px solid #CCCCCC; 
-                                                                 padding: 0.35em 0.75em; 
-                                                                 font-weight: 500;
-                                                                 font-size: 0.85em;
-                                                                 text-transform: capitalize;">
+                                                    <span class="badge rounded-pill bg-secondary badge-colores">
                                                         <?= htmlspecialchars($color) ?>
                                                     </span>
                                                 <?php endforeach; ?>
@@ -590,15 +619,18 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                 <i class="fas fa-edit me-1"></i>Gestionar
                                             </a>
                                             <?php 
+                                            // Calcular condiciones una sola vez para simplificar
                                             $activo = intval($producto['activo'] ?? 1);
-                                            if ($activo === 1): ?>
+                                            $es_activo = $activo === 1;
+                                            $input_mostrar_inactivos = $mostrar_inactivos ? '<input type="hidden" name="mostrar_inactivos" value="1">' : '';
+                                            
+                                            // Botón activar/desactivar
+                                            if ($es_activo): ?>
                                                 <form method="POST" style="display: inline;" 
                                                       onsubmit="return confirm('¿Está seguro de desactivar este producto?');">
                                                     <input type="hidden" name="id_producto" value="<?= $producto['id_producto'] ?>">
                                                     <input type="hidden" name="desactivar_producto" value="1">
-                                                    <?php if ($mostrar_inactivos): ?>
-                                                        <input type="hidden" name="mostrar_inactivos" value="1">
-                                                    <?php endif; ?>
+                                                    <?= $input_mostrar_inactivos ?>
                                                     <button type="submit" class="btn btn-sm btn-secondary" title="Desactivar producto">
                                                         <i class="fas fa-ban"></i>
                                                     </button>
@@ -607,17 +639,18 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                 <form method="POST" style="display: inline;">
                                                     <input type="hidden" name="id_producto" value="<?= $producto['id_producto'] ?>">
                                                     <input type="hidden" name="activar_producto" value="1">
-                                                    <?php if ($mostrar_inactivos): ?>
-                                                        <input type="hidden" name="mostrar_inactivos" value="1">
-                                                    <?php endif; ?>
+                                                    <?= $input_mostrar_inactivos ?>
                                                     <button type="submit" class="btn btn-sm btn-success" title="Activar producto">
                                                         <i class="fas fa-check"></i>
                                                     </button>
                                                 </form>
+                                                
                                                 <?php
                                                 // Verificar si el producto puede eliminarse permanentemente
                                                 $verificacion_eliminar = verificarProductoPuedeEliminarse($mysqli, $producto['id_producto']);
-                                                if ($verificacion_eliminar['puede_eliminarse']): ?>
+                                                $puede_eliminarse = $verificacion_eliminar['puede_eliminarse'];
+                                                
+                                                if ($puede_eliminarse): ?>
                                                     <button type="button" 
                                                             class="btn btn-sm btn-danger" 
                                                             title="Eliminar permanentemente"
@@ -651,9 +684,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                                     <form method="POST" style="display: inline;">
                                                                         <input type="hidden" name="eliminar_producto_permanente" value="1">
                                                                         <input type="hidden" name="id_producto" value="<?= $producto['id_producto'] ?>">
-                                                                        <?php if ($mostrar_inactivos): ?>
-                                                                            <input type="hidden" name="mostrar_inactivos" value="1">
-                                                                        <?php endif; ?>
+                                                                        <?= $input_mostrar_inactivos ?>
                                                                         <button type="submit" class="btn btn-danger">
                                                                             <i class="fas fa-trash-alt me-1"></i>Eliminar Permanentemente
                                                                         </button>
@@ -815,7 +846,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                         </div>
                         <?php endif; ?>
                         
-                        <div class="alert alert-info border-info mt-3" style="background-color: #e7f3ff; border-left: 4px solid #0d6efd;">
+                        <div class="alert alert-info border-info alert-panel mt-3">
                             <h6 class="text-dark mb-3"><i class="fas fa-info-circle me-2"></i>Recomendaciones para una carga exitosa:</h6>
                             <ul class="mb-0 small text-dark">
                                 <li class="mb-2"><strong>Usa nombres de categorías, NO IDs:</strong> Escribe "Blusas" en lugar de "1"</li>
@@ -921,7 +952,124 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
             </div>
         </div>
 
-        <!-- Pestaña 4: Cargar Fotos -->
+        <!-- Pestaña 4: Categorías -->
+        <div class="tab-pane fade <?= $tab_activo === 'categorias' ? 'show active' : '' ?>" id="categorias" role="tabpanel">
+            <!-- Mensajes -->
+            <?php if ($mensaje && $tab_activo === 'categorias'): ?>
+            <div class="alert alert-<?= $mensaje_tipo ?> alert-dismissible fade show" role="alert">
+                <?= htmlspecialchars($mensaje) ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            <?php endif; ?>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-tags me-2"></i>Gestión de Categorías
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <?php if (empty($categorias_array)): ?>
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                        <p>No hay categorías registradas</p>
+                    </div>
+                    <?php else: ?>
+                    <div class="table-responsive">
+                        <table class="table sortable-table">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th class="sortable">ID</th>
+                                    <th class="sortable">Nombre</th>
+                                    <th class="sortable">Descripción</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($categorias_array as $cat): ?>
+                                <tr>
+                                    <td>#<?= $cat['id_categoria'] ?></td>
+                                    <td><strong><?= htmlspecialchars($cat['nombre_categoria']) ?></strong></td>
+                                    <td>
+                                        <?php if (!empty($cat['descripcion_categoria'])): ?>
+                                            <?= htmlspecialchars($cat['descripcion_categoria']) ?>
+                                        <?php else: ?>
+                                            <span class="text-muted"><em>Sin descripción</em></span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php
+                                        // Verificar si la categoría puede eliminarse
+                                        $verificacion_cat = verificarCategoriaPuedeEliminarse($mysqli, $cat['id_categoria']);
+                                        if ($verificacion_cat['puede_eliminarse']): ?>
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-danger" 
+                                                    title="Eliminar categoría"
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#eliminarCategoriaModal<?= $cat['id_categoria'] ?>">
+                                                <i class="fas fa-trash-alt"></i> Eliminar
+                                            </button>
+                                            
+                                            <!-- Modal de confirmación de eliminación -->
+                                            <div class="modal fade" id="eliminarCategoriaModal<?= $cat['id_categoria'] ?>" tabindex="-1">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header bg-danger text-white">
+                                                            <h5 class="modal-title">
+                                                                <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Eliminación Permanente
+                                                            </h5>
+                                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            <p>
+                                                                <strong>Categoría:</strong> <?= htmlspecialchars($cat['nombre_categoria']) ?> (ID: #<?= $cat['id_categoria'] ?>)
+                                                            </p>
+                                                            <p class="mb-0">
+                                                                <strong>¿Está seguro de que desea eliminar permanentemente esta categoría?</strong><br>
+                                                                <small class="text-muted">Esta acción eliminará la categoría de la base de datos de forma permanente. Esta acción es IRREVERSIBLE.</small>
+                                                            </p>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                            <form method="POST" style="display: inline;">
+                                                                <input type="hidden" name="eliminar_categoria" value="1">
+                                                                <input type="hidden" name="id_categoria" value="<?= $cat['id_categoria'] ?>">
+                                                                <button type="submit" class="btn btn-danger">
+                                                                    <i class="fas fa-trash-alt me-1"></i>Eliminar Categoría
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        <?php else: ?>
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-danger" 
+                                                    disabled
+                                                    title="No se puede eliminar: <?= htmlspecialchars($verificacion_cat['razon']) ?>">
+                                                <i class="fas fa-trash-alt"></i> Eliminar
+                                            </button>
+                                            <small class="text-muted d-block mt-1">
+                                                <?= htmlspecialchars($verificacion_cat['razon']) ?>
+                                            </small>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            Mostrando <?= count($categorias_array) ?> categoría(s)
+                        </small>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pestaña 5: Cargar Fotos -->
         <div class="tab-pane fade <?= $tab_activo === 'fotos' ? 'show active' : '' ?>" id="fotos" role="tabpanel">
             <!-- Mensajes -->
             <?php if ($mensaje && $tab_activo === 'fotos'): ?>
@@ -1004,8 +1152,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                             <?php if (file_exists($ruta_completa)): ?>
                                             <img src="<?= htmlspecialchars($ruta_completa) ?>" 
                                                  alt="Preview" 
-                                                 class="img-thumbnail" 
-                                                 style="max-width: 100px; max-height: 100px; object-fit: cover;">
+                                                 class="img-thumbnail img-preview-thumbnail">
                                             <?php else: ?>
                                             <span class="text-muted">No disponible</span>
                                             <?php endif; ?>
@@ -1090,7 +1237,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                         </div>
                         <div class="card-body">
                             <?php if (!empty($productos_sin_movimiento)): ?>
-                                <div class="alert alert-info border-info mb-3" style="background-color: #e7f3ff; border-left: 4px solid #0d6efd;">
+                                <div class="alert alert-info border-info alert-panel mb-3">
                                     <i class="fas fa-info-circle me-2 text-primary"></i>
                                     <strong class="text-dark">Productos con stock pero sin ventas recientes.</strong> 
                                     <span class="text-dark">Considera promociones o descuentos para reactivar las ventas.</span>
@@ -1156,13 +1303,8 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                         <tbody>
                                             <?php foreach ($movimientos_stock as $movimiento): ?>
                                                 <?php
-                                                // Mapeo de tipos de movimiento con colores
-                                                $tipos_movimiento_map = [
-                                                    'venta' => ['color' => 'success', 'nombre' => 'Venta', 'signo' => '-'],
-                                                    'ingreso' => ['color' => 'info', 'nombre' => 'Ingreso', 'signo' => '+'],
-                                                    'ajuste' => ['color' => 'warning', 'nombre' => 'Ajuste', 'signo' => ''],
-                                                    'devolucion' => ['color' => 'secondary', 'nombre' => 'Devolución', 'signo' => '+']
-                                                ];
+                                                // Obtener mapeo de tipos de movimiento
+                                                $tipos_movimiento_map = obtenerTiposMovimientoMap();
                                                 $tipo_mov = strtolower(trim($movimiento['tipo_movimiento'] ?? ''));
                                                 $info_tipo = $tipos_movimiento_map[$tipo_mov] ?? ['color' => 'secondary', 'nombre' => ucfirst($tipo_mov), 'signo' => ''];
                                                 
@@ -1185,14 +1327,17 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                 }
                                                 
                                                 // Truncar observaciones si son muy largas
+                                                // Truncar observaciones si son muy largas (aumentado a 120 caracteres)
                                                 $observaciones = $movimiento['observaciones'] ?? '';
                                                 $observaciones_truncadas = '';
+                                                $observaciones_completas = '';
                                                 if (!empty($observaciones)) {
-                                                    if (strlen($observaciones) > 50) {
-                                                        $observaciones_truncadas = htmlspecialchars(substr($observaciones, 0, 50)) . '...';
-                                                        $observaciones_completas = htmlspecialchars($observaciones);
+                                                    $observaciones_escaped = htmlspecialchars($observaciones);
+                                                    if (strlen($observaciones) > 120) {
+                                                        $observaciones_truncadas = substr($observaciones_escaped, 0, 120) . '...';
+                                                        $observaciones_completas = nl2br($observaciones_escaped); // Preservar saltos de línea
                                                     } else {
-                                                        $observaciones_truncadas = htmlspecialchars($observaciones);
+                                                        $observaciones_truncadas = $observaciones_escaped;
                                                         $observaciones_completas = '';
                                                     }
                                                 }
@@ -1214,27 +1359,43 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                         <strong class="<?= $clase_cantidad ?>"><?= $cantidad_formato ?></strong>
                                                     </td>
                                                     <td>
-                                                        <?php if (!empty($movimiento['id_pedido'])): ?>
-                                                            <span class="badge bg-primary">#<?= $movimiento['id_pedido'] ?></span>
-                                                        <?php else: ?>
-                                                            <span class="text-muted"><small>N/A</small></span>
-                                                        <?php endif; ?>
+                                                        <?= !empty($movimiento['id_pedido']) 
+                                                            ? '<span class="badge bg-primary">#' . $movimiento['id_pedido'] . '</span>' 
+                                                            : '<span class="text-muted"><small>N/A</small></span>' ?>
                                                     </td>
                                                     <td>
-                                                        <?php if (!empty($movimiento['nombre_usuario'])): ?>
-                                                            <small><?= htmlspecialchars($movimiento['nombre_usuario']) ?></small>
-                                                        <?php else: ?>
-                                                            <span class="text-muted"><small>N/A</small></span>
-                                                        <?php endif; ?>
+                                                        <?= !empty($movimiento['nombre_usuario']) 
+                                                            ? '<small>' . htmlspecialchars($movimiento['nombre_usuario']) . '</small>' 
+                                                            : '<span class="text-muted"><small>N/A</small></span>' ?>
                                                     </td>
                                                     <td>
                                                         <?php if (!empty($observaciones_truncadas)): ?>
+                                                            <small><?= $observaciones_truncadas ?></small>
                                                             <?php if (!empty($observaciones_completas)): ?>
-                                                                <span data-bs-toggle="tooltip" data-bs-placement="top" title="<?= $observaciones_completas ?>">
-                                                                    <small><?= $observaciones_truncadas ?></small>
-                                                                </span>
-                                                            <?php else: ?>
-                                                                <small><?= $observaciones_truncadas ?></small>
+                                                                <button type="button" class="btn btn-sm btn-link p-0 ms-1" 
+                                                                        data-bs-toggle="modal" 
+                                                                        data-bs-target="#modalObservaciones<?= $movimiento['id_movimiento'] ?>"
+                                                                        title="Ver observaciones completas">
+                                                                    <i class="fas fa-eye text-primary"></i>
+                                                                </button>
+                                                                <!-- Modal para observaciones completas -->
+                                                                <div class="modal fade" id="modalObservaciones<?= $movimiento['id_movimiento'] ?>" tabindex="-1" aria-hidden="true">
+                                                                    <div class="modal-dialog modal-dialog-centered">
+                                                                        <div class="modal-content">
+                                                                            <div class="modal-header">
+                                                                                <h5 class="modal-title">Observaciones del Movimiento</h5>
+                                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                                            </div>
+                                                                            <div class="modal-body">
+                                                                                <p class="text-muted mb-2"><small>Movimiento #<?= $movimiento['id_movimiento'] ?> - <?= htmlspecialchars($movimiento['nombre_producto']) ?> (<?= htmlspecialchars($movimiento['talle']) ?>, <?= htmlspecialchars($movimiento['color']) ?>)</small></p>
+                                                                                <div class="border rounded p-3 bg-light" style="white-space: pre-wrap; font-family: monospace; font-size: 0.9em;"><?= $observaciones_completas ?></div>
+                                                                            </div>
+                                                                            <div class="modal-footer">
+                                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
                                                             <?php endif; ?>
                                                         <?php else: ?>
                                                             <span class="text-muted"><small>-</small></span>

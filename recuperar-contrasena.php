@@ -35,6 +35,22 @@ if (!file_exists($admin_functions_path)) {
 }
 require_once $admin_functions_path; // Incluye usuario_queries.php
 
+// Cargar funciones de validación centralizadas
+$validation_functions_path = __DIR__ . '/includes/validation_functions.php';
+if (!file_exists($validation_functions_path)) {
+    error_log("ERROR: No se pudo encontrar validation_functions.php en " . $validation_functions_path);
+    die("Error crítico: Archivo de funciones de validación no encontrado. Por favor, contacta al administrador.");
+}
+require_once $validation_functions_path;
+
+// Cargar funciones de contraseñas
+$password_functions_path = __DIR__ . '/includes/password_functions.php';
+if (!file_exists($password_functions_path)) {
+    error_log("ERROR: No se pudo encontrar password_functions.php en " . $password_functions_path);
+    die("Error crítico: Archivo de funciones de contraseña no encontrado. Por favor, contacta al administrador.");
+}
+require_once $password_functions_path;
+
 // Configurar título de la página
 $titulo_pagina = 'Recuperar Contraseña';
 
@@ -63,9 +79,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['validar_datos'])) {
         $mensaje = $validacion_email['error'];
     } else {
         // La función validarEmail() ya sanitiza, pero necesitamos el valor original para búsqueda
-        // Normalizar email para búsqueda: convertir a minúsculas
-        $email = strtolower(trim($email_raw));
-        $email = preg_replace('/[\x00-\x1F\x7F]/u', '', $email);
+        // Normalizar email usando función centralizada
+        $email = normalizarEmail($email_raw);
         // NOTA: No usar htmlspecialchars() aquí - se aplica solo al mostrar en HTML
         
         // ========================================================================
@@ -136,74 +151,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['validar_datos'])) {
         }
     }
     
-    // Validar RESPUESTA DE RECUPERO
-    $respuesta_recupero = trim($_POST['respuesta_recupero'] ?? '');
-    if (empty($respuesta_recupero)) {
-        $mensaje = 'La respuesta de recupero es obligatoria.';
-    } elseif (strlen($respuesta_recupero) < 4) {
-        $mensaje = 'La respuesta de recupero debe tener al menos 4 caracteres.';
-    } elseif (strlen($respuesta_recupero) > 255) {
-        $mensaje = 'La respuesta de recupero no puede exceder 255 caracteres.';
-    } elseif (!preg_match('/^[a-zA-Z0-9 ]+$/', $respuesta_recupero)) {
-        $mensaje = 'La respuesta de recupero solo puede contener letras, números y espacios.';
+    // Validar RESPUESTA DE RECUPERO usando función centralizada
+    $respuesta_recupero_raw = $_POST['respuesta_recupero'] ?? '';
+    $validacion_respuesta = validarRespuestaRecupero($respuesta_recupero_raw);
+    if (!$validacion_respuesta['valido']) {
+        $mensaje = $validacion_respuesta['error'];
     } else {
         // Normalizar respuesta a minúsculas para comparación
-        $respuesta_recupero = strtolower($respuesta_recupero);
+        $respuesta_recupero = strtolower($validacion_respuesta['valor']);
     }
     
     // Si todas las validaciones pasan, verificar en base de datos
     if (empty($mensaje)) {
-        // PASO 1: Buscar usuario por email y verificar fecha de nacimiento
-        // Solo usuarios activos pueden recuperar su contraseña (seguridad)
+        // PASO 1: Buscar usuario por email
         $usuario = obtenerUsuarioPorEmailRecupero($mysqli, $email);
-        
-        if ($usuario) {
-            // PASO 2: Verificar fecha de nacimiento primero
-            $fecha_nac_bd = $usuario['fecha_nacimiento'] ?? null;
-            
-            if (empty($fecha_nac_bd)) {
-                $mensaje = 'Este usuario no tiene fecha de nacimiento registrada. Contacta al administrador.';
-            } else {
-                // Comparar fechas (formato DATE: YYYY-MM-DD)
-                $fecha_nac_formateada = date('Y-m-d', strtotime($fecha_nac_bd));
-                if ($fecha_nac_formateada !== $fecha_nacimiento) {
-                    $mensaje = 'Los datos proporcionados no coinciden. Verifica tu email y fecha de nacimiento.';
-                } else {
-                    // PASO 3: Si la fecha coincide, verificar pregunta y respuesta de recupero
-                    $pregunta_bd = $usuario['pregunta_recupero'] ?? null;
-                    $respuesta_bd = $usuario['respuesta_recupero'] ?? null;
-                    
-                    if (empty($pregunta_bd)) {
-                        $mensaje = 'Este usuario no tiene pregunta de recupero registrada. Contacta al administrador.';
-                    } elseif (empty($respuesta_bd)) {
-                        $mensaje = 'Este usuario no tiene respuesta de recupero registrada. Contacta al administrador.';
-                    } else {
-                        // Comparar pregunta de recupero
-                        if (intval($pregunta_bd) !== $pregunta_recupero_id) {
-                            $mensaje = 'La pregunta de recupero seleccionada no coincide con la registrada.';
-                        } else {
-                            // Comparar respuesta (normalizada a minúsculas)
-                            $respuesta_bd_normalizada = strtolower(trim($respuesta_bd));
-                            if ($respuesta_bd_normalizada !== $respuesta_recupero) {
-                                $mensaje = 'La respuesta de recupero no es correcta. Verifica tu respuesta.';
-                            } else {
-                                // Validación exitosa - limpiar intentos y guardar en sesión
-                                limpiarIntentosFormulario($email, 'recupero');
-                                
-                                $_SESSION['recuperar_contrasena_id'] = $usuario['id_usuario'];
-                                $_SESSION['recuperar_contrasena_email'] = $usuario['email'];
-                                $usuario_validado = true;
-                                $id_usuario_validado = $usuario['id_usuario'];
-                                $paso = 2; // Avanzar al paso 2
-                                $mensaje = 'Datos validados correctamente. Ahora puedes cambiar tu contraseña.';
-                                $mensaje_tipo = 'success';
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
+
+        // Si usuario no existe, mostrar error genérico
+        if (!$usuario) {
             $mensaje = 'El correo electrónico no está registrado en el sistema.';
+        } else {
+            // PASO 2-4: Validar fecha, pregunta y respuesta usando función centralizada
+            $validacion = validarDatosRecuperacionAvanzada($usuario, $fecha_nacimiento, $pregunta_recupero_id, $respuesta_recupero);
+
+            if (!$validacion['valido']) {
+                $mensaje = $validacion['error'];
+            } else {
+                // Validación exitosa - limpiar intentos y guardar en sesión
+                limpiarIntentosFormulario($email, 'recupero');
+
+                $_SESSION['recuperar_contrasena_id'] = $validacion['usuario_id'];
+                $_SESSION['recuperar_contrasena_email'] = $usuario['email'];
+                $usuario_validado = true;
+                $id_usuario_validado = $validacion['usuario_id'];
+                $paso = 2; // Avanzar al paso 2
+                $mensaje = 'Datos validados correctamente. Ahora puedes cambiar tu contraseña.';
+                $mensaje_tipo = 'success';
+            }
         }
         
         // ========================================================================

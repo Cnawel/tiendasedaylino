@@ -14,7 +14,8 @@
  * 2. GESTIÓN DE PEDIDOS:
  *    - Ver pedidos con selector de cantidad (10/50/Todos)
  *    - Editar estado de pedidos mediante SELECT y actualizar en BD
- *    - Estados disponibles: pendiente, preparacion, en_viaje, completado, devolucion, cancelado
+ *    - Estados disponibles: pendiente, preparacion, en_viaje, completado, cancelado
+ *    - NOTA: devolucion existe en DB pero NO está implementado en MVP
  *    - Información completa de cada pedido (cliente, fecha, total, estado)
  * 
  * 3. GESTIÓN DE CLIENTES:
@@ -109,6 +110,11 @@ require_once __DIR__ . '/includes/estado_helpers.php';
 // Cargar componentes de ventas (modales y secciones)
 require_once __DIR__ . '/includes/ventas_components.php';
 
+// Cargar funciones de dashboard
+require_once __DIR__ . '/includes/dashboard_functions.php';
+require_once __DIR__ . '/includes/admin_functions.php';
+require_once __DIR__ . '/includes/security_functions.php';
+
 // Configurar título de la página
 $titulo_pagina = 'Panel de Ventas';
 
@@ -116,16 +122,10 @@ $titulo_pagina = 'Panel de Ventas';
 // PROCESAMIENTO DE FORMULARIOS
 // ============================================================================
 
-// Obtener mensajes de sesión (si hay redirección)
-$mensaje = '';
-$mensaje_tipo = '';
-if (isset($_SESSION['mensaje'])) {
-    $mensaje = $_SESSION['mensaje'];
-    $mensaje_tipo = isset($_SESSION['mensaje_tipo']) ? $_SESSION['mensaje_tipo'] : 'success';
-    // Limpiar mensaje de sesión después de leerlo
-    unset($_SESSION['mensaje']);
-    unset($_SESSION['mensaje_tipo']);
-}
+// Obtener mensajes de sesión usando función centralizada
+$resultado_mensaje = obtenerMensajeSession();
+$mensaje = $resultado_mensaje['mensaje'];
+$mensaje_tipo = $resultado_mensaje['mensaje_tipo'];
 
 
 // Incluir queries necesarias
@@ -161,7 +161,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($resultado !== false) {
         $_SESSION['mensaje'] = $resultado['mensaje'];
         $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
-        $redirect_url = construirRedirectUrl('ventas.php');
+        
+        // Preservar tab desde POST si está presente (para acciones de métodos de pago)
+        $params_adicionales = null;
+        if (isset($_POST['tab']) && !empty($_POST['tab'])) {
+            $params_adicionales = ['tab' => $_POST['tab']];
+        }
+        
+        $redirect_url = construirRedirectUrl('ventas.php', $params_adicionales);
         header('Location: ' . $redirect_url);
         exit;
     } else {
@@ -420,7 +427,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                         <strong><?= htmlspecialchars($mensaje_inconsistencia) ?></strong>
                                                     </small>
                                                     <?php if (!empty($accion_sugerida)): ?>
-                                                    <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
+                                                    <small class="text-muted d-block mt-1 small-hint">
                                                         <i class="fas fa-lightbulb"></i> <?= htmlspecialchars($accion_sugerida) ?>
                                                     </small>
                                                     <?php endif; ?>
@@ -444,7 +451,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                             <strong><?= htmlspecialchars($mensaje_inconsistencia) ?></strong>
                                                         </small>
                                                         <?php if (!empty($accion_sugerida)): ?>
-                                                        <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
+                                                        <small class="text-muted d-block mt-1 small-hint">
                                                             <i class="fas fa-lightbulb"></i> <?= htmlspecialchars($accion_sugerida) ?>
                                                     </small>
                                                         <?php endif; ?>
@@ -456,7 +463,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                         </td>
                                         <td>
                                             <button type="button" 
-                                                    class="btn btn-sm btn-outline-info me-1" 
+                                                    class="btn btn-sm btn-outline-primary me-1" 
                                                     data-bs-toggle="modal" 
                                                     data-bs-target="#verPedidoModal<?= $pedido['id_pedido'] ?>">
                                                 <i class="fas fa-eye me-1"></i>Ver Pedido
@@ -572,6 +579,14 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
 
             <!-- Pestaña de Métodos de Pago -->
             <div class="tab-pane fade <?= $tab_activo === 'metodos-pago' ? 'show active' : '' ?>" id="metodos-pago" role="tabpanel">
+                <!-- Mensajes -->
+                <?php if ($mensaje): ?>
+                <div class="alert alert-<?= $mensaje_tipo ?> alert-dismissible fade show" role="alert">
+                    <?= htmlspecialchars($mensaje) ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                <?php endif; ?>
+                
                 <div class="row">
                     <!-- Formulario para agregar nuevo método -->
                     <div class="col-md-4 mb-4">
@@ -676,7 +691,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                         <input type="hidden" name="id_forma_pago" value="<?= $metodo['id_forma_pago'] ?>">
                                                         <button type="submit" 
                                                                 name="toggle_activo_metodo_pago"
-                                                                class="btn btn-sm <?= $es_activo ? 'btn-outline-warning' : 'btn-outline-success' ?>"
+                                                                class="btn btn-sm btn-outline-primary"
                                                                 data-auto-lock="true" 
                                                                 data-lock-time="2000" 
                                                                 data-lock-text="<?= $es_activo ? 'Desactivando...' : 'Activando...' ?>">
@@ -693,7 +708,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                     </button>
                                                     
                                                     <button type="button" 
-                                                            class="btn btn-sm btn-outline-danger" 
+                                                            class="btn btn-sm btn-outline-primary" 
                                                             data-bs-toggle="modal" 
                                                             data-bs-target="#eliminarMetodoModal<?= $metodo['id_forma_pago'] ?>">
                                                         <i class="fas fa-trash me-1"></i>Eliminar
@@ -757,6 +772,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                                 <form method="POST" action="">
                                                                     <div class="modal-body">
                                                                         <input type="hidden" name="id_forma_pago" value="<?= $metodo['id_forma_pago'] ?>">
+                                                                        <input type="hidden" name="tab" value="metodos-pago">
                                                                         
                                                                         <div class="alert alert-warning">
                                                                             <i class="fas fa-exclamation-triangle me-2"></i>
@@ -931,13 +947,8 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                             <tbody>
                                                 <?php foreach ($movimientos_stock as $movimiento): ?>
                                                     <?php
-                                                    // Mapeo de tipos de movimiento con colores
-                                                    $tipos_movimiento_map = [
-                                                        'venta' => ['color' => 'success', 'nombre' => 'Venta', 'signo' => '-'],
-                                                        'ingreso' => ['color' => 'info', 'nombre' => 'Ingreso', 'signo' => '+'],
-                                                        'ajuste' => ['color' => 'warning', 'nombre' => 'Ajuste', 'signo' => ''],
-                                                        'devolucion' => ['color' => 'secondary', 'nombre' => 'Devolución', 'signo' => '+']
-                                                    ];
+                                                    // Obtener mapeo de tipos de movimiento
+                                                    $tipos_movimiento_map = obtenerTiposMovimientoMap();
                                                     $tipo_mov = strtolower(trim($movimiento['tipo_movimiento'] ?? ''));
                                                     $info_tipo = $tipos_movimiento_map[$tipo_mov] ?? ['color' => 'secondary', 'nombre' => ucfirst($tipo_mov), 'signo' => ''];
                                                     
@@ -959,15 +970,17 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                         $clase_cantidad = 'text-success';
                                                     }
                                                     
-                                                    // Truncar observaciones si son muy largas
+                                                    // Truncar observaciones si son muy largas (aumentado a 120 caracteres)
                                                     $observaciones = $movimiento['observaciones'] ?? '';
                                                     $observaciones_truncadas = '';
+                                                    $observaciones_completas = '';
                                                     if (!empty($observaciones)) {
-                                                        if (strlen($observaciones) > 50) {
-                                                            $observaciones_truncadas = htmlspecialchars(substr($observaciones, 0, 50)) . '...';
-                                                            $observaciones_completas = htmlspecialchars($observaciones);
+                                                        $observaciones_escaped = htmlspecialchars($observaciones);
+                                                        if (strlen($observaciones) > 120) {
+                                                            $observaciones_truncadas = substr($observaciones_escaped, 0, 120) . '...';
+                                                            $observaciones_completas = nl2br($observaciones_escaped); // Preservar saltos de línea
                                                         } else {
-                                                            $observaciones_truncadas = htmlspecialchars($observaciones);
+                                                            $observaciones_truncadas = $observaciones_escaped;
                                                             $observaciones_completas = '';
                                                         }
                                                     }

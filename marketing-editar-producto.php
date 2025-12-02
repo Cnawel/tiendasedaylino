@@ -291,7 +291,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_fotos'])) 
         $foto_general_existente = obtenerFotoProductoGeneral($mysqli, $id_producto);
         
         // Procesar foto miniatura (común)
-        // Prioridad: archivo subido > selección del SELECT
+        // Prioridad: archivo subido > selección del SELECT > limpiar foto
         if (isset($_FILES['foto_miniatura']) && $_FILES['foto_miniatura']['error'] === UPLOAD_ERR_OK) {
             $ruta_miniatura = subirImagenGenerica($id_producto, $_FILES['foto_miniatura'], 'miniatura');
             
@@ -300,25 +300,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_fotos'])) 
             } else {
                 insertarFotoProducto($mysqli, $id_producto, $ruta_miniatura, null, null, null, null);
             }
-        } elseif (isset($_POST['foto_miniatura_temp']) && !empty(trim($_POST['foto_miniatura_temp']))) {
-            // Usar imagen temporal seleccionada
-            $nombre_archivo_temp = trim($_POST['foto_miniatura_temp']);
-            // Sanitizar nombre de archivo (remover caracteres peligrosos)
-            $nombre_archivo_temp = basename($nombre_archivo_temp);
-            if (empty($nombre_archivo_temp)) {
-                throw new Exception('Nombre de archivo temporal inválido');
-            }
-            $ruta_miniatura = copiarFotoTemporalAVariante($nombre_archivo_temp, $id_producto, null, 'miniatura');
+        } elseif (isset($_POST['foto_miniatura_temp'])) {
+            $valor_temp = trim($_POST['foto_miniatura_temp']);
             
-            if ($foto_general_existente) {
-                actualizarFotoMiniatura($mysqli, $foto_general_existente['id_foto'], $ruta_miniatura);
-            } else {
-                insertarFotoProducto($mysqli, $id_producto, $ruta_miniatura, null, null, null, null);
+            // Si el valor es __CLEAR__, limpiar la foto
+            if ($valor_temp === '__CLEAR__') {
+                if ($foto_general_existente) {
+                    actualizarFotoMiniatura($mysqli, $foto_general_existente['id_foto'], null);
+                }
+            } elseif (!empty($valor_temp)) {
+                // Usar imagen temporal seleccionada
+                $nombre_archivo_temp = basename($valor_temp);
+                if (empty($nombre_archivo_temp)) {
+                    throw new Exception('Nombre de archivo temporal inválido');
+                }
+                $ruta_miniatura = copiarFotoTemporalAVariante($nombre_archivo_temp, $id_producto, null, 'miniatura');
+                
+                if ($foto_general_existente) {
+                    actualizarFotoMiniatura($mysqli, $foto_general_existente['id_foto'], $ruta_miniatura);
+                } else {
+                    insertarFotoProducto($mysqli, $id_producto, $ruta_miniatura, null, null, null, null);
+                }
             }
         }
         
         // Procesar foto grupal (foto3_prod, común)
-        // Prioridad: archivo subido > selección del SELECT
+        // Prioridad: archivo subido > selección del SELECT > limpiar foto
         if (isset($_FILES['foto_grupal']) && $_FILES['foto_grupal']['error'] === UPLOAD_ERR_OK) {
             $ruta_grupal = subirImagenGenerica($id_producto, $_FILES['foto_grupal'], 'grupal');
             
@@ -327,20 +334,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_fotos'])) 
             } else {
                 insertarFotoProducto($mysqli, $id_producto, null, null, null, $ruta_grupal, null);
             }
-        } elseif (isset($_POST['foto_grupal_temp']) && !empty(trim($_POST['foto_grupal_temp']))) {
-            // Usar imagen temporal seleccionada
-            $nombre_archivo_temp = trim($_POST['foto_grupal_temp']);
-            // Sanitizar nombre de archivo (remover caracteres peligrosos)
-            $nombre_archivo_temp = basename($nombre_archivo_temp);
-            if (empty($nombre_archivo_temp)) {
-                throw new Exception('Nombre de archivo temporal inválido');
-            }
-            $ruta_grupal = copiarFotoTemporalAVariante($nombre_archivo_temp, $id_producto, null, 'foto3');
+        } elseif (isset($_POST['foto_grupal_temp'])) {
+            $valor_temp = trim($_POST['foto_grupal_temp']);
             
-            if ($foto_general_existente) {
-                actualizarFotoGrupal($mysqli, $foto_general_existente['id_foto'], $ruta_grupal);
-            } else {
-                insertarFotoProducto($mysqli, $id_producto, null, null, null, $ruta_grupal, null);
+            // Si el valor es __CLEAR__, limpiar la foto
+            if ($valor_temp === '__CLEAR__') {
+                if ($foto_general_existente) {
+                    actualizarFotoGrupal($mysqli, $foto_general_existente['id_foto'], null);
+                }
+            } elseif (!empty($valor_temp)) {
+                // Usar imagen temporal seleccionada
+                $nombre_archivo_temp = basename($valor_temp);
+                if (empty($nombre_archivo_temp)) {
+                    throw new Exception('Nombre de archivo temporal inválido');
+                }
+                $ruta_grupal = copiarFotoTemporalAVariante($nombre_archivo_temp, $id_producto, null, 'foto3');
+                
+                if ($foto_general_existente) {
+                    actualizarFotoGrupal($mysqli, $foto_general_existente['id_foto'], $ruta_grupal);
+                } else {
+                    insertarFotoProducto($mysqli, $id_producto, null, null, null, $ruta_grupal, null);
+                }
             }
         }
         
@@ -355,9 +369,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_fotos'])) 
                 
                 $foto1_ruta = $foto_color_existente['foto1_prod'] ?? null;
                 $foto2_ruta = $foto_color_existente['foto2_prod'] ?? null;
+                $foto1_limpiar = false;
+                $foto2_limpiar = false;
                 
                 // Procesar foto1_prod
-                // Prioridad: archivo subido > selección del SELECT
+                // Prioridad: archivo subido > selección del SELECT > limpiar foto
                 if (isset($_FILES['fotos_colores']['name'][$color]['foto1']) && 
                     $_FILES['fotos_colores']['error'][$color]['foto1'] === UPLOAD_ERR_OK) {
                     $archivo_foto1 = [
@@ -368,18 +384,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_fotos'])) 
                         'size' => $_FILES['fotos_colores']['size'][$color]['foto1']
                     ];
                     $foto1_ruta = subirImagenColor($id_producto, $color_trim, $archivo_foto1, 'img1');
-                } elseif (isset($_POST['fotos_colores_temp'][$color]['foto1']) && !empty(trim($_POST['fotos_colores_temp'][$color]['foto1']))) {
-                    // Usar imagen temporal seleccionada
-                    $nombre_archivo_temp = trim($_POST['fotos_colores_temp'][$color]['foto1']);
-                    // Sanitizar nombre de archivo (remover caracteres peligrosos)
-                    $nombre_archivo_temp = basename($nombre_archivo_temp);
-                    if (!empty($nombre_archivo_temp)) {
-                        $foto1_ruta = copiarFotoTemporalAVariante($nombre_archivo_temp, $id_producto, $color_trim, 'foto1');
+                } elseif (isset($_POST['fotos_colores_temp'][$color]['foto1'])) {
+                    $valor_temp = trim($_POST['fotos_colores_temp'][$color]['foto1']);
+                    
+                    // Si el valor es __CLEAR__, limpiar la foto
+                    if ($valor_temp === '__CLEAR__') {
+                        $foto1_ruta = null;
+                        $foto1_limpiar = true;
+                    } elseif (!empty($valor_temp)) {
+                        // Usar imagen temporal seleccionada
+                        $nombre_archivo_temp = basename($valor_temp);
+                        if (!empty($nombre_archivo_temp)) {
+                            $foto1_ruta = copiarFotoTemporalAVariante($nombre_archivo_temp, $id_producto, $color_trim, 'foto1');
+                        }
                     }
                 }
                 
                 // Procesar foto2_prod
-                // Prioridad: archivo subido > selección del SELECT
+                // Prioridad: archivo subido > selección del SELECT > limpiar foto
                 if (isset($_FILES['fotos_colores']['name'][$color]['foto2']) && 
                     $_FILES['fotos_colores']['error'][$color]['foto2'] === UPLOAD_ERR_OK) {
                     $archivo_foto2 = [
@@ -390,24 +412,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_fotos'])) 
                         'size' => $_FILES['fotos_colores']['size'][$color]['foto2']
                     ];
                     $foto2_ruta = subirImagenColor($id_producto, $color_trim, $archivo_foto2, 'img2');
-                } elseif (isset($_POST['fotos_colores_temp'][$color]['foto2']) && !empty(trim($_POST['fotos_colores_temp'][$color]['foto2']))) {
-                    // Usar imagen temporal seleccionada
-                    $nombre_archivo_temp = trim($_POST['fotos_colores_temp'][$color]['foto2']);
-                    // Sanitizar nombre de archivo (remover caracteres peligrosos)
-                    $nombre_archivo_temp = basename($nombre_archivo_temp);
-                    if (!empty($nombre_archivo_temp)) {
-                        $foto2_ruta = copiarFotoTemporalAVariante($nombre_archivo_temp, $id_producto, $color_trim, 'foto2');
+                } elseif (isset($_POST['fotos_colores_temp'][$color]['foto2'])) {
+                    $valor_temp = trim($_POST['fotos_colores_temp'][$color]['foto2']);
+                    
+                    // Si el valor es __CLEAR__, limpiar la foto
+                    if ($valor_temp === '__CLEAR__') {
+                        $foto2_ruta = null;
+                        $foto2_limpiar = true;
+                    } elseif (!empty($valor_temp)) {
+                        // Usar imagen temporal seleccionada
+                        $nombre_archivo_temp = basename($valor_temp);
+                        if (!empty($nombre_archivo_temp)) {
+                            $foto2_ruta = copiarFotoTemporalAVariante($nombre_archivo_temp, $id_producto, $color_trim, 'foto2');
+                        }
                     }
                 }
                 
-                // Si hay al menos una foto nueva o existe registro, actualizar o insertar
-                if ($foto1_ruta || $foto2_ruta) {
+                // Si hay al menos una foto nueva, limpiar, o existe registro, actualizar o insertar
+                if ($foto1_ruta || $foto2_ruta || $foto1_limpiar || $foto2_limpiar) {
                     if ($foto_color_existente) {
                         // Actualizar existente usando función centralizada
                         actualizarFotosColor($mysqli, $foto_color_existente['id_foto'], $foto1_ruta, $foto2_ruta);
                     } else {
-                        // Insertar nuevo usando función centralizada
-                        insertarFotoProducto($mysqli, $id_producto, null, $foto1_ruta, $foto2_ruta, null, $color_trim);
+                        // Insertar nuevo usando función centralizada (solo si hay fotos, no si solo se limpian)
+                        if ($foto1_ruta || $foto2_ruta) {
+                            insertarFotoProducto($mysqli, $id_producto, null, $foto1_ruta, $foto2_ruta, null, $color_trim);
+                        }
                     }
                 }
             }
@@ -431,40 +461,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_fotos'])) 
                 if (!$ya_procesado) {
                     $foto1_nueva = false;
                     $foto2_nueva = false;
+                    $foto1_limpiar = false;
+                    $foto2_limpiar = false;
                     
                     // Procesar foto1_prod desde SELECT
-                    if (isset($slots['foto1']) && !empty(trim($slots['foto1']))) {
-                        $nombre_archivo_temp = trim($slots['foto1']);
-                        // Sanitizar nombre de archivo (remover caracteres peligrosos)
-                        $nombre_archivo_temp = basename($nombre_archivo_temp);
-                        if (!empty($nombre_archivo_temp)) {
-                            $foto1_ruta = copiarFotoTemporalAVariante($nombre_archivo_temp, $id_producto, $color_trim, 'foto1');
-                            $foto1_nueva = true;
+                    if (isset($slots['foto1'])) {
+                        $valor_temp = trim($slots['foto1']);
+                        
+                        // Si el valor es __CLEAR__, limpiar la foto
+                        if ($valor_temp === '__CLEAR__') {
+                            $foto1_ruta = null;
+                            $foto1_limpiar = true;
+                        } elseif (!empty($valor_temp)) {
+                            $nombre_archivo_temp = basename($valor_temp);
+                            if (!empty($nombre_archivo_temp)) {
+                                $foto1_ruta = copiarFotoTemporalAVariante($nombre_archivo_temp, $id_producto, $color_trim, 'foto1');
+                                $foto1_nueva = true;
+                            }
                         }
                     }
                     
                     // Procesar foto2_prod desde SELECT
-                    if (isset($slots['foto2']) && !empty(trim($slots['foto2']))) {
-                        $nombre_archivo_temp = trim($slots['foto2']);
-                        // Sanitizar nombre de archivo (remover caracteres peligrosos)
-                        $nombre_archivo_temp = basename($nombre_archivo_temp);
-                        if (!empty($nombre_archivo_temp)) {
-                            $foto2_ruta = copiarFotoTemporalAVariante($nombre_archivo_temp, $id_producto, $color_trim, 'foto2');
-                            $foto2_nueva = true;
+                    if (isset($slots['foto2'])) {
+                        $valor_temp = trim($slots['foto2']);
+                        
+                        // Si el valor es __CLEAR__, limpiar la foto
+                        if ($valor_temp === '__CLEAR__') {
+                            $foto2_ruta = null;
+                            $foto2_limpiar = true;
+                        } elseif (!empty($valor_temp)) {
+                            $nombre_archivo_temp = basename($valor_temp);
+                            if (!empty($nombre_archivo_temp)) {
+                                $foto2_ruta = copiarFotoTemporalAVariante($nombre_archivo_temp, $id_producto, $color_trim, 'foto2');
+                                $foto2_nueva = true;
+                            }
                         }
                     }
                     
-                    // Si hay al menos una foto nueva, actualizar o insertar
-                    if ($foto1_nueva || $foto2_nueva) {
+                    // Si hay al menos una foto nueva o limpiar, actualizar o insertar
+                    if ($foto1_nueva || $foto2_nueva || $foto1_limpiar || $foto2_limpiar) {
                         if ($foto_color_existente) {
                             // Actualizar existente usando función centralizada
-                            // Si no hay foto nueva, mantener la existente (null)
-                            actualizarFotosColor($mysqli, $foto_color_existente['id_foto'], 
-                                $foto1_nueva ? $foto1_ruta : null, 
-                                $foto2_nueva ? $foto2_ruta : null);
+                            // Si se limpia, usar null; si es nueva, usar la ruta; si no cambió, mantener existente
+                            $foto1_para_actualizar = $foto1_limpiar ? null : ($foto1_nueva ? $foto1_ruta : $foto_color_existente['foto1_prod'] ?? null);
+                            $foto2_para_actualizar = $foto2_limpiar ? null : ($foto2_nueva ? $foto2_ruta : $foto_color_existente['foto2_prod'] ?? null);
+                            actualizarFotosColor($mysqli, $foto_color_existente['id_foto'], $foto1_para_actualizar, $foto2_para_actualizar);
                         } else {
-                            // Insertar nuevo usando función centralizada
-                            insertarFotoProducto($mysqli, $id_producto, null, $foto1_ruta, $foto2_ruta, null, $color_trim);
+                            // Insertar nuevo usando función centralizada (solo si hay fotos, no si solo se limpian)
+                            if ($foto1_nueva || $foto2_nueva) {
+                                insertarFotoProducto($mysqli, $id_producto, null, $foto1_ruta, $foto2_ruta, null, $color_trim);
+                            }
                         }
                     }
                 }
@@ -495,6 +541,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_variantes'
     $variantes_actualizar = $_POST['variantes_actualizar'] ?? [];
     $variantes_eliminar = $_POST['variantes_eliminar'] ?? [];
     $nuevas_variantes = $_POST['nuevas_variantes'] ?? [];
+    
+    // Capturar y validar observaciones opcionales
+    $observaciones_ajuste = trim($_POST['observaciones_ajuste'] ?? '');
+    if (strlen($observaciones_ajuste) > 500) {
+        $observaciones_ajuste = substr($observaciones_ajuste, 0, 500);
+    }
+    // Si está vacío después de trim, se usará null (mensaje por defecto)
+    if ($observaciones_ajuste === '') {
+        $observaciones_ajuste = null;
+    }
     
     $mysqli->begin_transaction();
     
@@ -591,7 +647,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_variantes'
                         // Validar que stock_queries.php esté incluido (ya está en línea 26, pero por seguridad)
                         require_once __DIR__ . '/includes/queries/stock_queries.php';
                         
-                        $observacion = $diferencia_stock > 0 ? 'Ajuste positivo desde edición' : 'Ajuste negativo desde edición';
+                        // Formatear observación con contexto estructurado
+                        $nombre_usuario = ($usuario_actual && isset($usuario_actual['nombre']) && isset($usuario_actual['apellido'])) 
+                            ? trim($usuario_actual['nombre'] . ' ' . $usuario_actual['apellido']) 
+                            : 'Usuario #' . $id_usuario;
+                        
+                        $fecha_hora = date('Y-m-d H:i:s');
+                        $tipo_ajuste = $diferencia_stock > 0 ? 'positivo' : 'negativo';
+                        
+                        // Construir observación con contexto
+                        if ($observaciones_ajuste !== null) {
+                            // Validar observaciones del usuario usando función centralizada
+                            require_once __DIR__ . '/includes/validation_functions.php';
+                            $validacion_obs = validarObservaciones($observaciones_ajuste, 500, 'observaciones');
+                            if (!$validacion_obs['valido']) {
+                                throw new Exception($validacion_obs['error']);
+                            }
+                            $observaciones_ajuste_validadas = $validacion_obs['valor'];
+                            
+                            // Si hay observación del usuario, agregar contexto
+                            $observacion = sprintf(
+                                "[%s] Ajuste %s\nUsuario: %s\nStock anterior: %d → Stock nuevo: %d\nNotas: %s",
+                                $fecha_hora,
+                                $tipo_ajuste,
+                                $nombre_usuario,
+                                $stock_actual,
+                                $nuevo_stock,
+                                $observaciones_ajuste_validadas
+                            );
+                            // Truncar si excede 500 caracteres (respetar límite de BD)
+                            if (strlen($observacion) > 500) {
+                                $observacion = substr($observacion, 0, 497) . '...';
+                            }
+                        } else {
+                            // Mensaje por defecto con contexto
+                            $observacion = sprintf(
+                                "[%s] Ajuste %s desde edición\nUsuario: %s\nStock anterior: %d → Stock nuevo: %d",
+                                $fecha_hora,
+                                $tipo_ajuste,
+                                $nombre_usuario,
+                                $stock_actual,
+                                $nuevo_stock
+                            );
+                        }
                         
                         // registrarMovimientoStock() lanza excepciones, no retorna false en caso de error
                         // Envolver en try-catch para manejo adecuado de errores
@@ -648,10 +746,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_variantes'
                         // Validar que stock_queries.php esté incluido (ya está en línea 26, pero por seguridad)
                         require_once __DIR__ . '/includes/queries/stock_queries.php';
                         
+                        // Formatear observación de ingreso con contexto estructurado
+                        $nombre_usuario = ($usuario_actual && isset($usuario_actual['nombre']) && isset($usuario_actual['apellido'])) 
+                            ? trim($usuario_actual['nombre'] . ' ' . $usuario_actual['apellido']) 
+                            : 'Usuario #' . $id_usuario;
+                        
+                        $fecha_hora = date('Y-m-d H:i:s');
+                        
+                        if ($observaciones_ajuste !== null) {
+                            // Validar observaciones del usuario usando función centralizada
+                            // NOTA: validation_functions.php ya fue requerido arriba para ajustes
+                            $validacion_obs_ingreso = validarObservaciones($observaciones_ajuste, 500, 'observaciones');
+                            if (!$validacion_obs_ingreso['valido']) {
+                                throw new Exception($validacion_obs_ingreso['error']);
+                            }
+                            $observaciones_ajuste_validadas = $validacion_obs_ingreso['valor'];
+                            
+                            // Si hay observación del usuario, agregar contexto
+                            $observacion_ingreso = sprintf(
+                                "[%s] Ingreso stock inicial\nUsuario: %s\nCantidad: %d\nNotas: %s",
+                                $fecha_hora,
+                                $nombre_usuario,
+                                $stock,
+                                $observaciones_ajuste_validadas
+                            );
+                            // Truncar si excede 500 caracteres
+                            if (strlen($observacion_ingreso) > 500) {
+                                $observacion_ingreso = substr($observacion_ingreso, 0, 497) . '...';
+                            }
+                        } else {
+                            // Mensaje por defecto con contexto
+                            $observacion_ingreso = sprintf(
+                                "[%s] Stock inicial\nUsuario: %s\nCantidad: %d",
+                                $fecha_hora,
+                                $nombre_usuario,
+                                $stock
+                            );
+                        }
+                        
                         // registrarMovimientoStock() lanza excepciones, no retorna false en caso de error
                         // Envolver en try-catch para manejo adecuado de errores
                         try {
-                            registrarMovimientoStock($mysqli, $id_variante_nueva, 'ingreso', $stock, $id_usuario, null, 'Stock inicial', true);
+                            registrarMovimientoStock($mysqli, $id_variante_nueva, 'ingreso', $stock, $id_usuario, null, $observacion_ingreso, true);
                         } catch (Exception $e_stock) {
                             throw new Exception('Error al registrar movimiento de stock para variante ' . $talle_trim . ' ' . $color_trim . ': ' . $e_stock->getMessage());
                         }
@@ -925,9 +1061,10 @@ $fotos_temporales = obtenerFotosTemporales();
                                         </select>
                                     </td>
                                     <td>
-                                        <input type="number" min="0" class="form-control form-control-sm" 
+                                        <input type="number" min="0" max="10000" class="form-control form-control-sm stock-input" 
                                                name="variantes_actualizar[<?= $variante['id_variante'] ?>][stock]" 
-                                               value="<?= $variante['stock'] ?>" required>
+                                               value="<?= $variante['stock'] ?>" 
+                                               data-variante-id="<?= $variante['id_variante'] ?>" required>
                                     </td>
                                     <td>
                                         <button type="button" class="btn btn-sm btn-outline-danger" 
@@ -959,6 +1096,52 @@ $fotos_temporales = obtenerFotosTemporales();
                         <i class="fas fa-plus me-1"></i>Agregar Variante
                     </button>
                 </div>
+                
+                <!-- Campo de observaciones opcional -->
+                <div class="mb-3">
+                    <label class="form-label">Observaciones (opcional)</label>
+                    <textarea class="form-control" name="observaciones_ajuste" id="observaciones_ajuste" 
+                              rows="4" maxlength="500" 
+                              placeholder="Ejemplo: Corrección de inventario físico, Producto dañado, Reubicación de almacén, etc.&#10;&#10;Se aplicará a todos los ajustes de stock realizados en este formulario."></textarea>
+                    <div class="d-flex justify-content-between align-items-center mt-1">
+                        <small class="form-text text-muted">
+                            Se aplicará a todos los movimientos de stock de este formulario. Puedes agregar múltiples líneas.
+                        </small>
+                        <small class="text-muted">
+                            <span id="contador_observaciones">0</span>/500 caracteres
+                        </small>
+                    </div>
+                </div>
+                
+                <script>
+                // Contador de caracteres para observaciones
+                document.addEventListener('DOMContentLoaded', function() {
+                    const textarea = document.getElementById('observaciones_ajuste');
+                    const contador = document.getElementById('contador_observaciones');
+                    
+                    if (textarea && contador) {
+                        function actualizarContador() {
+                            const longitud = textarea.value.length;
+                            contador.textContent = longitud;
+                            
+                            // Cambiar color si se acerca al límite
+                            if (longitud > 450) {
+                                contador.classList.add('text-danger');
+                                contador.classList.remove('text-warning', 'text-muted');
+                            } else if (longitud > 400) {
+                                contador.classList.add('text-warning');
+                                contador.classList.remove('text-danger', 'text-muted');
+                            } else {
+                                contador.classList.remove('text-danger', 'text-warning');
+                                contador.classList.add('text-muted');
+                            }
+                        }
+                        
+                        textarea.addEventListener('input', actualizarContador);
+                        actualizarContador(); // Inicializar contador
+                    }
+                });
+                </script>
                 
                 <div>
                     <button type="submit" class="btn btn-primary">
@@ -999,7 +1182,7 @@ $fotos_temporales = obtenerFotosTemporales();
                             <?php endif; ?>
                             <label class="form-label small">Seleccionar de imágenes locales:</label>
                             <select class="form-select mb-2" name="foto_miniatura_temp">
-                                <option value="">-- Seleccionar imagen local --</option>
+                                <option value="__CLEAR__">-- Seleccionar imagen local --</option>
                                 <?php foreach ($fotos_temporales as $foto_temp): ?>
                                 <option value="<?= htmlspecialchars($foto_temp) ?>"><?= htmlspecialchars($foto_temp) ?></option>
                                 <?php endforeach; ?>
@@ -1024,7 +1207,7 @@ $fotos_temporales = obtenerFotosTemporales();
                             <?php endif; ?>
                             <label class="form-label small">Seleccionar de imágenes locales:</label>
                             <select class="form-select mb-2" name="foto_grupal_temp">
-                                <option value="">-- Seleccionar imagen local --</option>
+                                <option value="__CLEAR__">-- Seleccionar imagen local --</option>
                                 <?php foreach ($fotos_temporales as $foto_temp): ?>
                                 <option value="<?= htmlspecialchars($foto_temp) ?>"><?= htmlspecialchars($foto_temp) ?></option>
                                 <?php endforeach; ?>
@@ -1081,7 +1264,7 @@ $fotos_temporales = obtenerFotosTemporales();
                                         <?php endif; ?>
                                         <label class="form-label small">Local:</label>
                                         <select class="form-select form-select-sm mb-2" name="fotos_colores_temp[<?= htmlspecialchars($color_variante) ?>][foto1]">
-                                            <option value="">-- Seleccionar --</option>
+                                            <option value="__CLEAR__">-- Seleccionar --</option>
                                             <?php foreach ($fotos_temporales as $foto_temp): ?>
                                             <option value="<?= htmlspecialchars($foto_temp) ?>"><?= htmlspecialchars($foto_temp) ?></option>
                                             <?php endforeach; ?>
@@ -1104,7 +1287,7 @@ $fotos_temporales = obtenerFotosTemporales();
                                         <?php endif; ?>
                                         <label class="form-label small">Local:</label>
                                         <select class="form-select form-select-sm mb-2" name="fotos_colores_temp[<?= htmlspecialchars($color_variante) ?>][foto2]">
-                                            <option value="">-- Seleccionar --</option>
+                                            <option value="__CLEAR__">-- Seleccionar --</option>
                                             <?php foreach ($fotos_temporales as $foto_temp): ?>
                                             <option value="<?= htmlspecialchars($foto_temp) ?>"><?= htmlspecialchars($foto_temp) ?></option>
                                             <?php endforeach; ?>

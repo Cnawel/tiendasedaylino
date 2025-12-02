@@ -28,9 +28,6 @@
 // MANEJO DE ERRORES
 // ========================================================================
 // NOTA: En producción, los errores se registran en el log del servidor
-// Solo activar display_errors en desarrollo local para debugging
-// error_reporting(E_ALL);
-// ini_set('display_errors', 1);
 ini_set('log_errors', 1);
 
 session_start();
@@ -218,18 +215,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$validacion_email['valido']) {
         $errores['email'] = $validacion_email['error'];
     } else {
-        // Convertir a minúsculas antes de guardar (normalización)
+        // Normalizar email usando función centralizada
         // NOTA: La función validarEmail() ya sanitiza con htmlspecialchars(),
         // pero para guardar en BD necesitamos el valor original sin sanitizar
-        $email = strtolower(trim($email_raw));
+        $email = normalizarEmail($email_raw);
     }
     
     // Validar CONTRASEÑA usando función centralizada
     // IMPORTANTE: NO usar trim() en password - puede cambiar la contraseña
     $password = $_POST['password'] ?? '';
     
-    // Usar función centralizada que valida: longitud 8-128, complejidad (minúscula, mayúscula, número, especial)
-    $validacion_password = validarPassword($password, true); // true = requiere complejidad
+    // Usar función centralizada que valida: longitud 6-32 (sin requerir complejidad)
+    $validacion_password = validarPassword($password, false); // false = no requiere complejidad
     if (!$validacion_password['valido']) {
         $errores['password'] = $validacion_password['error'];
     }
@@ -277,48 +274,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($pregunta_id <= 0) {
             $errores['pregunta_recupero'] = 'La pregunta de recupero seleccionada no es válida.';
         } else {
-            // Verificar que la pregunta existe en las preguntas disponibles (BD o por defecto)
-            $pregunta_valida = false;
-            
-            // Primero verificar si existe en el array de preguntas disponibles (ya sea de BD o por defecto)
-            foreach ($preguntas_recupero as $pregunta) {
-                if (isset($pregunta['id_pregunta']) && intval($pregunta['id_pregunta']) === $pregunta_id) {
-                    $pregunta_valida = true;
-                    break;
-                }
-            }
-            
-            // Si no se encontró en el array local, verificar en la base de datos
-            if (!$pregunta_valida && isset($mysqli) && $mysqli instanceof mysqli) {
-                $pregunta_valida = verificarPreguntaRecupero($mysqli, $pregunta_id);
-            }
-            
-            // Si aún no es válida, mostrar error
-            if (!$pregunta_valida) {
+            // Verificar que la pregunta existe en la base de datos
+            if (!verificarPreguntaRecupero($mysqli, $pregunta_id)) {
                 $errores['pregunta_recupero'] = 'La pregunta de recupero seleccionada no es válida o no está disponible.';
             }
         }
     }
     
-    // Validar RESPUESTA DE RECUPERO (OBLIGATORIO)
-    // IMPORTANTE: trim() solo elimina espacios al inicio/final, NO los espacios en el medio
+    // Validar RESPUESTA DE RECUPERO (OBLIGATORIO) usando función centralizada
     $respuesta_recupero_raw = $_POST['respuesta_recupero'] ?? '';
-    $respuesta_recupero = trim($respuesta_recupero_raw);
-    // Guardar el valor original (sin trim) para mostrar en el formulario si hay error
+    // Guardar el valor original para mostrar en el formulario si hay error
     $valores_form['respuesta_recupero'] = $respuesta_recupero_raw;
     
-    if (empty($respuesta_recupero)) {
-        $errores['respuesta_recupero'] = 'La respuesta de recupero es obligatoria.';
-    } elseif (strlen($respuesta_recupero) < 4) {
-        $errores['respuesta_recupero'] = 'La respuesta de recupero debe tener al menos 4 caracteres.';
-    } elseif (strlen($respuesta_recupero) > 255) {
-        $errores['respuesta_recupero'] = 'La respuesta de recupero no puede exceder 255 caracteres.';
-    } elseif (!preg_match('/^[a-zA-Z0-9 ]+$/', $respuesta_recupero)) {
-        $errores['respuesta_recupero'] = 'La respuesta de recupero solo puede contener letras, números y espacios.';
+    $validacion_respuesta = validarRespuestaRecupero($respuesta_recupero_raw);
+    if (!$validacion_respuesta['valido']) {
+        $errores['respuesta_recupero'] = $validacion_respuesta['error'];
     } else {
-        // Convertir a minúsculas para normalización (pero guardar original)
-        $respuesta_recupero = strtolower($respuesta_recupero);
+        $respuesta_recupero = $validacion_respuesta['valor'];
     }
+    // Nota: El hash se genera después de validar todos los campos (ver más abajo)
     
     // Validar ACEPTACIÓN DE TÉRMINOS Y CONDICIONES (OBLIGATORIO)
     $acepta_terminos = isset($_POST['acepta']) && $_POST['acepta'] === 'on';
@@ -352,11 +326,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // VERIFICACIÓN DE EMAIL DUPLICADO (solo si no hay errores en email)
     // ========================================================================
     // Nota: $mysqli ya está disponible desde la línea 48 (obtener preguntas de recupero)
-    // IMPORTANTE: Usar email en minúsculas para comparar (normalización)
+    // IMPORTANTE: Usar email normalizado para comparar
     if (!isset($errores['email'])) {
-        $email_busqueda = strtolower(trim($email_raw));
+        $email_busqueda = normalizarEmail($email_raw);
         if (verificarEmailExistente($mysqli, $email_busqueda)) {
-            $errores['email'] = 'El email ya está registrado. Por favor, usa otro correo electrónico.';
+            $errores['email'] = 'Verifique nuevamente el email ingresado';
         }
     }
     
@@ -434,7 +408,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              * - rol: Valor fijo 'cliente'
              * - fecha_nacimiento: Fecha validada
              * - pregunta_recupero: ID de pregunta seleccionada
-             * - respuesta_recupero: Respuesta normalizada
+             * - respuesta_recupero: Hash de la respuesta de recupero
              * - fecha_registro: NOW() función MySQL
              */
             // Asegurar que la conexión esté configurada antes de insertar
@@ -453,13 +427,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!verificarPreguntaRecupero($mysqli, $pregunta_id)) {
                     $errores['pregunta_recupero'] = 'La pregunta de recupero seleccionada no existe en la base de datos. Por favor, selecciona otra pregunta.';
                 } else {
-                    // La fecha ya está validada y en formato YYYY-MM-DD
-                    // Crear usuario cliente usando función centralizada con el ID ya validado
-                    $id_usuario_nuevo = crearUsuarioCliente($mysqli, $nombre, $apellido, $email, $hash_password, $fecha_nacimiento, $pregunta_id, $respuesta_recupero);
-                
-                    if ($id_usuario_nuevo > 0) {
-                        // Verificar que el hash se guardó correctamente
-                        if (verificarHashContrasena($mysqli, $id_usuario_nuevo, $password)) {
+                    // Generar hash de la respuesta de recupero usando función centralizada
+                    $hash_respuesta_recupero = generarHashRespuestaRecupero($respuesta_recupero, $mysqli);
+                    
+                    if ($hash_respuesta_recupero === false) {
+                        $errores['respuesta_recupero'] = 'Error al procesar la respuesta de recupero. Inténtalo de nuevo.';
+                    } else {
+                        // La fecha ya está validada y en formato YYYY-MM-DD
+                        // Crear usuario cliente usando función centralizada con el ID ya validado
+                        $id_usuario_nuevo = crearUsuarioCliente($mysqli, $nombre, $apellido, $email, $hash_password, $fecha_nacimiento, $pregunta_id, $hash_respuesta_recupero);
+                        
+                        if ($id_usuario_nuevo > 0) {
+                            // Verificar que el hash se guardó correctamente
+                            if (verificarHashContrasena($mysqli, $id_usuario_nuevo, $password)) {
                             // ========================================================================
                             // REGISTRO EXITOSO - LIMPIEZA Y REDIRECCIÓN
                             // ========================================================================
@@ -519,6 +499,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         // El error ya fue registrado en crearUsuarioCliente()
                         $errores['general'] = 'Error al crear la cuenta. Por favor, verifica que todos los datos sean correctos e inténtalo de nuevo. Si el problema persiste, contacta al administrador.';
                     }
+                    } // Cierre del else que verifica hash de respuesta
                 } // Cierre del else que verifica pregunta en BD
             }
         }
@@ -716,9 +697,6 @@ include 'includes/header.php';
                             </div>
                             <small class="strength-text" id="strengthText"></small>
                         </div>
-                        <small class="form-text text-muted">
-                            <i class="fas fa-info-circle me-1"></i>Mínimo 6 caracteres (se recomienda usar una contraseña más segura)
-                        </small>
                     </div>
                     
                     <div class="mb-3">

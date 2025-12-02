@@ -833,9 +833,15 @@ foreach ($productos_agrupados as $nombre => $producto) {
                                             $comparacion_variantes = compararVariantesCSV($producto['variantes'], $producto_existente_data['variantes']);
                                         }
                                     ?>
+                                    <?php 
+                                    // Calcular condiciones una sola vez para simplificar
+                                    $es_producto_existente = !$es_nuevo;
+                                    $tiene_datos_existentes = $es_producto_existente && $producto_existente_data;
+                                    $precio_diferente = $tiene_datos_existentes && $producto_existente_data['precio_actual'] != $producto['precio_actual'];
+                                    ?>
                                     <tr class="<?= $es_nuevo ? 'table-success' : 'table-warning' ?>">
                                         <td>
-                                            <?php if (!$es_nuevo): ?>
+                                            <?php if ($es_producto_existente): ?>
                                             <input type="checkbox" 
                                                    name="actualizar_producto[<?= htmlspecialchars($producto_key) ?>]" 
                                                    value="1" 
@@ -848,7 +854,7 @@ foreach ($productos_agrupados as $nombre => $producto) {
                                             <div class="text-muted small" style="max-width: 200px;">
                                                 <?= !empty($producto['descripcion_producto']) ? htmlspecialchars($producto['descripcion_producto']) : '<em class="text-muted">Sin descripción</em>' ?>
                                             </div>
-                                            <?php if (!$es_nuevo && $producto_existente_data): ?>
+                                            <?php if ($tiene_datos_existentes): ?>
                                             <br><small class="text-info">
                                                 <i class="fas fa-info-circle"></i> 
                                                 Precio actual: $<?= number_format($producto_existente_data['precio_actual'], 0, ',', '.') ?>
@@ -881,7 +887,7 @@ foreach ($productos_agrupados as $nombre => $producto) {
                                             <div class="fw-bold">
                                                 $<?= number_format($producto['precio_actual'], 0, ',', '.') ?>
                                             </div>
-                                            <?php if (!$es_nuevo && $producto_existente_data && $producto_existente_data['precio_actual'] != $producto['precio_actual']): ?>
+                                            <?php if ($precio_diferente): ?>
                                             <small class="text-warning">
                                                 <i class="fas fa-arrow-right"></i> 
                                                 $<?= number_format($producto_existente_data['precio_actual'], 0, ',', '.') ?>
@@ -918,13 +924,17 @@ foreach ($productos_agrupados as $nombre => $producto) {
                                                             <span class="badge bg-primary"><?= htmlspecialchars($talle_data['talle']) ?>: <?= number_format(intval($talle_data['stock']), 0, ',', '.') ?></span>
                                                         <?php endforeach; ?>
                                                     </div>
-                                                    <?php if (!empty($color_data['foto1']) || !empty($color_data['foto2'])): ?>
+                                                    <?php 
+                                                    // Mostrar fotos si existen
+                                                    $tiene_foto1 = !empty($color_data['foto1']);
+                                                    $tiene_foto2 = !empty($color_data['foto2']);
+                                                    if ($tiene_foto1 || $tiene_foto2): ?>
                                                     <div class="small text-muted mt-1">
-                                                        <?php if (!empty($color_data['foto1'])): ?>
+                                                        <?php if ($tiene_foto1): ?>
                                                             <code class="text-dark">Foto1: <?= htmlspecialchars(obtenerNombreArchivo($color_data['foto1'])) ?></code>
                                                         <?php endif; ?>
-                                                        <?php if (!empty($color_data['foto2'])): ?>
-                                                            <?php if (!empty($color_data['foto1'])): ?><br><?php endif; ?>
+                                                        <?php if ($tiene_foto2): ?>
+                                                            <?= $tiene_foto1 ? '<br>' : '' ?>
                                                             <code class="text-dark">Foto2: <?= htmlspecialchars(obtenerNombreArchivo($color_data['foto2'])) ?></code>
                                                         <?php endif; ?>
                                                     </div>
@@ -933,7 +943,7 @@ foreach ($productos_agrupados as $nombre => $producto) {
                                                 <?php endforeach; ?>
                                             </div>
                                             <small class="text-muted">Total: <?= count($producto['variantes']) ?> variante(s)</small>
-                                            <?php if (!$es_nuevo && $comparacion_variantes): ?>
+                                            <?php if ($es_producto_existente && $comparacion_variantes): ?>
                                             <br><small class="text-info">
                                                 <i class="fas fa-sync"></i> 
                                                 Actualizar: <?= count($comparacion_variantes['actualizar']) ?>, 

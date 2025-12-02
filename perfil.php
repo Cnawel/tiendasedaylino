@@ -32,6 +32,9 @@ require_once 'includes/auth_check.php';
 // Verificar que el usuario esté logueado
 requireLogin();
 
+// Cargar funciones de seguridad
+require_once 'includes/security_functions.php';
+
 // Cargar funciones de contraseñas
 require_once 'includes/password_functions.php';
 
@@ -98,6 +101,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $accion = 'cambiar_contrasena';
     } elseif (isset($_POST['marcar_pago_pagado'])) {
         $accion = 'marcar_pago_pagado';
+    } elseif (isset($_POST['cancelar_pedido_cliente'])) {
+        $accion = 'cancelar_pedido_cliente';
     } elseif (isset($_POST['eliminar_cuenta'])) {
         $accion = 'eliminar_cuenta';
     }
@@ -136,7 +141,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
         case 'marcar_pago_pagado':
             $id_pago = intval($_POST['id_pago'] ?? 0);
-            $numero_transaccion = trim($_POST['numero_transaccion'] ?? '');
+            $numero_transaccion_raw = trim($_POST['numero_transaccion'] ?? '');
+            
+            // Validar número de transacción (campo requerido)
+            if (empty($numero_transaccion_raw)) {
+                $_SESSION['mensaje'] = 'El código de pago es requerido.';
+                $_SESSION['mensaje_tipo'] = 'danger';
+                header('Location: perfil.php?tab=pedidos');
+                exit;
+            }
+            
+            require_once __DIR__ . '/includes/validation_functions.php';
+            $validacion_numero = validarNumeroTransaccion($numero_transaccion_raw, 0, 100);
+            if (!$validacion_numero['valido']) {
+                $_SESSION['mensaje'] = $validacion_numero['error'];
+                $_SESSION['mensaje_tipo'] = 'danger';
+                header('Location: perfil.php?tab=pedidos');
+                exit;
+            }
+            $numero_transaccion = $validacion_numero['valor'];
             
             // Validar pago usando función helper
             $validacion = validarPagoParaMarcarPagado($mysqli, $id_pago, $id_usuario);
@@ -189,93 +212,101 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             break;
             
+        case 'cancelar_pedido_cliente':
+            $id_pedido = intval($_POST['id_pedido'] ?? 0);
+            
+            // Validar ID de pedido
+            if ($id_pedido <= 0) {
+                $_SESSION['mensaje'] = 'ID de pedido inválido';
+                $_SESSION['mensaje_tipo'] = 'danger';
+                header('Location: perfil.php?tab=pedidos');
+                exit;
+            }
+            
+            try {
+                // Verificar que el pedido pertenece al usuario actual
+                $pedido = obtenerPedidoPorId($mysqli, $id_pedido);
+                
+                if (!$pedido || intval($pedido['id_usuario']) !== $id_usuario) {
+                    $_SESSION['mensaje'] = 'No tienes permiso para cancelar este pedido';
+                    $_SESSION['mensaje_tipo'] = 'danger';
+                    header('Location: perfil.php?tab=pedidos');
+                    exit;
+                }
+                
+                // Validar estados: pedido y pago deben estar en "Pendiente"
+                $estado_pedido_actual = normalizarEstado($pedido['estado_pedido'] ?? '');
+                $pago_pedido = obtenerPagoPorPedido($mysqli, $id_pedido);
+                $estado_pago_actual = $pago_pedido ? normalizarEstado($pago_pedido['estado_pago'] ?? '') : '';
+                
+                // Lógica de negocio: Cliente puede cancelar un Pedido sólo en estado Pendiente
+                // Tanto el pedido como el pago deben estar en estado "Pendiente"
+                if ($estado_pedido_actual !== 'pendiente') {
+                    $_SESSION['mensaje'] = 'Solo se pueden cancelar pedidos en estado Pendiente';
+                    $_SESSION['mensaje_tipo'] = 'warning';
+                    header('Location: perfil.php?tab=pedidos');
+                    exit;
+                }
+                
+                if ($pago_pedido && $estado_pago_actual !== 'pendiente') {
+                    $_SESSION['mensaje'] = 'Solo se pueden cancelar pedidos cuando el pago está en estado Pendiente';
+                    $_SESSION['mensaje_tipo'] = 'warning';
+                    header('Location: perfil.php?tab=pedidos');
+                    exit;
+                }
+                
+                // Cancelar pedido usando función centralizada con validaciones
+                if (!function_exists('actualizarEstadoPedidoConValidaciones')) {
+                    throw new Exception('Función actualizarEstadoPedidoConValidaciones no está disponible. Error de carga de archivos.');
+                }
+                
+                if (!actualizarEstadoPedidoConValidaciones($mysqli, $id_pedido, 'cancelado', $id_usuario)) {
+                    throw new Exception('Error al cancelar el pedido');
+                }
+                
+                $_SESSION['mensaje'] = 'Pedido cancelado correctamente. El stock ha sido restaurado si era necesario.';
+                $_SESSION['mensaje_tipo'] = 'success';
+                header('Location: perfil.php?tab=pedidos');
+                exit;
+                
+            } catch (Exception $e) {
+                // Loggear error MySQL si existe
+                if ($mysqli && $mysqli->error) {
+                    error_log("MySQL Error: {$mysqli->error} (Errno: {$mysqli->errno})");
+                }
+                
+                $_SESSION['mensaje'] = 'Error al cancelar el pedido: ' . $e->getMessage();
+                $_SESSION['mensaje_tipo'] = 'danger';
+                header('Location: perfil.php?tab=pedidos');
+                exit;
+            }
+            break;
+            
         case 'eliminar_cuenta':
             try {
                 $resultado = procesarEliminacionCuenta($mysqli, $id_usuario, $_POST);
-                
+
                 if ($resultado['eliminado']) {
-                    // Limpiar todas las variables de sesión ANTES de destruir
-                    $_SESSION = array();
-                    
-                    // Destruir la sesión (debe hacerse mientras la sesión está abierta)
-                    session_destroy();
-                    
-                    // Cerrar sesión después de destruir
-                    session_write_close();
-                    
-                    // Destruir la cookie de sesión si existe
-                    if (ini_get("session.use_cookies")) {
-                        $params = session_get_cookie_params();
-                        setcookie(
-                            session_name(), 
-                            '', 
-                            time() - 42000,
-                            $params["path"], 
-                            $params["domain"],
-                            $params["secure"], 
-                            $params["httponly"]
-                        );
-                    }
-                    
-                    // Limpiar cualquier buffer de salida para asegurar redirección limpia
-                    // Limpiar todos los niveles de buffer
-                    while (ob_get_level() > 0) {
-                        ob_end_clean();
-                    }
-                    
-                    // Verificar que los headers no se hayan enviado
-                    if (!headers_sent()) {
-                        // Redirigir a página de confirmación
-                        header('Location: cuenta_eliminada.php', true, 302);
-                        exit;
-                    } else {
-                        // Si los headers ya se enviaron, usar JavaScript para redirigir
-                        echo '<script>window.location.href = "cuenta_eliminada.php";</script>';
-                        exit;
-                    }
+                    // Usar función centralizada para destruir sesión de manera segura
+                    destruirSesionSegura('cuenta_eliminada.php');
                 } else {
-                    // Guardar mensaje en sesión y redirigir (patrón Post-Redirect-Get)
-                    // IMPORTANTE: Hacer esto ANTES de cualquier output
-                    $_SESSION['mensaje'] = $resultado['mensaje'];
-                    $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
-                
-                // Limpiar buffer antes de redirigir
-                while (ob_get_level() > 0) {
-                    ob_end_clean();
-                }
-                
-                if (!headers_sent()) {
-                    $redirect_url = construirRedirectUrl('perfil.php');
-                    header('Location: ' . $redirect_url, true, 302);
-                    exit;
-                } else {
-                    $redirect_url = construirRedirectUrl('perfil.php');
-                    echo '<script>window.location.href = "' . htmlspecialchars($redirect_url) . '";</script>';
-                    exit;
-                }
+                    // Usar función centralizada para redirigir con mensaje
+                    redirigirConMensaje(
+                        construirRedirectUrl('perfil.php'),
+                        $resultado['mensaje'],
+                        $resultado['mensaje_tipo']
+                    );
                 }
             } catch (Exception $e) {
                 // Log error para debugging en hosting
                 error_log("Error en eliminación de cuenta. ID Usuario: {$id_usuario}. Error: " . $e->getMessage() . " | Archivo: " . $e->getFile() . " Línea: " . $e->getLine());
-                
-                // Guardar mensaje de error en sesión
-                $_SESSION['mensaje'] = 'Error al procesar la eliminación de cuenta. Por favor, intenta nuevamente.';
-                $_SESSION['mensaje_tipo'] = 'danger';
-                
-                // Limpiar buffer antes de redirigir
-                while (ob_get_level() > 0) {
-                    ob_end_clean();
-                }
-                
-                if (!headers_sent()) {
-                    $redirect_url = construirRedirectUrl('perfil.php');
-                    header('Location: ' . $redirect_url, true, 302);
-                    exit;
-                } else {
-                    $redirect_url = construirRedirectUrl('perfil.php');
-                    echo '<script>window.location.href = "' . htmlspecialchars($redirect_url) . '";</script>';
-                    exit;
-                }
+
+                // Usar función centralizada para redirigir con mensaje de error
+                redirigirConMensaje(
+                    construirRedirectUrl('perfil.php'),
+                    'Error al procesar la eliminación de cuenta. Por favor, intenta nuevamente.',
+                    'danger'
+                );
             }
             break;
             
@@ -608,12 +639,15 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                                 <option value="Santiago del Estero" <?php echo (isset($usuario['provincia']) && $usuario['provincia'] === 'Santiago del Estero') ? 'selected' : ''; ?>>Santiago del Estero</option>
                                                 <option value="Tierra del Fuego" <?php echo (isset($usuario['provincia']) && $usuario['provincia'] === 'Tierra del Fuego') ? 'selected' : ''; ?>>Tierra del Fuego</option>
                                                 <option value="Tucumán" <?php echo (isset($usuario['provincia']) && $usuario['provincia'] === 'Tucumán') ? 'selected' : ''; ?>>Tucumán</option>
-                                                <?php if (!empty($usuario['provincia'])): 
+                                                <?php 
+                                                // Agregar provincia personalizada si no está en la lista estándar
+                                                if (!empty($usuario['provincia'])) {
                                                     $provincias_lista = ['Buenos Aires', 'CABA', 'Catamarca', 'Chaco', 'Chubut', 'Córdoba', 'Corrientes', 'Entre Ríos', 'Formosa', 'Jujuy', 'La Pampa', 'La Rioja', 'Mendoza', 'Misiones', 'Neuquén', 'Río Negro', 'Salta', 'San Juan', 'San Luis', 'Santa Cruz', 'Santa Fe', 'Santiago del Estero', 'Tierra del Fuego', 'Tucumán'];
-                                                    if (!in_array($usuario['provincia'], $provincias_lista)): ?>
-                                                        <option value="<?php echo htmlspecialchars($usuario['provincia']); ?>" selected><?php echo htmlspecialchars($usuario['provincia']); ?></option>
-                                                    <?php endif; 
-                                                endif; ?>
+                                                    if (!in_array($usuario['provincia'], $provincias_lista)) {
+                                                        echo '<option value="' . htmlspecialchars($usuario['provincia']) . '" selected>' . htmlspecialchars($usuario['provincia']) . '</option>';
+                                                    }
+                                                }
+                                                ?>
                                             </select>
                                         </div>
                                         
@@ -707,17 +741,12 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                             // Normalizar estado del pedido usando función centralizada
                                             $estado_pedido = normalizarEstado($pedido['estado_pedido'] ?? '');
                                             
-                                            // DESHABILITADO: Los clientes ya no pueden cancelar pedidos
-                                            // Solo el personal de VENTAS puede cancelar pedidos desde el panel de ventas
                                             // Validar si se puede cancelar el pedido
-                                            // Lógica mejorada: verificar tanto el estado del pedido como el estado del pago
-                                            // - El pedido debe estar en 'pendiente' o 'preparacion'
-                                            // - El pago NO debe estar cancelado (si existe pago)
-                                            // Nota: Si el pago está cancelado, el pedido debería estar cancelado según la lógica de negocio.
-                                            // Este check previene mostrar el botón en casos de inconsistencia de datos.
-                                            // $puede_cancelar_pedido = in_array($estado_pedido, ['pendiente', 'preparacion']) 
-                                            //     && (!$pago_pedido || normalizarEstado($pago_pedido['estado_pago'] ?? '') !== 'cancelado');
-                                            $puede_cancelar_pedido = false; // Deshabilitado para clientes
+                                            // Lógica de negocio: Cliente puede cancelar un Pedido sólo en estado Pendiente
+                                            // Requisitos: Tanto el estado del pedido como el estado del pago deben ser "Pendiente"
+                                            $estado_pago = $pago_pedido ? normalizarEstado($pago_pedido['estado_pago'] ?? '') : '';
+                                            $puede_cancelar_pedido = ($estado_pedido === 'pendiente') 
+                                                && ($estado_pago === 'pendiente' || !$pago_pedido);
             
                                             // Validar si se puede marcar el pago como pagado (solo pagos pendientes)
                                             $puede_marcar_pago = $pago_pedido && normalizarEstado($pago_pedido['estado_pago'] ?? '') === 'pendiente';
@@ -772,14 +801,15 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                                         <span class="badge bg-<?= htmlspecialchars($info_estado_pago['color']) ?> text-white">
                                                             <?= htmlspecialchars($info_estado_pago['nombre']) ?>
                                                         </span>
-                                                        <?php if ($hay_inconsistencia): ?>
-                                                            <br><small class="text-secondary">
-                                                                <i class="fas fa-exclamation-triangle"></i> Revisar estado
-                                                            </small>
-                                                        <?php endif; ?>
-                                                        <?php if (!empty($pago_pedido['numero_transaccion'])): ?>
-                                                            <br><small class="text-muted">Código: <?= htmlspecialchars($pago_pedido['numero_transaccion']) ?></small>
-                                                        <?php endif; ?>
+                                                        <?php 
+                                                        // Mostrar advertencias y código de transacción si existen
+                                                        if ($hay_inconsistencia) {
+                                                            echo '<br><small class="text-secondary"><i class="fas fa-exclamation-triangle"></i> Revisar estado</small>';
+                                                        }
+                                                        if (!empty($pago_pedido['numero_transaccion'])) {
+                                                            echo '<br><small class="text-muted">Código: ' . htmlspecialchars($pago_pedido['numero_transaccion']) . '</small>';
+                                                        }
+                                                        ?>
                                                     <?php else: ?>
                                                         <span class="badge bg-secondary text-white">Sin pago</span>
                                                     <?php endif; ?>
@@ -808,29 +838,17 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                                         <?php renderFormularioMarcarPago($pago_pedido); ?>
                                                         <?php endif; ?>
                                                         
-                                                        <!-- DESHABILITADO: Botón Cancelar Pedido - Solo personal de VENTAS puede cancelar pedidos -->
-                                                        <?php // if ($puede_cancelar_pedido): ?>
-                                                        <?php // renderFormularioCancelarPedido($pedido, $pago_pedido); ?>
-                                                        <?php // endif; ?>
+                                                        <!-- Botón Cancelar Pedido (solo si pedido y pago están en estado Pendiente) -->
+                                                        <?php if ($puede_cancelar_pedido): ?>
+                                                        <?php renderFormularioCancelarPedido($pedido, $pago_pedido); ?>
+                                                        <?php endif; ?>
                                                         
                                                         <!-- Botón Reclamo/Consulta (solo si no hay más acciones disponibles) -->
                                                         <?php if (!$tiene_acciones_disponibles): ?>
-                                                        <?php
-                                                        // Verificar si ya se envió un mensaje para este pedido
-                                                        ?>
-                                                        <?php if (false): ?>
-                                                        <button type="button" 
-                                                                class="btn btn-outline-secondary btn-sm" 
-                                                                disabled
-                                                                title="Ya has enviado un mensaje sobre este pedido. Aguarda nuestra respuesta.">
-                                                            <i class="fas fa-clock me-1"></i>Aguarde Respuesta
-                                                        </button>
-                                                        <?php else: ?>
                                                         <a href="index.php?asunto=problema_pedido&pedido=<?= htmlspecialchars($pedido['id_pedido'], ENT_QUOTES, 'UTF-8') ?>#contacto" 
                                                            class="btn btn-outline-info btn-sm">
                                                             <i class="fas fa-comment-dots me-1"></i>Reclamo/Consulta
                                                         </a>
-                                                        <?php endif; ?>
                                                         <?php endif; ?>
                                                     </div>
                                                     
@@ -866,7 +884,6 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                 
                                 <!-- Pregunta y Respuesta de Recupero -->
                                 <div class="mb-4">
-                                    <h5 class="mb-3"><i class="fas fa-question-circle me-2"></i>Pregunta de Recupero</h5>
                                     <form method="POST" action="" data-protect>
                                         <div class="mb-3">
                                             <label for="pregunta_recupero" class="form-label">
@@ -876,7 +893,7 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                                 <option value="">Selecciona una pregunta (opcional)</option>
                                                 <?php foreach ($preguntas_recupero as $pregunta): ?>
                                                     <option value="<?= $pregunta['id_pregunta'] ?>" 
-                                                            <?= (isset($usuario['pregunta_recupero']) && $usuario['pregunta_recupero'] == $pregunta['id_pregunta']) ? 'selected' : '' ?>>
+                                                            <?= (isset($usuario['pregunta_recupero']) && !empty($usuario['pregunta_recupero']) && intval($usuario['pregunta_recupero']) == intval($pregunta['id_pregunta'])) ? 'selected' : '' ?>>
                                                         <?= htmlspecialchars($pregunta['texto_pregunta']) ?>
                                                     </option>
                                                 <?php endforeach; ?>
@@ -888,15 +905,25 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                             <label for="respuesta_recupero" class="form-label">
                                                 <i class="fas fa-key me-1"></i>Respuesta de Recupero
                                             </label>
-                                            <input type="text" 
-                                                   class="form-control" 
-                                                   id="respuesta_recupero" 
-                                                   name="respuesta_recupero" 
-                                                   value="<?= htmlspecialchars($usuario['respuesta_recupero'] ?? '') ?>"
-                                                   minlength="4"
-                                                   maxlength="20"
-                                                   pattern="[a-zA-Z0-9 ]+"
-                                                   title="Letras, números y espacios, mínimo 4 caracteres, máximo 20 caracteres">
+                                            <div class="password-input-wrapper">
+                                                <input type="password" 
+                                                       class="form-control" 
+                                                       id="respuesta_recupero" 
+                                                       name="respuesta_recupero" 
+                                                       value="<?php 
+                                                           // No mostrar el hash, solo mostrar si es texto plano (menos de 20 caracteres)
+                                                           $respuesta = $usuario['respuesta_recupero'] ?? '';
+                                                           echo (strlen($respuesta) > 20) ? '' : htmlspecialchars($respuesta);
+                                                       ?>"
+                                                       minlength="4"
+                                                       maxlength="20"
+                                                       pattern="[a-zA-Z0-9 ]+"
+                                                       title="Letras, números y espacios, mínimo 4 caracteres, máximo 20 caracteres"
+                                                       autocomplete="off">
+                                                <button type="button" class="btn-toggle-password" data-input-id="respuesta_recupero" aria-label="Mostrar respuesta">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            </div>
                                             <small class="text-muted"><i class="fas fa-info-circle me-1"></i>Letras, números y espacios, entre 4 y 20 caracteres</small>
                                         </div>
                                         

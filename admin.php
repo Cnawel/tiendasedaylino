@@ -55,6 +55,7 @@ require_once __DIR__ . '/includes/queries/usuario_queries.php';
 require_once __DIR__ . '/includes/queries/pedido_queries.php';
 require_once __DIR__ . '/includes/admin_functions.php';
 require_once __DIR__ . '/includes/sales_functions.php';
+require_once __DIR__ . '/includes/dashboard_functions.php';
 
 // Verificar que el usuario esté logueado y sea admin
 requireAdmin();
@@ -96,16 +97,10 @@ $titulo_pagina = 'Panel de Administración';
 // PROCESAMIENTO DE FORMULARIOS (MENSAJES COMPARTIDOS)
 // ============================================================================
 
-// Obtener mensajes de sesión (si hay redirección)
-$mensaje = '';
-$mensaje_tipo = '';
-if (isset($_SESSION['mensaje'])) {
-    $mensaje = $_SESSION['mensaje'];
-    $mensaje_tipo = isset($_SESSION['mensaje_tipo']) ? $_SESSION['mensaje_tipo'] : 'success';
-    // Limpiar mensaje de sesión después de leerlo
-    unset($_SESSION['mensaje']);
-    unset($_SESSION['mensaje_tipo']);
-}
+// Obtener mensajes de sesión usando función centralizada
+$resultado_mensaje = obtenerMensajeSession();
+$mensaje = $resultado_mensaje['mensaje'];
+$mensaje_tipo = $resultado_mensaje['mensaje_tipo'];
 
 // ============================================================================
 // PROCESAR FORMULARIOS POST
@@ -139,14 +134,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // OBTENER TODOS LOS USUARIOS
 // ============================================================================
 
-// Obtener filtro de rol desde GET (si existe)
-$filtro_rol = isset($_GET['filtro_rol']) && $_GET['filtro_rol'] !== '' ? $_GET['filtro_rol'] : null;
-
-// Validar que el filtro sea un rol válido
-$roles_validos = ['cliente', 'ventas', 'marketing', 'admin'];
-if ($filtro_rol !== null && !in_array($filtro_rol, $roles_validos, true)) {
-    $filtro_rol = null;
-}
+// Obtener y validar filtro de rol desde GET usando función centralizada
+$filtro_rol = validarFiltroRol($_GET['filtro_rol'] ?? null);
 
 // Obtener parámetro para mostrar usuarios inactivos
 $mostrar_inactivos = isset($_GET['mostrar_inactivos']) && $_GET['mostrar_inactivos'] == '1';
@@ -157,12 +146,7 @@ $usuarios = obtenerTodosUsuarios($mysqli, $filtro_rol);
 // Filtrar usuarios inactivos si el toggle está desactivado
 // Por defecto solo mostrar usuarios activos (activo = 1)
 if (!$mostrar_inactivos) {
-    $usuarios = array_filter($usuarios, function($usuario) {
-        $activo = isset($usuario['activo']) ? intval($usuario['activo']) : 1;
-        return $activo === 1;
-    });
-    // Reindexar el array después del filtro
-    $usuarios = array_values($usuarios);
+    $usuarios = filtrarUsuariosActivos($usuarios);
 }
 
 // Obtener estadísticas de usuarios usando función centralizada
@@ -281,7 +265,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <a class="nav-link" href="db-tablas.php" role="tab">
+                    <a class="nav-link" href="tablas/db_tablas.php" role="tab">
                         <i class="fas fa-database me-2"></i>DB-TABLAS
                     </a>
                 </li>
@@ -305,6 +289,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                     </div>
                     <?php endif; ?>
                     
+                    
                     <!-- Filtro por Rol -->
                     <div class="card mb-3">
                         <div class="card-body">
@@ -312,6 +297,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                 <?php if ($mostrar_inactivos): ?>
                                 <input type="hidden" name="mostrar_inactivos" value="1">
                                 <?php endif; ?>
+                                
                                 <div class="col-md-4">
                                     <label for="filtro_rol" class="form-label">
                                         <i class="fas fa-filter me-2"></i>Filtrar por Rol
@@ -440,7 +426,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                                     <h5 class="modal-title">Modificar Usuario</h5>
                                                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                                 </div>
-                                                <form method="POST" action="" onsubmit="return validarContrasenaUsuario(<?= $user['id_usuario'] ?>)">
+                                                <form method="POST" action="" id="formModificarUsuario<?= $user['id_usuario'] ?>" onsubmit="return validarContrasenaUsuario(<?= $user['id_usuario'] ?>)">
                                                     <div class="modal-body">
                                                         <input type="hidden" name="usuario_id" value="<?= $user['id_usuario'] ?>">
                                                         <input type="hidden" name="edit_user_id" value="<?= $user['id_usuario'] ?>">
@@ -561,41 +547,45 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                                             </small>
                                                         </div>
                                                     </div>
-                                                    <div class="modal-footer">
-                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                        <?php 
-                                                        // Mostrar botón Desactivar si el usuario está activo
-                                                        $activo_usuario = intval($user['activo'] ?? 1);
-                                                        if ($activo_usuario === 1 && $user['id_usuario'] != $id_usuario):
-                                                        ?>
-                                                        <form method="POST" action="" style="display: inline;" onsubmit="return confirm('¿Estás seguro de desactivar esta cuenta? El usuario no podrá iniciar sesión.')">
-                                                            <input type="hidden" name="del_user_id" value="<?= $user['id_usuario'] ?>">
-                                                            <button type="submit" name="desactivar_usuario" class="btn btn-warning">
-                                                                <i class="fas fa-user-slash me-1"></i>Desactivar Cuenta
-                                                            </button>
-                                                        </form>
-                                                        <?php 
-                                                        // Mostrar botón Reactivar si el usuario está inactivo
-                                                        elseif ($activo_usuario === 0):
-                                                        ?>
-                                                        <form method="POST" action="" style="display: inline;">
-                                                            <input type="hidden" name="del_user_id" value="<?= $user['id_usuario'] ?>">
-                                                            <button type="submit" name="reactivar_usuario" class="btn btn-success">
-                                                                <i class="fas fa-user-check me-1"></i>Reactivar Cuenta
-                                                            </button>
-                                                        </form>
-                                                        <?php endif; ?>
-                                                        <button type="submit" name="actualizar_usuario" class="btn btn-primary"><i class="fas fa-save me-1"></i>Guardar Cambios</button>
-                                                    </div>
                                                 </form>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                    <?php 
+                                                    // Mostrar botón Desactivar si el usuario está activo
+                                                    $activo_usuario = intval($user['activo'] ?? 1);
+                                                    if ($activo_usuario === 1 && $user['id_usuario'] != $id_usuario):
+                                                    ?>
+                                                    <form method="POST" action="" style="display: inline;">
+                                                        <input type="hidden" name="del_user_id" value="<?= $user['id_usuario'] ?>">
+                                                        <button type="submit" name="desactivar_usuario" class="btn btn-warning">
+                                                            <i class="fas fa-user-slash me-1"></i>Desactivar Cuenta
+                                                        </button>
+                                                    </form>
+                                                    <?php 
+                                                    // Mostrar botón Reactivar si el usuario está inactivo
+                                                    elseif ($activo_usuario === 0):
+                                                    ?>
+                                                    <form method="POST" action="" style="display: inline;">
+                                                        <input type="hidden" name="del_user_id" value="<?= $user['id_usuario'] ?>">
+                                                        <button type="submit" name="reactivar_usuario" class="btn btn-success">
+                                                            <i class="fas fa-user-check me-1"></i>Reactivar Cuenta
+                                                        </button>
+                                                    </form>
+                                                    <?php endif; ?>
+                                                    
+                                                    <button type="submit" name="actualizar_usuario" form="formModificarUsuario<?= $user['id_usuario'] ?>" class="btn btn-primary"><i class="fas fa-save me-1"></i>Guardar Cambios</button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
 
                                     <!-- Modal eliminar usuario permanentemente -->
                                     <?php 
-                                    // Obtener conteo de pedidos del usuario para mostrar advertencia
+                                    // Calcular condiciones una sola vez para simplificar lógica
                                     $total_pedidos_usuario = contarPedidosUsuario($mysqli, $user['id_usuario']);
+                                    $usuario_activo = intval($user['activo'] ?? 1);
+                                    $tiene_pedidos = $total_pedidos_usuario > 0;
+                                    $nombre_completo = htmlspecialchars(($user['nombre'] ?? 'Usuario') . ' ' . ($user['apellido'] ?? 'Eliminado'));
                                     ?>
                                     <div class="modal fade" id="eliminarUsuarioModal<?= $user['id_usuario'] ?>" tabindex="-1">
                                         <div class="modal-dialog">
@@ -603,41 +593,40 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                                 <div class="modal-header bg-danger text-white">
                                                     <h5 class="modal-title">
                                                         <i class="fas fa-exclamation-triangle me-2"></i>
-                                                        <?php if ($total_pedidos_usuario > 0): ?>
-                                                            Eliminar Usuario
-                                                        <?php else: ?>
-                                                            Eliminar Usuario Permanentemente
-                                                        <?php endif; ?>
+                                                        <?= $tiene_pedidos ? 'Eliminar Usuario' : 'Eliminar Usuario Permanentemente' ?>
                                                     </h5>
                                                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                                 </div>
                                                 <form method="POST" action="" id="formEliminarFisico<?= $user['id_usuario'] ?>">
                                                     <div class="modal-body">
+                                                        <?php if ($usuario_activo === 1): ?>
+                                                        <div class="alert alert-warning" role="alert">
+                                                            <h6 class="alert-heading">
+                                                                <i class="fas fa-exclamation-circle me-2"></i><strong>Usuario Activo</strong>
+                                                            </h6>
+                                                            <p class="mb-0">
+                                                                <strong>El usuario debe estar inactivo antes de poder eliminarlo.</strong> Por favor, desactívalo primero usando el botón "Desactivar Cuenta" en la opción de modificar usuario.
+                                                            </p>
+                                                        </div>
+                                                        <?php else: ?>
                                                         <div class="alert alert-danger" role="alert">
                                                             <h6 class="alert-heading">
                                                                 <i class="fas fa-exclamation-triangle me-2"></i><strong>¡ADVERTENCIA!</strong>
                                                             </h6>
                                                             <p class="mb-2">
-                                                                <?php if ($total_pedidos_usuario > 0): ?>
-                                                                    Estás a punto de <strong>eliminar</strong> al usuario 
-                                                                    <strong><?= htmlspecialchars(($user['nombre'] ?? 'Usuario') . ' ' . ($user['apellido'] ?? 'Eliminado')) ?></strong>.
-                                                                <?php else: ?>
-                                                                    Estás a punto de <strong>eliminar permanentemente</strong> al usuario 
-                                                                    <strong><?= htmlspecialchars(($user['nombre'] ?? 'Usuario') . ' ' . ($user['apellido'] ?? 'Eliminado')) ?></strong>.
-                                                                <?php endif; ?>
+                                                                Estás a punto de <strong><?= $tiene_pedidos ? 'eliminar' : 'eliminar permanentemente' ?></strong> al usuario 
+                                                                <strong><?= $nombre_completo ?></strong>.
                                                             </p>
                                                             <hr>
                                                             <p class="mb-0">
                                                                 <strong>Esta acción es IRREVERSIBLE.</strong>
-                                                                <?php if ($total_pedidos_usuario > 0): ?>
-                                                                    Todos los datos personales serán eliminados permanentemente. Los pedidos y pagos se conservarán desvinculados para contabilidad.
-                                                                <?php else: ?>
-                                                                    El usuario será borrado completamente de la base de datos.
-                                                                <?php endif; ?>
+                                                                <?= $tiene_pedidos 
+                                                                    ? 'Todos los datos personales serán eliminados permanentemente. Los pedidos y pagos se conservarán desvinculados para contabilidad.'
+                                                                    : 'El usuario será borrado completamente de la base de datos.' ?>
                                                             </p>
                                                         </div>
                                                         
-                                                        <?php if ($total_pedidos_usuario > 0): ?>
+                                                        <?php if ($tiene_pedidos): ?>
                                                         <div class="alert alert-warning">
                                                             <h6 class="alert-heading">
                                                                 <i class="fas fa-user-shield me-2"></i><strong>Eliminación de Usuario</strong>
@@ -659,16 +648,17 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                                         <?php endif; ?>
                                                         
                                                         <input type="hidden" name="del_user_id" value="<?= $user['id_usuario'] ?>">
+                                                        <?php endif; ?>
                                                     </div>
                                                     <div class="modal-footer">
                                                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                        <?php if ($total_pedidos_usuario > 0): ?>
-                                                        <button type="submit" name="eliminar_usuario_fisico" class="btn btn-danger">
-                                                            <i class="fas fa-trash-alt me-1"></i>Eliminar Usuario
+                                                        <?php if ($usuario_activo === 1): ?>
+                                                        <button type="button" class="btn btn-danger" disabled title="El usuario debe estar inactivo antes de poder eliminarlo">
+                                                            <i class="fas fa-trash-alt me-1"></i>Eliminar (Usuario Activo)
                                                         </button>
                                                         <?php else: ?>
                                                         <button type="submit" name="eliminar_usuario_fisico" class="btn btn-danger">
-                                                            <i class="fas fa-trash-alt me-1"></i>Eliminar Permanentemente
+                                                            <i class="fas fa-trash-alt me-1"></i><?= $tiene_pedidos ? 'Eliminar Usuario' : 'Eliminar Permanentemente' ?>
                                                         </button>
                                                         <?php endif; ?>
                                                     </div>
@@ -750,10 +740,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                            class="form-control" 
                                            name="password_temporal" 
                                            id="password_temporal"
-                                           required
                                            minlength="6"
                                            maxlength="255"
-                                           placeholder="Mínimo 6 caracteres"
+                                           placeholder="Mínimo 6 caracteres (opcional)"
                                            autocomplete="new-password">
                                     <button type="button" class="btn-toggle-password" data-toggle-password="password_temporal" aria-label="Mostrar contraseña">
                                         <i class="fas fa-eye"></i>
@@ -761,7 +750,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                 </div>
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle me-1"></i>
-                                    Mínimo 6 caracteres. El usuario deberá cambiarla al iniciar sesión.
+                                    Mínimo 6 caracteres si la escribes manualmente. El usuario deberá cambiarla al iniciar sesión.
                                 </small>
                             </div>
                             <div class="col-md-6">
@@ -773,10 +762,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                            class="form-control" 
                                            name="confirmar_password_temporal" 
                                            id="confirmar_password_temporal"
-                                           required
                                            minlength="6"
                                            maxlength="255"
-                                           placeholder="Repite la contraseña temporal"
+                                           placeholder="Repite la contraseña temporal (opcional)"
                                            autocomplete="new-password">
                                     <button type="button" class="btn-toggle-password" data-toggle-password="confirmar_password_temporal" aria-label="Mostrar contraseña">
                                         <i class="fas fa-eye"></i>
