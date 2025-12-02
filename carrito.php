@@ -406,7 +406,7 @@ $monto_faltante_carrito = obtenerMontoFaltanteEnvioGratis($total_carrito);
                             </h5>
                             <form method="POST" action="carrito.php" class="d-inline" id="form-vaciar-carrito">
                                 <input type="hidden" name="accion" value="vaciar">
-                                <button type="submit" class="btn btn-outline-danger btn-sm" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                                <button type="submit" class="btn btn-outline-danger btn-sm btn-sm-carrito">
                                     <i class="fas fa-trash-alt me-1"></i><span class="d-none d-sm-inline">Vaciar Todo</span>
                                 </button>
                             </form>
@@ -448,18 +448,17 @@ $monto_faltante_carrito = obtenerMontoFaltanteEnvioGratis($total_carrito);
                                     <input type="hidden" name="accion" value="actualizar">
                                     <input type="hidden" name="clave" value="<?php echo htmlspecialchars($producto['clave']); ?>">
                                     <label class="small text-muted d-block text-center mb-1 d-md-none">Cantidad</label>
-                                    <div class="input-group input-group-sm mx-auto" style="max-width: 110px;">
-                                        <button class="btn btn-outline-secondary btn-cantidad-carrito" type="button" data-index="<?php echo $index; ?>" data-action="decrement" style="min-width: 32px; padding: 0.25rem;">
+                                    <div class="input-group input-group-sm mx-auto input-group-carrito">
+                                        <button class="btn btn-outline-secondary btn-cantidad-carrito btn-cantidad-carrito-compact" type="button" data-index="<?php echo $index; ?>" data-action="decrement">
                                             <i class="fas fa-minus"></i>
                                         </button>
                                         <input type="number" 
                                                name="cantidad" 
                                                id="cantidad-<?php echo $index; ?>"
-                                               class="form-control text-center border-top border-bottom" 
+                                               class="form-control text-center border-top border-bottom input-cantidad-carrito" 
                                                value="<?php echo $producto['cantidad']; ?>" 
-                                               min="1" 
-                                               style="font-weight: 600; border-left: 0; border-right: 0; padding: 0.25rem;">
-                                        <button class="btn btn-outline-secondary btn-cantidad-carrito" type="button" data-index="<?php echo $index; ?>" data-action="increment" style="min-width: 32px; padding: 0.25rem;">
+                                               min="1">
+                                        <button class="btn btn-outline-secondary btn-cantidad-carrito btn-cantidad-carrito-compact" type="button" data-index="<?php echo $index; ?>" data-action="increment">
                                             <i class="fas fa-plus"></i>
                                         </button>
                                     </div>
@@ -475,7 +474,7 @@ $monto_faltante_carrito = obtenerMontoFaltanteEnvioGratis($total_carrito);
                                 <form method="POST" action="carrito.php" class="d-inline">
                                     <input type="hidden" name="accion" value="eliminar">
                                     <input type="hidden" name="clave" value="<?php echo htmlspecialchars($producto['clave']); ?>">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar producto" style="padding: 0.25rem 0.5rem;">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger btn-sm-carrito" title="Eliminar producto">
                                         <i class="fas fa-trash"></i><span class="d-none d-lg-inline ms-1">Eliminar</span>
                                     </button>
                                 </form>
@@ -499,7 +498,7 @@ $monto_faltante_carrito = obtenerMontoFaltanteEnvioGratis($total_carrito);
                         <!-- Aviso de envío gratis -->
                         <div id="carrito-envio-alert">
                         <?php if (!$info_envio_carrito['es_gratis'] && $monto_faltante_carrito > 0): ?>
-                        <div class="alert alert-info mb-3 py-2" style="font-size: 0.8rem; border-left: 4px solid #0dcaf0; color: #000;">
+                        <div class="alert alert-info mb-3 py-2 alert-compact-carrito alert-compact-carrito-info">
                             <div class="d-flex align-items-start">
                                 <i class="fas fa-truck me-2 mt-1"></i>
                                 <div>
@@ -509,7 +508,7 @@ $monto_faltante_carrito = obtenerMontoFaltanteEnvioGratis($total_carrito);
                             </div>
                         </div>
                         <?php elseif ($info_envio_carrito['es_gratis']): ?>
-                        <div class="alert alert-success mb-3 py-2" style="font-size: 0.8rem; border-left: 4px solid #198754;">
+                        <div class="alert alert-success mb-3 py-2 alert-compact-carrito alert-compact-carrito-success">
                             <div class="d-flex align-items-start">
                                 <i class="fas fa-truck me-2 mt-1"></i>
                                 <div>
@@ -519,7 +518,7 @@ $monto_faltante_carrito = obtenerMontoFaltanteEnvioGratis($total_carrito);
                             </div>
                         </div>
                         <?php else: ?>
-                        <div class="alert alert-warning mb-3 py-2" style="font-size: 0.8rem; border-left: 4px solid #FF9800;">
+                        <div class="alert alert-warning mb-3 py-2 alert-compact-carrito alert-compact-carrito-warning">
                             <div class="d-flex align-items-start">
                                 <i class="fas fa-info-circle me-2 mt-1"></i>
                                 <div>
@@ -529,6 +528,7 @@ $monto_faltante_carrito = obtenerMontoFaltanteEnvioGratis($total_carrito);
                             </div>
                         </div>
                         <?php endif; ?>
+                        
                         </div>
 
                         <!-- Totales -->
@@ -543,7 +543,7 @@ $monto_faltante_carrito = obtenerMontoFaltanteEnvioGratis($total_carrito);
                                     <?php if ($info_envio_carrito['es_gratis']): ?>
                                     <span class="text-success fw-bold small">GRATIS</span>
                                     <?php else: ?>
-                                    <div class="small" style="font-size: 0.75rem; line-height: 1.5;">
+                                    <div class="small text-small-carrito">
                                         <div class="text-muted mb-1">
                                             CABA/GBA: <strong class="text-dark">$<?php echo number_format($info_envio_carrito['costo_caba_gba'], 2); ?></strong>
                                         </div>
@@ -552,6 +552,7 @@ $monto_faltante_carrito = obtenerMontoFaltanteEnvioGratis($total_carrito);
                                         </div>
                                     </div>
                                     <?php endif; ?>
+                                    
                                 </div>
                             </div>
                             <hr class="my-2">
@@ -563,9 +564,10 @@ $monto_faltante_carrito = obtenerMontoFaltanteEnvioGratis($total_carrito);
                                 <?php else: ?>
                                 <div class="text-end">
                                     <h6 class="text-primary mb-0 fw-bold">$<?php echo number_format($total_carrito + $info_envio_carrito['costo_caba_gba'], 2); ?>*</h6>
-                                    <small class="text-muted" style="font-size: 0.65rem;">*Incluye envío desde $<?php echo number_format($info_envio_carrito['costo_caba_gba'], 2); ?></small>
+                                    <small class="text-muted text-tiny">*Incluye envío desde $<?php echo number_format($info_envio_carrito['costo_caba_gba'], 2); ?></small>
                                 </div>
                                 <?php endif; ?>
+                                
                                 </div>
                             </div>
                         </div>
@@ -582,86 +584,20 @@ $monto_faltante_carrito = obtenerMontoFaltanteEnvioGratis($total_carrito);
                             <a href="login.php" class="btn btn-success">
                                 <i class="fas fa-sign-in-alt me-2"></i>Iniciar Sesión para Comprar
                             </a>
-                            <?php endif; ?>
+                            
                             
                             <a href="index.php#productos" class="btn btn-outline-secondary btn-sm">
                                 <i class="fas fa-arrow-left me-2"></i>Seguir Comprando
                             </a>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
         <?php endif; ?>
-    </main>
-
-<style>
-    /* Prevenir overflow horizontal */
-    .container {
-        overflow-x: hidden;
-    }
-    
-    /* Efectos hover para productos */
-    .product-item:hover {
-        background-color: #f8f9fa !important;
-    }
-    
-    
-    /* Mejora en botones de cantidad */
-    .input-group .btn-outline-secondary:hover {
-        background-color: #6c757d;
-        border-color: #6c757d;
-        color: white;
-    }
-    
-    /* Mejora en botones de acción */
-    .btn-success:hover {
-        box-shadow: 0 4px 8px var(--color-success);
-    }
-    
-    /* Mejora en card de resumen */
-    .sticky-card {
-        transition: box-shadow 0.3s ease;
-    }
-    
-    .sticky-card:hover {
-        box-shadow: 0 0.5rem 1rem var(--color-shadow) !important;
-    }
-    
-    /* Mejora en badges - más compactos */
-    .badge {
-        font-weight: 500;
-        padding: 0.25em 0.5em;
-        font-size: 0.75rem;
-    }
-    
-    /* Mejora en alertas */
-    .alert {
-        border-radius: 0.5rem;
-    }
-    
-    /* Separación visual mejorada */
-    .border-bottom:last-child {
-        border-bottom: none !important;
-    }
-    
-    /* Optimizar espacios en móvil */
-    @media (max-width: 767.98px) {
-        .product-item {
-            padding: 0.75rem !important;
-        }
         
-        .card-body {
-            font-size: 0.9rem;
-        }
-    }
-    
-    /* Asegurar que las imágenes no se desborden */
-    img {
-        max-width: 100%;
-        height: auto;
-    }
-</style>
+    </main>
 
 <?php include 'includes/footer.php'; render_footer(); ?>
 

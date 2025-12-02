@@ -275,6 +275,7 @@ if ($categoria_nombre === 'todos' || $categoria_id !== null) {
                         </div>
                         <hr class="filtro-divider">
                         <?php endif; ?>
+                        
 
                         <?php if (!empty($generos_disponibles)): ?>
                         <div class="filtro-grupo-compacto">
@@ -318,6 +319,7 @@ if ($categoria_nombre === 'todos' || $categoria_id !== null) {
                         </div>
                         <hr class="filtro-divider">
                         <?php endif; ?>
+                        
 
                         <?php if (!empty($colores_disponibles)): ?>
                         <div class="filtro-grupo-compacto">
@@ -347,6 +349,7 @@ if ($categoria_nombre === 'todos' || $categoria_id !== null) {
                             </div>
                         </div>
                         <?php endif; ?>
+                        
 
                         <?php if (!empty($talles_seleccionados) || !empty($generos_seleccionados) || !empty($colores_seleccionados)): ?>
                         <div class="mb-2">
@@ -355,8 +358,10 @@ if ($categoria_nombre === 'todos' || $categoria_id !== null) {
                             </a>
                         </div>
                         <?php endif; ?>
+                        
                     </form>
                     <?php endif; ?>
+                    
                 </div>
             </aside>
 

@@ -316,6 +316,7 @@ $monto_faltante = obtenerMontoFaltanteEnvioGratis($total_carrito);
                 <?php endforeach; ?>
             </ul>
             <?php endif; ?>
+            
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
         <?php 
@@ -324,6 +325,7 @@ $monto_faltante = obtenerMontoFaltanteEnvioGratis($total_carrito);
         // Los errores se limpiarán cuando el usuario vuelva a intentar procesar el pedido
         ?>
         <?php endif; ?>
+        
 
 
         <?php if ($error_stock): ?>
@@ -453,12 +455,15 @@ $monto_faltante = obtenerMontoFaltanteEnvioGratis($total_carrito);
                                         <option value="Santiago del Estero" <?php echo (isset($usuario['provincia']) && $usuario['provincia'] === 'Santiago del Estero') ? 'selected' : ''; ?>>Santiago del Estero</option>
                                         <option value="Tierra del Fuego" <?php echo (isset($usuario['provincia']) && $usuario['provincia'] === 'Tierra del Fuego') ? 'selected' : ''; ?>>Tierra del Fuego</option>
                                         <option value="Tucumán" <?php echo (isset($usuario['provincia']) && $usuario['provincia'] === 'Tucumán') ? 'selected' : ''; ?>>Tucumán</option>
-                                        <?php if (!empty($usuario['provincia'])): 
+                                        <?php 
+                                        // Agregar provincia personalizada si no está en la lista estándar
+                                        if (!empty($usuario['provincia'])) {
                                             $provincias_lista = ['CABA', 'Buenos Aires', 'Catamarca', 'Chaco', 'Chubut', 'Córdoba', 'Corrientes', 'Entre Ríos', 'Formosa', 'Jujuy', 'La Pampa', 'La Rioja', 'Mendoza', 'Misiones', 'Neuquén', 'Río Negro', 'Salta', 'San Juan', 'San Luis', 'Santa Cruz', 'Santa Fe', 'Santiago del Estero', 'Tierra del Fuego', 'Tucumán'];
-                                            if (!in_array($usuario['provincia'], $provincias_lista)): ?>
-                                                <option value="<?php echo htmlspecialchars($usuario['provincia']); ?>" selected><?php echo htmlspecialchars($usuario['provincia']); ?></option>
-                                            <?php endif; 
-                                        endif; ?>
+                                            if (!in_array($usuario['provincia'], $provincias_lista)) {
+                                                echo '<option value="' . htmlspecialchars($usuario['provincia']) . '" selected>' . htmlspecialchars($usuario['provincia']) . '</option>';
+                                            }
+                                        }
+                                        ?>
                                     </select>
                                 </div>
                                 <div class="col-md-4 mb-3">
@@ -515,6 +520,29 @@ $monto_faltante = obtenerMontoFaltanteEnvioGratis($total_carrito);
                                 </div>
                                 <?php endforeach; ?>
                             <?php endif; ?>
+                            
+                        </div>
+                    </div>
+
+                    <!-- Observaciones del Pedido -->
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-dark text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-sticky-note me-2"></i>
+                                Observaciones del Pedido
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="observaciones" class="form-label">Observaciones (opcional)</label>
+                                <textarea class="form-control" id="observaciones" name="observaciones" 
+                                          rows="3" 
+                                          maxlength="500"
+                                          placeholder="Ej: Instrucciones de entrega, notas especiales, etc."><?php echo isset($_POST['observaciones']) ? htmlspecialchars($_POST['observaciones']) : ''; ?></textarea>
+                                <small class="form-text text-muted">
+                                    Máximo 500 caracteres. Puedes agregar instrucciones de entrega o notas especiales para tu pedido.
+                                </small>
+                            </div>
                         </div>
                     </div>
 
@@ -538,8 +566,7 @@ $monto_faltante = obtenerMontoFaltanteEnvioGratis($total_carrito);
                                 $tiene_error = isset($producto['tiene_error']) && $producto['tiene_error'];
                                 $clase_error = $tiene_error ? 'producto-error border-danger border-2' : '';
                                 ?>
-                                <div class="d-flex mb-3 pb-3 border-bottom <?php echo $clase_error; ?>" 
-                                     style="<?php echo $tiene_error ? 'background-color: #fff5f5; border-radius: 8px; padding: 0.75rem;' : ''; ?>">
+                                <div class="d-flex mb-3 pb-3 border-bottom <?php echo $clase_error; ?>">
                                     <div class="flex-grow-1">
                                         <div class="d-flex align-items-start justify-content-between">
                                             <small class="d-block fw-bold">
@@ -558,21 +585,25 @@ $monto_faltante = obtenerMontoFaltanteEnvioGratis($total_carrito);
                                         </small>
                                         <?php 
                                         // Warning de stock bajo (menos de 5 unidades disponibles)
+                                        // Solo mostrar si hay stock suficiente para la cantidad solicitada
                                         $stock_disponible = $producto['stock_disponible'] ?? 0;
-                                        $mostrar_warning_stock_bajo = !$tiene_error && $stock_disponible > 0 && $stock_disponible < 5;
+                                        $cantidad_solicitada = $producto['cantidad'] ?? 0;
+                                        $mostrar_warning_stock_bajo = !$tiene_error && $stock_disponible > 0 && $stock_disponible >= $cantidad_solicitada && $stock_disponible < 5;
                                         ?>
                                         <?php if ($mostrar_warning_stock_bajo): ?>
-                                        <div class="alert alert-warning alert-sm py-1 px-2 mt-2 mb-1" style="font-size: 0.75rem; line-height: 1.3;">
+                                        <div class="alert alert-warning alert-sm py-1 px-2 mt-2 mb-1">
                                             <i class="fas fa-exclamation-triangle me-1"></i>
                                             <strong>Stock limitado:</strong> Quedan <?php echo $stock_disponible; ?> unidades disponibles
                                         </div>
                                         <?php endif; ?>
+                                        
                                         <?php if ($tiene_error && isset($producto['error_mensaje'])): ?>
-                                        <div class="alert alert-danger alert-sm py-1 px-2 mt-2 mb-1" style="font-size: 0.75rem; line-height: 1.3;">
+                                        <div class="alert alert-danger alert-sm py-1 px-2 mt-2 mb-1">
                                             <i class="fas fa-exclamation-circle me-1"></i>
                                             <strong>Error:</strong> <?php echo htmlspecialchars($producto['error_mensaje']); ?>
                                         </div>
                                         <?php endif; ?>
+                                        
                                         <small class="text-primary fw-bold">
                                             $<?php echo number_format($producto['subtotal'], 2); ?>
                                         </small>
@@ -584,7 +615,7 @@ $monto_faltante = obtenerMontoFaltanteEnvioGratis($total_carrito);
                             <!-- Aviso de envío gratis -->
                             <div id="envio-alert">
                             <?php if (!$info_envio['es_gratis'] && $monto_faltante > 0): ?>
-                            <div class="alert alert-info mb-3 alert-compact" style="color: #000;">
+                            <div class="alert alert-info mb-3 alert-compact">
                                 <i class="fas fa-truck me-2"></i>
                                 <strong>¡Agrega $<?php echo number_format($monto_faltante, 2); ?> más y obtén envío gratis!</strong>
                                 <br>
@@ -637,8 +668,8 @@ $monto_faltante = obtenerMontoFaltanteEnvioGratis($total_carrito);
                 </div>
             </div>
         </form>
-
         <?php endif; ?>
+        
     </main>
 
 <style>

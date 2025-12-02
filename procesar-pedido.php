@@ -246,8 +246,27 @@ try {
         exit;
     }
     
-    // Si todo está bien, hacer commit de la validación (pero aún no creamos el pedido)
-    $mysqli->commit();
+    // Verificar que haya productos válidos (dentro de la transacción)
+    if (empty($productos_validos)) {
+        $mysqli->rollback();
+        $_SESSION['mensaje_error'] = "No hay productos disponibles en tu carrito. Acción sugerida: Agrega productos disponibles al carrito desde la tienda antes de continuar con el checkout.";
+        header('Location: checkout.php');
+        exit;
+    }
+    
+    /**
+     * Verificar que la forma de pago existe y está activa (dentro de la transacción)
+     */
+    $forma_pago = obtenerFormaPagoPorId($mysqli, $id_forma_pago);
+    if (!$forma_pago) {
+        $mysqli->rollback();
+        $_SESSION['mensaje_error'] = "El método de pago seleccionado no es válido";
+        header('Location: checkout.php');
+        exit;
+    }
+    
+    // NO hacer commit aquí - continuar con la misma transacción para crear el pedido y reservar stock
+    // Esto previene race conditions entre validación y reserva de stock
     
 } catch (Exception $e) {
     $mysqli->rollback();
@@ -269,31 +288,14 @@ try {
     exit;
 }
 
-// Verificar que haya productos válidos
-if (empty($productos_validos)) {
-    $_SESSION['mensaje_error'] = "No hay productos disponibles en tu carrito. Acción sugerida: Agrega productos disponibles al carrito desde la tienda antes de continuar con el checkout.";
-    header('Location: checkout.php');
-    exit;
-}
-
-/**
- * Verificar que la forma de pago existe y está activa
- */
-$forma_pago = obtenerFormaPagoPorId($mysqli, $id_forma_pago);
-if (!$forma_pago) {
-    $_SESSION['mensaje_error'] = "El método de pago seleccionado no es válido";
-    header('Location: checkout.php');
-    exit;
-}
-
-/**
- * Iniciar transacción para garantizar atomicidad
- */
-$mysqli->begin_transaction();
+// Continuar con la misma transacción iniciada en la línea 174
+// NO iniciar nueva transacción aquí - ya estamos dentro de una
+// Esta transacción única garantiza atomicidad entre validación de stock, creación de pedido y reserva de stock
 
 try {
     /**
      * Actualizar datos del usuario usando función centralizada
+     * NOTA: Seguimos dentro de la misma transacción iniciada en la línea 174
      */
     $nombre = trim($_POST['nombre']);
     $apellido = trim($_POST['apellido']);
@@ -328,11 +330,26 @@ try {
     $direccion_completa = $validacion_direccion['direccion_completa'];
     
     /**
+     * Capturar y validar observaciones del pedido
+     */
+    $observaciones = null;
+    if (isset($_POST['observaciones']) && !empty(trim($_POST['observaciones']))) {
+        // Validar observaciones usando función centralizada
+        $validacion_observaciones = validarObservaciones($_POST['observaciones'], 500, 'observaciones');
+        if (!$validacion_observaciones['valido']) {
+            throw new Exception($validacion_observaciones['error']);
+        }
+        $observaciones = $validacion_observaciones['valor'];
+        // NOTA: NO sanitizar aquí con htmlspecialchars() - los datos deben guardarse en BD sin sanitizar
+        // La sanitización debe hacerse solo al mostrar en HTML usando htmlspecialchars() en los templates
+    }
+    
+    /**
      * Crear pedido con estado 'pendiente'
      * El pedido espera aprobación del pago. El stock se validará nuevamente
      * al aprobar el pago antes de descontarlo.
      */
-    $id_pedido = crearPedido($mysqli, $id_usuario, 'pendiente');
+    $id_pedido = crearPedido($mysqli, $id_usuario, 'pendiente', $observaciones);
     
     if (!$id_pedido || $id_pedido <= 0) {
         throw new Exception("Error al crear el pedido");
@@ -353,6 +370,17 @@ try {
         if (!$resultado) {
             throw new Exception("Error al agregar detalle del pedido para el producto: {$producto['nombre_producto']}");
         }
+    }
+    
+    /**
+     * Reservar stock inmediatamente al crear el pedido
+     * Esto previene que múltiples clientes compren el mismo producto simultáneamente
+     * El stock se descuenta físicamente pero se marca como reservado (no vendido aún)
+     * Al aprobar el pago, la reserva se convierte en venta
+     * Si se cancela el pedido, la reserva se libera
+     */
+    if (!reservarStockPedido($mysqli, $id_pedido, $id_usuario, true)) {
+        throw new Exception("Error al reservar stock del pedido");
     }
     
     /**
@@ -377,38 +405,22 @@ try {
     }
     
     /**
-     * Actualizar total del pedido (incluye costo de envío)
+     * Actualizar total, dirección de entrega y teléfono de contacto del pedido
+     * Usa función centralizada para evitar código duplicado
      */
-    $sql_update_total = "UPDATE Pedidos SET total = ? WHERE id_pedido = ?";
-    $stmt_update_total = $mysqli->prepare($sql_update_total);
-    if (!$stmt_update_total) {
-        throw new Exception("Error al preparar actualización de total: " . $mysqli->error);
-    }
+    $resultado_actualizacion = actualizarPedidoCompleto(
+        $mysqli,
+        $id_pedido,
+        'pendiente', // Mantener estado actual
+        $direccion_completa,
+        $telefono,
+        $observaciones,
+        $total_pedido_con_envio
+    );
     
-    $stmt_update_total->bind_param('di', $total_pedido_con_envio, $id_pedido);
-    if (!$stmt_update_total->execute()) {
-        throw new Exception("Error al actualizar total del pedido: " . $stmt_update_total->error);
+    if (!$resultado_actualizacion) {
+        throw new Exception("Error al actualizar datos del pedido");
     }
-    $stmt_update_total->close();
-    
-    /**
-     * Actualizar dirección de entrega y teléfono de contacto en el pedido
-     */
-    $sql_update_pedido = "UPDATE Pedidos SET 
-        direccion_entrega = ?,
-        telefono_contacto = ?
-        WHERE id_pedido = ?";
-    
-    $stmt_update_pedido = $mysqli->prepare($sql_update_pedido);
-    if (!$stmt_update_pedido) {
-        throw new Exception("Error al preparar actualización de pedido: " . $mysqli->error);
-    }
-    
-    $stmt_update_pedido->bind_param('ssi', $direccion_completa, $telefono, $id_pedido);
-    if (!$stmt_update_pedido->execute()) {
-        throw new Exception("Error al actualizar datos de envío del pedido: " . $stmt_update_pedido->error);
-    }
-    $stmt_update_pedido->close();
     
     /**
      * Preparar datos para confirmacion-pedido.php

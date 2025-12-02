@@ -487,13 +487,8 @@ $pedido = $_SESSION['pedido_exitoso'];
                                 <div class="info-label payment-details-label">Detalles del Pago</div>
                                 <div class="info-value payment-details-text"><?php echo htmlspecialchars($pedido['metodo_pago_descripcion']); ?></div>
                             </div>
-                            <?php endif; ?>
                             
-                            <!-- Instrucciones para realizar el pago -->
-                            <div class="alert alert-sepia-info mt-3 mb-2" style="border-left: 4px solid var(--sepia-medium);">
-                                <p class="mb-1"><strong><i class="fas fa-money-bill-wave me-2"></i>Realizá el pago:</strong></p>
-                                <p class="mb-0 small">Completá el pago usando el método seleccionado y guardá el comprobante o código de transacción.</p>
-                            </div>
+                            
                             
                             <!-- Instrucciones para marcar el pago desde el perfil -->
                             <div class="alert alert-warning mt-2 mb-0" role="alert" style="background-color: #FFF3CD; border-left: 4px solid #FFC107; color: #000; border-radius: 8px;">
@@ -510,6 +505,7 @@ $pedido = $_SESSION['pedido_exitoso'];
                                     <i class="fas fa-lightbulb me-1"></i><strong>Tip:</strong> Tené a mano el comprobante de pago.
                                         </p>
                             </div>
+                            <?php endif; ?>
                         </div>
                         
                         <div class="info-item">
@@ -639,12 +635,7 @@ $pedido = $_SESSION['pedido_exitoso'];
                         <div class="alert alert-sepia-info mt-4 mb-0" style="border-radius: 8px; padding: 1rem;">
                             <i class="fas fa-info-circle me-2"></i>
                             <small style="line-height: 1.6; font-size: 0.9rem;">
-                                <strong>Importante:</strong> Guarda tu número de pedido para realizar el seguimiento de tu compra. 
-                                <?php if ($mostrar_warning_aprobacion): ?>
-                                Revisa tu email para instrucciones de pago. Una vez confirmado el pago, tu pedido será enviado en 3-5 días hábiles.
-                                <?php else: ?>
-                                Tu pedido será enviado en 3-5 días hábiles una vez confirmado el pago.
-                                <?php endif; ?>
+                                <strong>Importante:</strong> Guarda tu número de pedido para realizar el seguimiento de tu compra.
                             </small>
                         </div>
                     </div>
@@ -681,12 +672,16 @@ $pedido = $_SESSION['pedido_exitoso'];
 
 <!-- Script de animación de confetti -->
 <script>
-    // Función para crear confetti (solo una vez)
+    // Función para crear confetti (solo una vez por pedido)
     function createConfetti() {
-        // Verificar si el confetti ya se mostró usando localStorage
-        const confettiShown = localStorage.getItem('confettiShown');
+        // Obtener ID del pedido desde PHP
+        const orderId = '<?php echo $pedido['id_pedido']; ?>';
+        const storageKey = 'confettiShown_' + orderId;
+        
+        // Verificar si el confetti ya se mostró para este pedido usando sessionStorage
+        const confettiShown = sessionStorage.getItem(storageKey);
         if (confettiShown === 'true') {
-            // Si ya se mostró, ocultar el canvas
+            // Si ya se mostró para este pedido, ocultar el canvas
             const canvas = document.getElementById('confetti-canvas');
             if (canvas) {
                 canvas.style.display = 'none';
@@ -694,8 +689,8 @@ $pedido = $_SESSION['pedido_exitoso'];
             return;
         }
         
-        // Marcar que el confetti se mostró
-        localStorage.setItem('confettiShown', 'true');
+        // Marcar que el confetti se mostró para este pedido
+        sessionStorage.setItem(storageKey, 'true');
         
         const canvas = document.getElementById('confetti-canvas');
         if (!canvas) return;
@@ -768,7 +763,7 @@ $pedido = $_SESSION['pedido_exitoso'];
         // Iniciar animación
         animate();
         
-        // Detener confetti después de 3 segundos y eliminar completamente
+        // Detener confetti después de 6 segundos y eliminar completamente
         setTimeout(() => {
             isStopping = true;
             if (animationId) {
@@ -779,7 +774,7 @@ $pedido = $_SESSION['pedido_exitoso'];
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             canvas.style.display = 'none';
             canvas.style.opacity = '0';
-        }, 3000);
+        }, 6000);
     }
     
     // Iniciar confetti cuando la página carga (solo si no se mostró antes)
