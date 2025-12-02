@@ -52,6 +52,39 @@ function validarNombreProducto($valor) {
 }
 
 /**
+ * Valida descripción de categoría
+ * Permite: letras, números, espacios, acentos, guiones, puntos, comas, dos puntos, punto y coma
+ * Bloquea: símbolos peligrosos (< > { } [ ] | \ / &)
+ * 
+ * NOTA: Existe versión JavaScript equivalente en marketing_forms.js
+ * Ambas versiones deben mantener la misma lógica de validación.
+ * 
+ * @param string $valor Valor a validar
+ * @return array ['valido' => bool, 'valor' => string, 'error' => string]
+ */
+function validarDescripcionCategoria($valor) {
+    $valor = trim($valor);
+    
+    // La descripción es opcional, si está vacía es válida
+    if (empty($valor)) {
+        return ['valido' => true, 'valor' => '', 'error' => ''];
+    }
+    
+    // Validar caracteres permitidos: letras, números, espacios, acentos, guiones, puntos, comas, dos puntos, punto y coma
+    // Bloquear símbolos peligrosos: < > { } [ ] | \ / &
+    if (preg_match('/[<>{}\[\]|\\\\\/&]/', $valor)) {
+        return ['valido' => false, 'valor' => $valor, 'error' => 'La descripción contiene caracteres no permitidos. No se permiten los símbolos: < > { } [ ] | \\ / &'];
+    }
+    
+    // Validar longitud máxima (VARCHAR(255) en BD)
+    if (strlen($valor) > 255) {
+        return ['valido' => false, 'valor' => $valor, 'error' => 'La descripción no puede exceder 255 caracteres.'];
+    }
+    
+    return ['valido' => true, 'valor' => $valor, 'error' => ''];
+}
+
+/**
  * Valida descripción de producto
  * Permite: letras, números, espacios, acentos, guiones, puntos, comas, dos puntos, punto y coma
  * Bloquea: símbolos peligrosos (< > { } [ ] | \ / &)
@@ -107,8 +140,10 @@ function validarPrecio($valor) {
     
     $precio_float = floatval($valor);
     
-    if ($precio_float <= 0) {
-        return ['valido' => false, 'valor' => 0, 'error' => 'El precio debe ser mayor a cero.'];
+    // Validar que el precio sea >= 0 según diccionario de datos
+    // Permite precio = 0 (productos gratuitos o promocionales)
+    if ($precio_float < 0) {
+        return ['valido' => false, 'valor' => 0, 'error' => 'El precio no puede ser negativo.'];
     }
     
     return ['valido' => true, 'valor' => $precio_float, 'error' => ''];
@@ -137,8 +172,14 @@ function validarStock($valor) {
     
     $stock_int = intval($valor);
     
+    // Validar que el stock no sea negativo
     if ($stock_int < 0) {
         return ['valido' => false, 'valor' => 0, 'error' => 'El stock no puede ser negativo.'];
+    }
+    
+    // Validar rango máximo según diccionario de datos: 0-10000
+    if ($stock_int > 10000) {
+        return ['valido' => false, 'valor' => 0, 'error' => 'El stock no puede exceder 10000 unidades.'];
     }
     
     return ['valido' => true, 'valor' => $stock_int, 'error' => ''];
@@ -146,7 +187,7 @@ function validarStock($valor) {
 
 /**
  * Valida talle
- * Permite: letras, números, guiones (ej: "XS", "S", "M", "L", "XL", "2XL")
+ * Permite: letras, números, espacios, puntos y guiones según diccionario [A-Z, a-z, 0-9, espacios, ., -]
  * 
  * @param string $valor Valor a validar
  * @return array ['valido' => bool, 'valor' => string, 'error' => string]
@@ -158,9 +199,9 @@ function validarTalle($valor) {
         return ['valido' => false, 'valor' => '', 'error' => 'El talle es obligatorio.'];
     }
     
-    // Validar caracteres permitidos: letras, números, guiones
-    if (!preg_match('/^[a-zA-Z0-9\-]+$/', $valor)) {
-        return ['valido' => false, 'valor' => $valor, 'error' => 'El talle contiene caracteres no permitidos. Solo se permiten letras, números y guiones.'];
+    // Validar caracteres permitidos según diccionario: letras, números, espacios, puntos y guiones
+    if (!preg_match('/^[a-zA-Z0-9\s\.\-]+$/', $valor)) {
+        return ['valido' => false, 'valor' => $valor, 'error' => 'El talle contiene caracteres no permitidos. Solo se permiten letras, números, espacios, puntos y guiones.'];
     }
     
     // Validar longitud máxima (VARCHAR(50) en BD)
@@ -173,7 +214,7 @@ function validarTalle($valor) {
 
 /**
  * Valida color
- * Permite: solo letras según diccionario [A-Z, a-z]
+ * Permite: letras y espacios según diccionario [A-Z, a-z, espacios]
  * 
  * @param string $valor Valor a validar
  * @return array ['valido' => bool, 'valor' => string, 'error' => string]
@@ -190,10 +231,10 @@ function validarColor($valor) {
         return ['valido' => false, 'valor' => $valor, 'error' => 'El color debe tener al menos 3 caracteres.'];
     }
     
-    // Validar caracteres permitidos según diccionario: solo letras [A-Z, a-z]
+    // Validar caracteres permitidos según diccionario: letras y espacios [A-Z, a-z, espacios]
     // Permite acentos para español (razonable aunque no explícito en diccionario)
-    if (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ]+$/', $valor)) {
-        return ['valido' => false, 'valor' => $valor, 'error' => 'El color solo puede contener letras.'];
+    if (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/', $valor)) {
+        return ['valido' => false, 'valor' => $valor, 'error' => 'El color solo puede contener letras y espacios.'];
     }
     
     // Validar longitud máxima (VARCHAR(50) en BD)
@@ -249,6 +290,16 @@ function validarCategoria($valor) {
     
     if (empty($valor)) {
         return ['valido' => false, 'valor' => '', 'error' => 'La categoría es obligatoria.'];
+    }
+    
+    // Validar longitud mínima según diccionario: 3 caracteres
+    if (strlen($valor) < 3) {
+        return ['valido' => false, 'valor' => $valor, 'error' => 'La categoría debe tener al menos 3 caracteres.'];
+    }
+    
+    // Validar longitud máxima según diccionario: 100 caracteres
+    if (strlen($valor) > 100) {
+        return ['valido' => false, 'valor' => $valor, 'error' => 'La categoría no puede exceder 100 caracteres.'];
     }
     
     // Validar caracteres permitidos: letras, números, espacios, acentos, guiones

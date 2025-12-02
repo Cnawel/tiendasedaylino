@@ -345,6 +345,28 @@ function obtenerPedidosUsuario($mysqli, $id_usuario) {
 }
 
 /**
+ * Reactiva la cuenta de un usuario
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param int $id_usuario ID del usuario
+ * @return bool True si se reactivó correctamente, false en caso contrario
+ */
+function reactivarCuentaUsuario($mysqli, $id_usuario) {
+    $stmt = $mysqli->prepare("UPDATE Usuarios SET activo = 1, fecha_actualizacion = NOW() WHERE id_usuario = ?");
+    if (!$stmt) {
+        return false;
+    }
+    $stmt->bind_param('i', $id_usuario);
+    $resultado = $stmt->execute();
+    if (!$resultado) {
+        error_log("ERROR reactivarCuentaUsuario: No se pudo ejecutar consulta - " . $stmt->error);
+    }
+    $stmt->close();
+    
+    return $resultado;
+}
+
+/**
  * Procesa la eliminación de cuenta del usuario
  * Marca la cuenta como inactiva (soft delete)
  * 

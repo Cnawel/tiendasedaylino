@@ -68,9 +68,9 @@ class StateValidator {
     private static $transicionesPedido = [
         'pendiente' => ['preparacion', 'cancelado'],
         'preparacion' => ['en_viaje', 'completado', 'cancelado'], // Puede cancelarse SOLO cuando el pago está cancelado/rechazado (validación adicional)
-        'en_viaje' => ['completado', 'devolucion'], // Puede cancelarse SOLO cuando el pago está cancelado/rechazado (validación adicional)
+        'en_viaje' => ['completado'], // NO puede cancelarse: ya está en recorrido activo. NOTA: 'devolucion' existe en DB pero NO está implementado en MVP
         'completado' => [], // estado terminal en MVP - venta cerrada, no admite cambios
-        'devolucion' => ['cancelado'],
+        'devolucion' => ['cancelado'], // NO IMPLEMENTADO EN MVP - solo existe en DB para futuro
         'cancelado' => [] // estado terminal
     ];
     

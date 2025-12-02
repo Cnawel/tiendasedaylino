@@ -38,6 +38,14 @@ if (!file_exists($validation_functions_path)) {
 }
 require_once $validation_functions_path;
 
+// Cargar funciones de contraseñas
+$password_functions_path = __DIR__ . '/password_functions.php';
+if (!file_exists($password_functions_path)) {
+    error_log("ERROR: No se pudo encontrar password_functions.php en " . $password_functions_path);
+    die("Error crítico: Archivo de funciones de contraseña no encontrado. Por favor, contacta al administrador.");
+}
+require_once $password_functions_path;
+
 /**
  * Procesa la actualización de pregunta y respuesta de recupero
  * 
@@ -88,14 +96,12 @@ function procesarActualizacionRecupero($mysqli, $id_usuario, $post) {
                 $mensaje = 'La respuesta de recupero solo puede contener letras, números y espacios.';
                 $mensaje_tipo = 'danger';
             }
-        } else {
-            // Convertir a minúsculas para normalización
-            $respuesta_recupero_final = strtolower($respuesta_recupero);
         }
+        // Nota: El hash se genera después de validar todos los campos (ver más abajo)
     }
     
     // Validar que si hay pregunta, también haya respuesta
-    if (!empty($pregunta_recupero_id) && empty($respuesta_recupero_final)) {
+    if (!empty($pregunta_recupero_id) && empty($respuesta_recupero)) {
         if (empty($mensaje)) {
             $mensaje = 'Si seleccionas una pregunta de recupero, debes proporcionar una respuesta.';
             $mensaje_tipo = 'danger';
@@ -108,8 +114,18 @@ function procesarActualizacionRecupero($mysqli, $id_usuario, $post) {
         $usuario_actual = obtenerDatosBasicosUsuario($mysqli, $id_usuario);
         
         if ($usuario_actual) {
-            // Actualizar solo pregunta y respuesta de recupero
-            if (actualizarPreguntaRecupero($mysqli, $id_usuario, $pregunta_recupero_id, $respuesta_recupero_final)) {
+            // Generar hash de la respuesta de recupero si se proporcionó
+            $hash_respuesta_recupero = null;
+            if (!empty($respuesta_recupero)) {
+                $hash_respuesta_recupero = generarHashRespuestaRecupero($respuesta_recupero, $mysqli);
+                if ($hash_respuesta_recupero === false) {
+                    $mensaje = 'Error al procesar la respuesta de recupero. Inténtalo de nuevo.';
+                    $mensaje_tipo = 'danger';
+                }
+            }
+            
+            // Actualizar solo pregunta y respuesta de recupero (si no hubo error al generar hash)
+            if (empty($mensaje) && actualizarPreguntaRecupero($mysqli, $id_usuario, $pregunta_recupero_id, $hash_respuesta_recupero)) {
                 $mensaje = 'Pregunta de recupero actualizada correctamente';
                 $mensaje_tipo = 'success';
             } else {
@@ -315,17 +331,20 @@ function procesarActualizacionDatos($mysqli, $id_usuario, $post) {
     
     if (!empty($fecha_nacimiento)) {
         // Usar función centralizada de validación que incluye: formato, rango de años, edad mínima
+        // La función validarFechaNacimiento() acepta formato YYYY-MM-DD (HTML5 date input) o dd/mm/yyyy
         $validacion_fecha = validarFechaNacimiento($fecha_nacimiento);
         
         if (!$validacion_fecha['valido']) {
             $mensaje = $validacion_fecha['error'];
             $mensaje_tipo = 'danger';
         } else {
-            // Guardar fecha validada (puede ser null si estaba vacía)
+            // Guardar fecha validada en formato YYYY-MM-DD para MySQL DATE
+            // validarFechaNacimiento() retorna null si estaba vacía, o string YYYY-MM-DD si es válida
             $fecha_nacimiento_final = $validacion_fecha['valor'];
         }
     }
-    // Si fecha_nacimiento está vacío, $fecha_nacimiento_final ya tiene el valor existente (o null si no existe)
+    // Si fecha_nacimiento está vacío, $fecha_nacimiento_final mantiene el valor existente (o null si no existe)
+    // Esto permite que el usuario no modifique la fecha si no quiere cambiarla
     
     // Solo actualizar si no hay errores
     if (empty($mensaje)) {

@@ -132,30 +132,6 @@ function sanitizeUrl($url) {
 }
 
 /**
- * Verifica si el usuario actual puede acceder a un panel específico
- * 
- * @param string $panel Nombre del panel ('admin', 'marketing', 'ventas')
- * @param string|null $rol_usuario Rol del usuario actual
- * @return bool True si puede acceder, false en caso contrario
- */
-function puedeAccederPanel($panel, $rol_usuario = null) {
-    global $PANELES_POR_ROL;
-    
-    if ($rol_usuario === null) {
-        return false;
-    }
-    
-    // Admin solo puede acceder a su panel
-    if ($rol_usuario === ROL_ADMIN) {
-        return ($panel === 'admin');
-    }
-    
-    // Verificar si el rol del usuario tiene acceso al panel
-    $paneles_permitidos = $PANELES_POR_ROL[$rol_usuario] ?? [];
-    return in_array($panel, $paneles_permitidos, true);
-}
-
-/**
  * Obtiene los enlaces de panel disponibles según el rol del usuario
  * 
  * @param string|null $rol_usuario Rol del usuario actual

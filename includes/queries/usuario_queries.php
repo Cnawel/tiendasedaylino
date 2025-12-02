@@ -852,15 +852,26 @@ function crearUsuarioCliente($mysqli, $nombre, $apellido, $email, $hash_password
     // Asegurar que la conexión esté configurada con charset UTF-8
     configurarConexionBD($mysqli);
     
-    $sql = "INSERT INTO Usuarios (nombre, apellido, email, contrasena, rol, fecha_nacimiento, pregunta_recupero, respuesta_recupero, fecha_registro) VALUES (?, ?, ?, ?, 'cliente', ?, ?, ?, NOW())";
-    
-    $stmt = $mysqli->prepare($sql);
-    if (!$stmt) {
-        error_log("ERROR crearUsuarioCliente: No se pudo preparar consulta - " . $mysqli->error . " (Código: " . $mysqli->errno . ")");
-        return 0;
+    // Manejar fecha_nacimiento NULL correctamente
+    // Si fecha_nacimiento está vacío o es NULL, usar NULL en la BD
+    if ($fecha_nacimiento === null || $fecha_nacimiento === '') {
+        $sql = "INSERT INTO Usuarios (nombre, apellido, email, contrasena, rol, fecha_nacimiento, pregunta_recupero, respuesta_recupero, fecha_registro) VALUES (?, ?, ?, ?, 'cliente', NULL, ?, ?, NOW())";
+        $stmt = $mysqli->prepare($sql);
+        if (!$stmt) {
+            error_log("ERROR crearUsuarioCliente: No se pudo preparar consulta - " . $mysqli->error . " (Código: " . $mysqli->errno . ")");
+            return 0;
+        }
+        $stmt->bind_param('ssssis', $nombre, $apellido, $email, $hash_password, $pregunta_recupero_id, $respuesta_recupero);
+    } else {
+        $sql = "INSERT INTO Usuarios (nombre, apellido, email, contrasena, rol, fecha_nacimiento, pregunta_recupero, respuesta_recupero, fecha_registro) VALUES (?, ?, ?, ?, 'cliente', ?, ?, ?, NOW())";
+        $stmt = $mysqli->prepare($sql);
+        if (!$stmt) {
+            error_log("ERROR crearUsuarioCliente: No se pudo preparar consulta - " . $mysqli->error . " (Código: " . $mysqli->errno . ")");
+            return 0;
+        }
+        $stmt->bind_param('sssssis', $nombre, $apellido, $email, $hash_password, $fecha_nacimiento, $pregunta_recupero_id, $respuesta_recupero);
     }
     
-    $stmt->bind_param('sssssis', $nombre, $apellido, $email, $hash_password, $fecha_nacimiento, $pregunta_recupero_id, $respuesta_recupero);
     $resultado = $stmt->execute();
     
     if ($resultado) {
@@ -1303,7 +1314,6 @@ function desvincularPedidosUsuario($mysqli, $id_usuario) {
  * 
  * También establece:
  * - activo = 0
- * - deleted_at = NOW()
  * - fecha_actualizacion = NOW()
  * 
  * @param mysqli $mysqli Conexión a la base de datos
@@ -1328,7 +1338,6 @@ function anonimizarUsuario($mysqli, $id_usuario) {
                 pregunta_recupero = NULL,
                 respuesta_recupero = NULL,
                 activo = 0,
-                deleted_at = NOW(),
                 fecha_actualizacion = NOW()
             WHERE id_usuario = ?";
     
@@ -1352,14 +1361,14 @@ function anonimizarUsuario($mysqli, $id_usuario) {
  * Verifica si un usuario ya está anonimizado
  * 
  * Esta función verifica si un usuario ya fue anonimizado previamente
- * comprobando si tiene deleted_at establecido.
+ * comprobando si está inactivo (activo = 0) y tiene email NULL.
  * 
  * @param mysqli $mysqli Conexión a la base de datos
  * @param int $id_usuario ID del usuario a verificar
  * @return bool True si el usuario ya está anonimizado, false en caso contrario
  */
 function verificarUsuarioAnonimizado($mysqli, $id_usuario) {
-    $sql = "SELECT deleted_at FROM Usuarios WHERE id_usuario = ? LIMIT 1";
+    $sql = "SELECT activo, email FROM Usuarios WHERE id_usuario = ? LIMIT 1";
     
     $stmt = $mysqli->prepare($sql);
     if (!$stmt) {
@@ -1376,7 +1385,7 @@ function verificarUsuarioAnonimizado($mysqli, $id_usuario) {
     $row = $result->fetch_assoc();
     $stmt->close();
     
-    // Si deleted_at no es NULL, el usuario ya está anonimizado
-    return !empty($row['deleted_at']);
+    // Si está inactivo y tiene email NULL, el usuario ya está anonimizado
+    return !empty($row) && $row['activo'] == 0 && $row['email'] === NULL;
 }
 

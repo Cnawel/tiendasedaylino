@@ -28,23 +28,3 @@ function obtenerTallesEstandar() {
     return TALLES_ESTANDAR;
 }
 
-/**
- * Obtener el orden de talles estándar
- * Útil para ordenar talles en listas y dropdowns
- * 
- * @return array Array con los talles estándar en orden
- */
-function obtenerOrdenTalles() {
-    return TALLES_ESTANDAR;
-}
-
-/**
- * Verificar si un talle es válido según los estándar
- * 
- * @param string $talle Talle a verificar
- * @return bool true si es un talle válido
- */
-function esTalleValido($talle) {
-    return in_array(strtoupper($talle), array_map('strtoupper', TALLES_ESTANDAR));
-}
-

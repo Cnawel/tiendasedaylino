@@ -39,12 +39,12 @@ if (isset($_GET['pedido']) && !empty($_GET['pedido'])) {
 }
 ?>
 
-<section id="formulario-email" class="seccion-contacto-compact section-spaced" style="background-color: #f8f9fa; padding-top: 2rem;">
+<section id="formulario-email" class="seccion-contacto-compact section-spaced">
     <div class="container">
         <div class="row justify-content-center">
             <div class="col-lg-8 col-md-10">
-                <div class="formulario-container" style="border: 2px solid #28a745;">
-                    <h2 class="text-center mb-3" style="color: #28a745;">CONTÁCTANOS (Mailgun)</h2>
+                <div class="formulario-container border-success">
+                    <h2 class="text-center mb-3 titulo-formulario-success">CONTÁCTANOS (Mailgun)</h2>
                     <p class="text-center mb-4 texto-contacto-compact">Formulario de prueba con envío directo por email.</p>
                     
                     <form class="formulario-email" method="POST" action="/procesar-contacto-email.php" novalidate>
@@ -73,7 +73,7 @@ if (isset($_GET['pedido']) && !empty($_GET['pedido'])) {
                           <label for="message-email" class="form-label label-contacto">Mensaje</label>
                           <textarea class="form-control input-contacto" id="message-email" name="message" rows="6" placeholder="Escribe tu mensaje aquí..."><?= $mensaje_prellenado ?></textarea>
                         </div>
-                       <button type="submit" class="btn boton-formulario w-100" style="background-color: #28a745; border-color: #28a745;">
+                       <button type="submit" class="btn boton-formulario btn-success w-100">
                            <span class="button-text">Enviar Mensaje (Mailgun)</span>
                            <span class="button-loading d-none">Enviando...</span>
                        </button>

@@ -434,6 +434,36 @@ function obtenerProductosParaCarrito($mysqli, $ids_productos) {
 
 
 /**
+ * Obtiene las fotos de un producto (solo la primera entrada activa)
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param int $id_producto ID del producto
+ * @return array|null Datos de las fotos o null si no existen
+ */
+function obtenerFotosProducto($mysqli, $id_producto) {
+    $sql = "
+        SELECT foto_prod_miniatura, foto1_prod, foto2_prod, foto3_prod
+        FROM Fotos_Producto
+        WHERE id_producto = ?
+        AND activo = 1
+        LIMIT 1
+    ";
+    
+    $stmt = $mysqli->prepare($sql);
+    if (!$stmt) {
+        return null;
+    }
+    
+    $stmt->bind_param('i', $id_producto);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $fotos = $result->fetch_assoc();
+    $stmt->close();
+    
+    return $fotos;
+}
+
+/**
  * Obtiene todas las fotos de un producto organizadas (generales y por color)
  * 
  * @param mysqli $mysqli Conexión a la base de datos

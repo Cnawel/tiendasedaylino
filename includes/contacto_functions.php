@@ -10,23 +10,6 @@
  */
 
 /**
- * Obtiene el nombre legible del asunto
- * @param string $asunto Valor del asunto
- * @return string Nombre legible del asunto
- */
-function obtenerNombreAsunto($asunto) {
-    $nombres = [
-        'problema_pagina' => 'Inconveniente técnico sitio web',
-        'problema_producto' => 'Consulta sobre un producto',
-        'problema_pago' => 'Duda sobre un pago',
-        'problema_cuenta' => 'Mi Cuenta',
-        'problema_pedido' => 'Consulta sobre un pedido'
-    ];
-    
-    return isset($nombres[$asunto]) ? $nombres[$asunto] : $asunto;
-}
-
-/**
  * Guarda un registro del formulario de contacto en form/contactos.json
  * @param array $datos Datos del formulario (nombre, email, asunto, mensaje)
  * @return bool true si se guardó correctamente, false en caso de error

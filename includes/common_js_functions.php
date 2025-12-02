@@ -175,24 +175,51 @@ function validarCoincidenciaPassword(passwordId, confirmId, errorFeedbackId, suc
  * 
  * VALIDACIÓN CLIENTE (JavaScript): Solo para UX, no es seguridad
  * VALIDACIÓN SERVIDOR (PHP): Siempre validar en servidor, esta es la validación definitiva
- * PHP también valida longitud (6-150 caracteres) - esta función solo valida formato
+ * PHP también valida longitud (6-100 caracteres) - esta función valida formato y longitud
+ * 
+ * Según diccionario: solo se permiten [A-Z, a-z, 0-9, @, _, -, ., +]
  * 
  * @param {string} email - Email a validar
  * @returns {boolean} True si el formato es válido
  */
 function validateEmail(email) {
-    // Patrón básico de formato (PHP usa filter_var que es más estricto)
-    // Para validación completa incluyendo longitud, usar validateEmailInput()
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email);
+    // Validar estructura básica (usuario@dominio.extensión)
+    const estructuraBasica = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!estructuraBasica.test(email)) {
+        return false;
+    }
+    
+    // Validar caracteres permitidos según diccionario
+    // Separar parte local (antes del @) y dominio (después del @)
+    const partes = email.split('@');
+    if (partes.length !== 2) {
+        return false;
+    }
+    
+    const parteLocal = partes[0];
+    const dominio = partes[1];
+    
+    // Validar parte local: solo [A-Z, a-z, 0-9, _, -, ., +]
+    const parteLocalRegex = /^[A-Za-z0-9_\-\.+]+$/;
+    if (!parteLocalRegex.test(parteLocal)) {
+        return false;
+    }
+    
+    // Validar dominio: solo [A-Z, a-z, 0-9, _, -, .]
+    const dominioRegex = /^[A-Za-z0-9_\-\.]+$/;
+    if (!dominioRegex.test(dominio)) {
+        return false;
+    }
+    
+    return true;
 }
 
 /**
  * Valida email en un input directamente y aplica clases de validación
  * 
  * NOTA: Esta función debe coincidir con la validación PHP en admin_functions.php:validarEmail()
- * PHP valida: longitud 6-150 caracteres, formato con filter_var()
- * Esta función valida: formato básico (la longitud se valida con HTML5 maxlength)
+ * PHP valida: longitud 6-100 caracteres, formato con filter_var()
+ * Esta función valida: formato básico y longitud (6-100 caracteres)
  * 
  * VALIDACIÓN CLIENTE (JavaScript): Solo para UX, no es seguridad
  * VALIDACIÓN SERVIDOR (PHP): Siempre validar en servidor, esta es la validación definitiva
@@ -210,14 +237,14 @@ function validateEmailInput(input) {
         return false;
     }
     
-    // Validar longitud como en PHP (6-150 caracteres)
+    // Validar longitud como en PHP (6-100 caracteres según diccionario de datos)
     if (email.length < 6) {
         input.classList.remove('is-valid');
         input.classList.add('is-invalid');
         return false;
     }
     
-    if (email.length > 150) {
+    if (email.length > 100) {
         input.classList.remove('is-valid');
         input.classList.add('is-invalid');
         return false;
@@ -236,42 +263,100 @@ function validateEmailInput(input) {
 }
 
 /**
- * Valida y limpia código postal (permite números y letras)
+ * Valida y limpia código postal (permite números y letras, sin espacios)
  * 
  * NOTA: Esta función debe coincidir exactamente con la validación PHP en validation_functions.php:validarCodigoPostal()
- * Patrón PHP: /^[A-Za-z0-9 ]+$/ (coincide con este patrón JavaScript)
+ * Patrón PHP: /^[A-Za-z0-9]+$/ (coincide con este patrón JavaScript)
+ * Según diccionario: [0-9, A-Z, a-z] sin espacios, longitud: 4-10 caracteres
  * 
  * VALIDACIÓN CLIENTE (JavaScript): Solo para UX, no es seguridad
  * VALIDACIÓN SERVIDOR (PHP): Siempre validar en servidor, esta es la validación definitiva
  * 
  * @param {HTMLElement} input - Elemento input de código postal
+ * @param {string} evento - Tipo de evento: 'input' (solo limpieza) o 'blur' (validación completa)
+ * @param {boolean} requerido - Si el campo es requerido (default: true)
  */
-function validarCodigoPostal(input) {
+function validarCodigoPostal(input, evento, requerido) {
     if (!input) return;
     
-    const value = input.value;
-    // Patrón debe coincidir exactamente con PHP: /^[A-Za-z0-9 ]+$/
-    const validPattern = /^[A-Za-z0-9 ]*$/;
+    if (requerido === undefined) requerido = true;
+    if (!evento) evento = 'input';
     
-    if (!validPattern.test(value)) {
-        // Remover caracteres no permitidos
-        input.value = value.replace(/[^A-Za-z0-9 ]/g, '');
+    let value = input.value;
+    // Eliminar espacios
+    value = value.replace(/\s/g, '');
+    // Patrón debe coincidir exactamente con PHP: /^[A-Za-z0-9]+$/
+    const validPattern = /^[A-Za-z0-9]+$/;
+    
+    // En evento 'input': solo limpieza y limitar longitud
+    if (evento === 'input') {
+        if (!validPattern.test(value)) {
+            value = value.replace(/[^A-Za-z0-9]/g, '');
+        }
+        if (value.length > 10) {
+            value = value.substring(0, 10);
+        }
+        input.value = value;
+        
+        // Limpiar validación mientras se escribe
+        if (input.classList.contains('is-invalid')) {
+            input.classList.remove('is-invalid');
+            const feedback = input.parentElement?.querySelector('.invalid-feedback');
+            if (feedback) {
+                feedback.textContent = '';
+                feedback.style.display = 'none';
+            }
+        }
+    }
+    // En evento 'blur': validación completa
+    else if (evento === 'blur') {
+        // Limpiar primero
+        if (!validPattern.test(value)) {
+            value = value.replace(/[^A-Za-z0-9]/g, '');
+        }
+        if (value.length > 10) {
+            value = value.substring(0, 10);
+        }
+        input.value = value;
+        
+        // Validar
+        if (!value && requerido) {
+            mostrarFeedbackValidacion(input, false, 'El código postal es requerido');
+        } else if (value && value.length < 4) {
+            mostrarFeedbackValidacion(input, false, 'El código postal debe tener al menos 4 caracteres');
+        } else if (value && value.length > 10) {
+            mostrarFeedbackValidacion(input, false, 'El código postal no puede exceder 10 caracteres');
+        } else if (value && !validPattern.test(value)) {
+            mostrarFeedbackValidacion(input, false, 'Solo se permiten letras y números');
+        } else if (value) {
+            mostrarFeedbackValidacion(input, true, '');
+        } else {
+            input.classList.remove('is-invalid', 'is-valid');
+        }
     }
 }
 
 /**
  * Validación de contraseña para el formulario de edición de usuarios
  * Soporta modales y diferentes contextos
+ * 
+ * REGLAS DE VALIDACIÓN (según diccionario de datos):
+ * - Longitud: 6-20 caracteres (antes de hashear)
+ * - Patrón: A-Z, a-z, 0-9, ! @ # $ % ^ & * ? _ - . = + | \ / { } [ ] ( ) < > : ; " ' ~ ` espacios
+ * - Almacenamiento: Se hashea y almacena en VARCHAR(255)
+ * 
+ * NOTA: El límite lógico es 20 caracteres ANTES de hashear, aunque se almacene como VARCHAR(255)
+ * 
  * @param {number|string} userId - ID del usuario (opcional, para modales)
  * @param {HTMLElement} nuevaContrasenaInput - Input de nueva contraseña (opcional)
  * @param {HTMLElement} confirmarContrasenaInput - Input de confirmar contraseña (opcional)
  * @param {number} minLength - Longitud mínima (opcional, default: 6)
- * @param {number} maxLength - Longitud máxima (opcional, default: 32)
+ * @param {number} maxLength - Longitud máxima (opcional, default: 20 según diccionario)
  * @returns {boolean} True si la validación es exitosa
  */
 function validarContrasenaUsuario(userId, nuevaContrasenaInput, confirmarContrasenaInput, minLength, maxLength) {
     minLength = minLength || 6;
-    maxLength = maxLength || 32;
+    maxLength = maxLength || 20; // Según diccionario de datos, máximo 20 caracteres
     
     let nuevaContrasena, confirmarContrasena;
     
@@ -371,7 +456,7 @@ function togglePasswordStaff(inputId) {
  * Usa la función consolidada con inputs directos
  */
 function validarContrasenaUsuarioModal(nuevaContrasena, confirmarContrasena) {
-    return validarContrasenaUsuario(null, nuevaContrasena, confirmarContrasena, 6, 32);
+    return validarContrasenaUsuario(null, nuevaContrasena, confirmarContrasena, 6, 20);
 }
 
 /**
@@ -568,8 +653,13 @@ function validarNombreApellido(valor, minLength, maxLength) {
  * VALIDACIÓN CLIENTE (JavaScript): Solo para UX, no es seguridad
  * VALIDACIÓN SERVIDOR (PHP): Siempre validar en servidor, esta es la validación definitiva
  * 
+ * REGLAS DE VALIDACIÓN:
+ * - Longitud: 6-20 caracteres (si tiene valor)
+ * - Patrón: [0-9, +, (, ), -, espacios]
+ * - Campo opcional: Si está vacío y esOpcional=true, es válido
+ * 
  * @param {HTMLElement} input - Elemento input de teléfono
- * @param {boolean} esOpcional - Si es true, permite campo vacío (opcional)
+ * @param {boolean} esOpcional - Si el campo es opcional (default: true)
  */
 function validarTelefono(input, esOpcional) {
     if (!input) return;
@@ -674,6 +764,49 @@ function validarDireccion(input, esRequerido, minLength, tipoCampo) {
     
     // Es válido
     mostrarFeedbackValidacion(input, true, '');
+}
+
+/**
+ * Filtra caracteres no permitidos en campos de dirección
+ * 
+ * REGLAS DE FILTRADO:
+ * - Permite: letras (con acentos), números, espacios, guión, apóstrofe, backtick
+ * - Elimina: cualquier otro carácter
+ * - Limpia validación visual mientras se escribe
+ * 
+ * NOTA: Esta función solo filtra caracteres en tiempo real (evento 'input')
+ * La validación completa se hace con validarDireccion() en evento 'blur'
+ * 
+ * @param {HTMLElement} element - El input a filtrar
+ * @param {string} tipo - Tipo de dirección: 'calle', 'numero', 'piso' (para referencia, no afecta el filtrado)
+ */
+function filtrarDireccion(element, tipo) {
+    if (!element) return;
+    
+    const value = element.value;
+    // Patrón permitido: letras (con acentos), números, espacios, guión, apóstrofe, backtick
+    const validPattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]*$/;
+    
+    if (!validPattern.test(value)) {
+        element.value = value.replace(/[^A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]/g, '');
+    }
+    
+    // Limpiar validación mientras se escribe
+    if (element.classList.contains('is-invalid')) {
+        element.classList.remove('is-invalid');
+        
+        // Buscar feedback de validación (puede estar en parentElement o ser setCustomValidity)
+        const feedback = element.parentElement?.querySelector('.invalid-feedback');
+        if (feedback) {
+            feedback.textContent = '';
+            feedback.style.display = 'none';
+        }
+        
+        // También limpiar setCustomValidity si existe (para checkout.js)
+        if (element.setCustomValidity) {
+            element.setCustomValidity('');
+        }
+    }
 }
 </script>
 

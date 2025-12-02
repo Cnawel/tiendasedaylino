@@ -84,7 +84,8 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
     
     // Validar estados permitidos (según ENUM de la base de datos)
     // NOTA: Todo pedido en 'pendiente' ya tiene stock validado (se valida antes de crear el pedido)
-    $estados_pedido_validos = ['pendiente', 'preparacion', 'en_viaje', 'completado', 'devolucion', 'cancelado'];
+    // NOTA: 'devolucion' existe en DB pero NO está implementado en MVP
+    $estados_pedido_validos = ['pendiente', 'preparacion', 'en_viaje', 'completado', 'cancelado'];
     $estados_pago_validos = ['pendiente', 'pendiente_aprobacion', 'aprobado', 'rechazado', 'cancelado'];
     
     // Validar que el estado del pedido sea válido
@@ -126,7 +127,13 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
     // Preparar motivo de rechazo si se está rechazando el pago
     $motivo_rechazo_final = null;
     if ($cambiar_estado_pago && $estado_pago_final === 'rechazado' && !empty($motivo_rechazo)) {
-        $motivo_rechazo_final = $motivo_rechazo;
+        // Validar motivo de rechazo usando función centralizada
+        require_once __DIR__ . '/validation_functions.php';
+        $validacion_motivo = validarObservaciones($motivo_rechazo, 500, 'motivo de rechazo');
+        if (!$validacion_motivo['valido']) {
+            return ['mensaje' => $validacion_motivo['error'], 'mensaje_tipo' => 'danger'];
+        }
+        $motivo_rechazo_final = $validacion_motivo['valor'];
     }
     
     // Validar transiciones de estado antes de iniciar transacción
@@ -153,14 +160,14 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
     }
     
     // Validar que no se retroceda desde estados finales (en_viaje, completado)
-    // en_viaje solo puede ir a completado o devolucion (NO retrocesos)
-    if ($estado_pedido_actual === 'en_viaje' && !in_array($nuevo_estado, ['en_viaje', 'completado', 'devolucion'])) {
-        return ['mensaje' => 'No se puede retroceder desde "En Viaje". Solo se permite avanzar a "Completado" o "Devolución".', 'mensaje_tipo' => 'danger'];
+    // en_viaje solo puede ir a completado (NO retrocesos, NO devolucion - no implementado en MVP)
+    if ($estado_pedido_actual === 'en_viaje' && !in_array($nuevo_estado, ['en_viaje', 'completado'])) {
+        return ['mensaje' => 'No se puede retroceder desde "En Viaje". Solo se permite avanzar a "Completado".', 'mensaje_tipo' => 'danger'];
     }
     
-    // completado es terminal, solo puede ir a devolucion si pago está aprobado
-    if ($estado_pedido_actual === 'completado' && $nuevo_estado !== 'completado' && $nuevo_estado !== 'devolucion') {
-        return ['mensaje' => 'No se puede cambiar desde "Completado" a ese estado. Solo se permite "Devolución" si el pago está aprobado.', 'mensaje_tipo' => 'danger'];
+    // completado es terminal, no puede cambiar a ningún otro estado
+    if ($estado_pedido_actual === 'completado' && $nuevo_estado !== 'completado') {
+        return ['mensaje' => 'No se puede cambiar desde "Completado". Es un estado terminal y no admite cambios.', 'mensaje_tipo' => 'danger'];
     }
     
     // Validar que no se retroceda desde pago APROBADO
@@ -328,31 +335,22 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
         }
         
         // Si se canceló el pedido y existe un pago, cancelar el pago también si no está cancelado
-        // IMPORTANTE: Usar actualizarEstadoPago() en lugar de actualizarEstadoPagoConPedido()
-        // porque el pedido ya está cancelado y no queremos que se intente cancelar nuevamente
-        // Validar que el pago puede cancelarse según recorrido activo
-        if ($nuevo_estado === 'cancelado' && $pago_actual && $estado_pago_anterior_real !== 'cancelado') {
-            // Solo cancelar si el estado anterior permite cancelación (no está en recorrido activo)
-            if (puedeCancelarPago($estado_pago_anterior_real)) {
-                try {
-                    // Validar transición de pago antes de ejecutar
-                    validarTransicionPago($estado_pago_anterior_real, 'cancelado');
-                    
-                    error_log("procesarActualizacionPedidoPago: Cancelando pago #{$pago_actual['id_pago']} porque el pedido fue cancelado");
-                    // El stock ya fue restaurado por actualizarEstadoPedidoConValidaciones() cuando canceló el pedido
-                    // Solo necesitamos actualizar el estado del pago sin afectar el pedido
-                    // NOTA: actualizarEstadoPago() maneja su propia transacción
-                    if (!actualizarEstadoPago($mysqli, $pago_actual['id_pago'], 'cancelado', null, null)) {
-                        throw new Exception('Error al cancelar el pago');
-                    }
-                    error_log("procesarActualizacionPedidoPago: Pago #{$pago_actual['id_pago']} cancelado exitosamente");
-                } catch (Exception $e) {
-                    error_log("procesarActualizacionPedidoPago: Error al cancelar pago - " . $e->getMessage());
-                    // No fallar la operación completa si solo falla cancelar el pago
-                    // El pedido ya fue cancelado exitosamente
+        // IMPORTANTE: Cancelación forzada por cancelación de pedido - se cancela SIEMPRE
+        // incluso si el pago está en recorrido activo (aprobado, pendiente_aprobacion)
+        if ($nuevo_estado === 'cancelado' && $pago_actual && $estado_pago_anterior_real !== 'cancelado' && $estado_pago_anterior_real !== 'rechazado') {
+            try {
+                error_log("procesarActualizacionPedidoPago: Cancelando pago #{$pago_actual['id_pago']} forzadamente por cancelación de pedido (estado pago anterior: {$estado_pago_anterior_real})");
+                // El stock ya fue restaurado por actualizarEstadoPedidoConValidaciones() cuando canceló el pedido
+                // Solo necesitamos actualizar el estado del pago sin afectar el pedido
+                // NOTA: actualizarEstadoPago() maneja su propia transacción
+                if (!actualizarEstadoPago($mysqli, $pago_actual['id_pago'], 'cancelado', null, null)) {
+                    throw new Exception('Error al cancelar el pago');
                 }
-            } else {
-                error_log("procesarActualizacionPedidoPago: No se puede cancelar pago #{$pago_actual['id_pago']} porque está en recorrido activo (estado: {$estado_pago_anterior_real})");
+                error_log("procesarActualizacionPedidoPago: Pago #{$pago_actual['id_pago']} cancelado exitosamente");
+            } catch (Exception $e) {
+                error_log("procesarActualizacionPedidoPago: Error al cancelar pago - " . $e->getMessage());
+                // No fallar la operación completa si solo falla cancelar el pago
+                // El pedido ya fue cancelado exitosamente
             }
         }
         
@@ -458,11 +456,19 @@ function procesarRechazoPago($mysqli, $post, $id_usuario) {
     }
     
     $pago_id = intval($post['pago_id'] ?? 0);
-    $motivo_rechazo = trim($post['motivo_rechazo'] ?? '');
+    $motivo_rechazo_raw = trim($post['motivo_rechazo'] ?? '');
     
     if ($pago_id <= 0) {
         return ['mensaje' => 'ID de pago inválido', 'mensaje_tipo' => 'danger'];
     }
+    
+    // Validar motivo de rechazo usando función centralizada
+    require_once __DIR__ . '/validation_functions.php';
+    $validacion_motivo = validarObservaciones($motivo_rechazo_raw, 500, 'motivo de rechazo');
+    if (!$validacion_motivo['valido']) {
+        return ['mensaje' => $validacion_motivo['error'], 'mensaje_tipo' => 'danger'];
+    }
+    $motivo_rechazo = $validacion_motivo['valor'];
     
     if (rechazarPago($mysqli, $pago_id, $id_usuario, $motivo_rechazo)) {
         return ['mensaje' => 'Pago rechazado correctamente. Stock restaurado automáticamente si había sido descontado.', 'mensaje_tipo' => 'success'];
@@ -476,7 +482,7 @@ function procesarRechazoPago($mysqli, $post, $id_usuario) {
  * 
  * Requisitos según database_estructura.sql y diccionario_datos_tiendasedaylino.md:
  * - Longitud: 3-100 caracteres
- * - Caracteres permitidos: A-Z, a-z, 0-9, espacios, guiones (-)
+ * - Caracteres permitidos: A-Z, a-z, á, é, í, ó, ú, Á, É, Í, Ó, Ú, ñ, Ñ, ü, Ü, 0-9, espacios, guiones (-)
  * 
  * @param string $nombre Nombre a validar
  * @return array|false Array con ['mensaje' => string, 'mensaje_tipo' => string] si hay error, o false si es válido
@@ -497,10 +503,10 @@ function validarNombreMetodoPago($nombre) {
         return ['mensaje' => 'El nombre no puede exceder 100 caracteres', 'mensaje_tipo' => 'danger'];
     }
     
-    // Validar caracteres permitidos: letras (A-Z, a-z), números (0-9), espacios, guiones (-)
-    // Patrón: solo letras, números, espacios y guiones
-    if (!preg_match('/^[A-Za-z0-9\s\-]+$/', $nombre)) {
-        return ['mensaje' => 'El nombre solo puede contener letras, números, espacios y guiones', 'mensaje_tipo' => 'danger'];
+    // Validar caracteres permitidos según diccionario: letras (con acentos), números, espacios, guiones
+    // Patrón: letras (incluyendo acentos), números, espacios y guiones
+    if (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\-]+$/', $nombre)) {
+        return ['mensaje' => 'El nombre solo puede contener letras (incluyendo acentos), números, espacios y guiones', 'mensaje_tipo' => 'danger'];
     }
     
     // Rechazar strings que sean solo guiones o caracteres especiales
@@ -517,7 +523,8 @@ function validarNombreMetodoPago($nombre) {
  * 
  * Requisitos según database_estructura.sql y diccionario_datos_tiendasedaylino.md:
  * - Longitud: 0-255 caracteres (opcional)
- * - Caracteres permitidos: A-Z, a-z (con tildes y diéresis: á, é, í, ó, ú, ñ, ü), 0-9, espacios, puntos (.), guiones (-), comas (,), dos puntos (:), comillas simples (')
+ * - Caracteres permitidos: A-Z, a-z (con tildes y diéresis: á, é, í, ó, ú, ñ, ü), 0-9, espacios, puntos (.), guiones (-), comas (,), dos puntos (:), punto y coma (;)
+ * - Bloquea: < > { } [ ] | \ / &
  * 
  * @param string $descripcion Descripción a validar
  * @return array|false Array con ['mensaje' => string, 'mensaje_tipo' => string] si hay error, o false si es válido
@@ -533,9 +540,14 @@ function validarDescripcionMetodoPago($descripcion) {
         return ['mensaje' => 'La descripción no puede exceder 255 caracteres', 'mensaje_tipo' => 'danger'];
     }
     
-    // Validar caracteres permitidos: letras (A-Z, a-z con tildes y diéresis), números (0-9), espacios, puntos (.), guiones (-), comas (,), dos puntos (:), comillas simples (')
-    if (!preg_match('/^[A-Za-zÁÉÍÓÚáéíóúÑñÜü0-9\s\.,\:\-\']+$/u', $descripcion)) {
-        return ['mensaje' => 'La descripción solo puede contener letras (incluyendo tildes y diéresis), números, espacios, puntos, comas, dos puntos, guiones y comillas simples', 'mensaje_tipo' => 'danger'];
+    // VALIDACIÓN 1: Bloquear caracteres peligrosos según diccionario: < > { } [ ] | \ / &
+    if (preg_match('/[<>{}\[\]|\\\\\/&]/', $descripcion)) {
+        return ['mensaje' => 'La descripción contiene caracteres no permitidos. No se permiten los símbolos: < > { } [ ] | \\ / &', 'mensaje_tipo' => 'danger'];
+    }
+    
+    // VALIDACIÓN 2: Validar caracteres permitidos: letras (con tildes y diéresis), números, espacios, puntos, guiones, comas, dos puntos, punto y coma
+    if (!preg_match('/^[A-Za-zÁÉÍÓÚáéíóúÑñÜü0-9\s\.,\:\-\;]+$/u', $descripcion)) {
+        return ['mensaje' => 'La descripción solo puede contener letras (incluyendo tildes y diéresis), números, espacios, puntos, comas, dos puntos, punto y coma y guiones', 'mensaje_tipo' => 'danger'];
     }
     
     return false; // Válido

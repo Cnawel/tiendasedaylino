@@ -271,7 +271,7 @@ function renderModalEditarEstado($pedido, $pedido_completo_modal, $pago_modal, $
                         // Mostrar formulario de pago primero
                         $estado_pago_para_filtrado = null;
                         if ($pago_modal) {
-                            renderFormularioPago($id_pedido, $pago_modal);
+                            renderFormularioPago($id_pedido, $pago_modal, $estado_actual_modal);
                             // Normalizar estado del pago para filtrado
                             $estado_pago_para_filtrado = normalizarEstado($pago_modal['estado_pago'] ?? null);
                         } else {
@@ -363,12 +363,7 @@ function obtenerTransicionesValidasPedido($estado_pedido_actual, $estado_pago = 
     // Verificar si el estado actual es terminal
     if (StateValidator::isTerminal($estado_pedido_norm, 'pedido')) {
         // Estados terminales solo pueden mantenerse
-        // EXCEPCIÓN: completado puede ir a devolucion si pago está aprobado
-        if ($estado_pedido_norm === 'completado' && $estado_pago_norm === 'aprobado') {
-            // Completado puede ir a devolucion según lógica de negocio (aunque la matriz no lo refleje)
-            // Esto permite procesar devoluciones de pedidos completados
-            return ['completado', 'devolucion'];
-        }
+        // completado es completamente terminal (no puede cambiar a devolucion - no implementado en MVP)
         // Para cancelado: solo mantener estado actual (no puede cambiar)
         return [$estado_pedido_norm];
     }
@@ -378,15 +373,15 @@ function obtenerTransicionesValidasPedido($estado_pedido_actual, $estado_pago = 
     // ========================================================================
     // en_viaje y completado son estados finales del ciclo, NO pueden retroceder
     if ($estado_pedido_norm === 'en_viaje') {
-        // en_viaje solo puede ir a completado o devolucion (NO retrocesos)
+        // en_viaje solo puede ir a completado (NO retrocesos, NO devolucion - no implementado en MVP)
         $transiciones_base = StateValidator::getTransitionMatrix('pedido');
         $transiciones_permitidas = $transiciones_base[$estado_pedido_norm] ?? [];
         
-        // Solo permitir transiciones hacia adelante (completado, devolucion)
+        // Solo permitir transiciones hacia adelante (completado)
         // NO permitir retrocesos a preparacion o pendiente
         $estados_finales = array_filter($transiciones_permitidas, function($estado) {
-            // Solo permitir completado y devolucion
-            return in_array($estado, ['completado', 'devolucion']);
+            // Solo permitir completado (devolucion no está implementado en MVP)
+            return $estado === 'completado';
         });
         
         // Siempre incluir el estado actual
@@ -408,8 +403,9 @@ function obtenerTransicionesValidasPedido($estado_pedido_actual, $estado_pago = 
     // ========================================================================
     // VALIDACIÓN 2: Estados Avanzados Requieren Pago Aprobado
     // ========================================================================
-    // Estados avanzados: preparacion, en_viaje, devolucion
-    $estados_avanzados = ['preparacion', 'en_viaje', 'devolucion'];
+    // Estados avanzados: preparacion, en_viaje
+    // NOTA: devolucion no está implementado en MVP
+    $estados_avanzados = ['preparacion', 'en_viaje'];
     
     if (in_array($estado_pedido_norm, $estados_avanzados)) {
         // Si pago no está aprobado, solo permitir cancelado (para corregir inconsistencia)
@@ -544,18 +540,19 @@ function renderFormularioEstadoPedido($estado_actual_modal, $estado_pago = null)
     // Cargar StateValidator para verificar estados terminales
     require_once __DIR__ . '/state_validator.php';
     
+    // Verificar si es estado terminal para deshabilitar el SELECT
+    $select_pedido_disabled = StateValidator::isTerminal($estado_actual_modal, 'pedido');
+    
     // Verificar si es estado terminal
-    if (StateValidator::isTerminal($estado_actual_modal, 'pedido')) {
+    if ($select_pedido_disabled) {
         $hay_restricciones = true;
         $tipo_restriccion = 'warning';
-        if ($estado_actual_modal === 'completado' && $estado_pago_norm === 'aprobado') {
-            $mensaje_restriccion = 'Este pedido está completado. Solo puede procesarse una devolución.';
-        } else {
-            $mensaje_restriccion = 'Este pedido está en estado final y no puede modificarse.';
-        }
+        // completado es completamente terminal (no admite cambios, devolución no implementada en MVP)
+        $mensaje_restriccion = 'Este pedido está en estado final (terminal) y no puede modificarse.';
     }
     // Verificar estados avanzados sin pago aprobado
-    elseif (in_array($estado_actual_modal, ['preparacion', 'en_viaje', 'devolucion']) && 
+    // NOTA: devolucion no está implementado en MVP
+    elseif (in_array($estado_actual_modal, ['preparacion', 'en_viaje']) && 
             $estado_pago_norm !== 'aprobado') {
         $hay_restricciones = true;
         $tipo_restriccion = $hay_inconsistencia && $inconsistencias['tipo'] === 'danger' ? 'danger' : 'warning';
@@ -596,10 +593,11 @@ function renderFormularioEstadoPedido($estado_actual_modal, $estado_pago = null)
         </div>
         <?php endif; ?>
         
-        <select class="form-select" name="nuevo_estado" required>
+        <select class="form-select" name="nuevo_estado" <?= $select_pedido_disabled ? 'disabled' : 'required' ?>>
             <?php 
             // Ordenar opciones de forma lógica
-            $orden_estados = ['pendiente', 'preparacion', 'en_viaje', 'completado', 'devolucion', 'cancelado'];
+            // NOTA: devolucion no está implementado en MVP, no se incluye en el orden
+            $orden_estados = ['pendiente', 'preparacion', 'en_viaje', 'completado', 'cancelado'];
             $estados_ordenados = [];
             
             // Primero: estado actual
@@ -658,7 +656,7 @@ function renderFormularioEstadoPedido($estado_actual_modal, $estado_pago = null)
  * @param array $pago_modal Información del pago
  * @return void
  */
-function renderFormularioPago($id_pedido, $pago_modal) {
+function renderFormularioPago($id_pedido, $pago_modal, $estado_pedido_actual = null) {
     $estado_pago_actual_modal = normalizarEstado($pago_modal['estado_pago'] ?? '');
     $info_estado_pago_actual = obtenerInfoEstadoPago($pago_modal['estado_pago'] ?? '');
     ?>
@@ -668,7 +666,7 @@ function renderFormularioPago($id_pedido, $pago_modal) {
     <h6 class="mb-3"><i class="fas fa-credit-card me-2"></i>Información del Pago</h6>
     
     <?php 
-    renderFormularioEstadoPago($id_pedido, $estado_pago_actual_modal, $info_estado_pago_actual);
+    renderFormularioEstadoPago($id_pedido, $estado_pago_actual_modal, $info_estado_pago_actual, $estado_pedido_actual);
     renderFormularioMontoPago($pago_modal);
     renderFormularioCodigoPago($id_pedido, $pago_modal);
     renderFormularioMotivoRechazo($id_pedido, $pago_modal);
@@ -722,12 +720,22 @@ function obtenerTransicionesValidasPago($estado_pago_actual) {
  * @param array $info_estado_pago_actual Información del estado del pago
  * @return void
  */
-function renderFormularioEstadoPago($id_pedido, $estado_pago_actual_modal, $info_estado_pago_actual) {
+function renderFormularioEstadoPago($id_pedido, $estado_pago_actual_modal, $info_estado_pago_actual, $estado_pedido_actual = null) {
     // Obtener transiciones válidas según el estado actual
     $transiciones_validas = obtenerTransicionesValidasPago($estado_pago_actual_modal);
     
     // Obtener mapeo de estados para mostrar nombres
     $mapeo_estados = obtenerMapeoEstadosPago();
+    
+    // Cargar StateValidator para verificar estados terminales
+    require_once __DIR__ . '/state_validator.php';
+    
+    // Determinar si el SELECT debe estar deshabilitado
+    // Deshabilitar si: pago es terminal, pedido es terminal, pago está aprobado, o pedido está completado
+    $estado_pedido_norm = $estado_pedido_actual ? normalizarEstado($estado_pedido_actual) : null;
+    $pago_es_terminal = StateValidator::isTerminal($estado_pago_actual_modal, 'pago');
+    $pedido_es_terminal = $estado_pedido_norm ? StateValidator::isTerminal($estado_pedido_norm, 'pedido') : false;
+    $select_disabled = $pago_es_terminal || $pedido_es_terminal || ($estado_pago_actual_modal === 'aprobado') || ($estado_pedido_norm === 'completado');
     
     ?>
     <div class="mb-3">
@@ -737,7 +745,7 @@ function renderFormularioEstadoPago($id_pedido, $estado_pago_actual_modal, $info
                 <i class="fas fa-info-circle me-1"></i>Estado Actual: <?= htmlspecialchars($info_estado_pago_actual['nombre']) ?>
             </span>
         </div>
-        <select class="form-select" name="nuevo_estado_pago" id="nuevo_estado_pago_<?= $id_pedido ?>">
+        <select class="form-select" name="nuevo_estado_pago" id="nuevo_estado_pago_<?= $id_pedido ?>" <?= $select_disabled ? 'disabled' : '' ?>>
             <option value="">-- Mantener estado actual --</option>
             <?php
             // Ordenar opciones de forma lógica
@@ -769,10 +777,29 @@ function renderFormularioEstadoPago($id_pedido, $estado_pago_actual_modal, $info
                 </option>
             <?php endforeach; ?>
         </select>
+        <?php if ($select_disabled): ?>
+        <small class="text-warning d-block mt-1">
+            <i class="fas fa-lock me-1"></i>
+            <?php if ($pago_es_terminal): ?>
+                El pago está en estado terminal (<?= htmlspecialchars($estado_pago_actual_modal) ?>) y no puede modificarse.
+            <?php elseif ($pedido_es_terminal): ?>
+                El pedido está en estado terminal (<?= htmlspecialchars($estado_pedido_norm) ?>) y no permite cambios en el estado del pago.
+            <?php elseif ($estado_pago_actual_modal === 'aprobado'): ?>
+                El pago aprobado no puede cambiar de estado.
+            <?php elseif ($estado_pedido_norm === 'completado'): ?>
+                El pedido completado no permite cambios en el estado del pago.
+            <?php endif; ?>
+        </small>
+        <?php else: ?>
         <small class="text-muted d-block mt-1">
             <i class="fas fa-info-circle me-1"></i>
             Al aprobar el pago, el stock se descontará automáticamente. Al rechazar/cancelar, se restaurará si había sido descontado.
+            <?php if ($estado_pago_actual_modal !== 'pendiente'): ?>
+            <br><i class="fas fa-exclamation-triangle me-1 text-warning"></i>
+            <strong>Importante:</strong> Un pago que sale de "Pendiente" NO puede cancelarse bajo ningún motivo. Solo puede avanzar o ser rechazado.
+            <?php endif; ?>
         </small>
+        <?php endif; ?>
     </div>
     <?php
 }
@@ -836,8 +863,9 @@ function renderFormularioMotivoRechazo($id_pedido, $pago_modal) {
     ?>
     <div class="mb-3" id="motivo_rechazo_container_<?= $id_pedido ?>" style="display: <?= $mostrar_motivo_rechazo ? 'block' : 'none' ?>;">
         <label class="form-label"><strong>Motivo de Rechazo:</strong></label>
-        <textarea class="form-control" name="motivo_rechazo" rows="2" placeholder="Motivo del rechazo"><?= htmlspecialchars($pago_modal['motivo_rechazo'] ?? '') ?></textarea>
-        <small class="text-muted">Opcional. Motivo del rechazo del pago.</small>
+        <textarea class="form-control" name="motivo_rechazo" id="motivo_rechazo_<?= $id_pedido ?>" rows="2" maxlength="500" placeholder="Motivo del rechazo"><?= htmlspecialchars($pago_modal['motivo_rechazo'] ?? '') ?></textarea>
+        <small class="text-muted">Opcional. Motivo del rechazo del pago. Máximo 500 caracteres.</small>
+        <small class="form-text text-muted mt-1" id="contador_motivo_rechazo_<?= $id_pedido ?>">0/500 caracteres</small>
     </div>
     <?php
 }
@@ -889,7 +917,9 @@ function renderFormulariosAdicionales($id_pedido, $pago_modal) {
                         </div>
                         <div class="mb-3">
                             <label class="form-label"><strong>Motivo del rechazo (opcional):</strong></label>
-                            <textarea class="form-control" name="motivo_rechazo" rows="3" placeholder="Ej: Pago insuficiente, Tarjeta rechazada, etc."></textarea>
+                            <textarea class="form-control" name="motivo_rechazo" id="motivo_rechazo_modal_<?= $id_pedido ?>" rows="3" maxlength="500" placeholder="Ej: Pago insuficiente, Tarjeta rechazada, etc."></textarea>
+                            <small class="form-text text-muted mt-1">Máximo 500 caracteres.</small>
+                            <small class="form-text text-muted mt-1" id="contador_motivo_rechazo_modal_<?= $id_pedido ?>">0/500 caracteres</small>
                         </div>
                     </div>
                     <div class="modal-footer">

@@ -234,59 +234,6 @@ function subirFotoTemporal($archivo) {
 }
 
 /**
- * Verifica si una foto ya existe en otro producto/variante del mismo nombre
- * @param mysqli $mysqli Conexión a la base de datos
- * @param string $nombre_producto Nombre del producto
- * @param string $nombre_archivo Nombre del archivo a verificar
- * @return string|null Ruta de la foto existente o null si no existe
- */
-function verificarFotoExistente($mysqli, $nombre_producto, $nombre_archivo) {
-    // Extraer nombre base del archivo (sin extensión y sin prefijos agregados al mover)
-    $nombre_base_archivo = pathinfo($nombre_archivo, PATHINFO_FILENAME);
-    // Remover posibles prefijos agregados al mover (imagen_miniatura_, imagen_foto1_, etc.)
-    $nombre_base_limpio = preg_replace('/^imagen_(miniatura|foto1|foto2|foto3)_/', '', $nombre_base_archivo);
-    
-    // Buscar productos con el mismo nombre y sus fotos
-    $sql = "SELECT fp.foto_prod_miniatura, fp.foto1_prod, fp.foto2_prod, fp.foto3_prod 
-            FROM Fotos_Producto fp
-            INNER JOIN Productos p ON fp.id_producto = p.id_producto
-            WHERE LOWER(TRIM(p.nombre_producto)) = LOWER(TRIM(?))
-            AND p.activo = 1
-            AND fp.activo = 1";
-    
-    $stmt = $mysqli->prepare($sql);
-    if (!$stmt) {
-        return null;
-    }
-    
-    $stmt->bind_param('s', $nombre_producto);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    // Buscar si el nombre base del archivo coincide con alguna ruta existente
-    while ($row = $result->fetch_assoc()) {
-        foreach (['foto_prod_miniatura', 'foto1_prod', 'foto2_prod', 'foto3_prod'] as $campo) {
-            if (!empty($row[$campo])) {
-                $nombre_existente = basename($row[$campo]);
-                $nombre_base_existente = pathinfo($nombre_existente, PATHINFO_FILENAME);
-                $nombre_base_existente_limpio = preg_replace('/^imagen_(miniatura|foto1|foto2|foto3)_/', '', $nombre_base_existente);
-                
-                // Comparar nombres base (sin prefijos)
-                if ($nombre_base_existente_limpio === $nombre_base_limpio || 
-                    strpos($nombre_base_existente_limpio, $nombre_base_limpio) !== false ||
-                    strpos($nombre_base_limpio, $nombre_base_existente_limpio) !== false) {
-                    $stmt->close();
-                    return $row[$campo];
-                }
-            }
-        }
-    }
-    
-    $stmt->close();
-    return null;
-}
-
-/**
  * Obtiene lista de fotos temporales disponibles
  * @return array Array con nombres de archivos temporales
  */

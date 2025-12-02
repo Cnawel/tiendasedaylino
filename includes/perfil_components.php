@@ -7,9 +7,8 @@
  * 
  * Funciones:
  * - renderFormularioMarcarPago($pago_pedido): Renderiza formulario para marcar pago como pagado
+ * - renderFormularioCancelarPedido($pedido, $pago): Renderiza formulario para cancelar pedido
  * - renderModalEliminarCuenta(): Renderiza modal para eliminar cuenta
- * 
- * NOTA: renderFormularioCancelarPedido() fue eliminada - Solo personal de VENTAS puede cancelar pedidos
  * 
  * @package TiendaSedaYLino
  * @version 1.0
@@ -34,8 +33,8 @@ if (!function_exists('renderFormularioMarcarPago')) {
                    placeholder="Código de pago" 
                    maxlength="100"
                    size="15"
-                   pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s'´$€£¥]+"
-                   title="Letras, números, espacios, apóstrofe ('), acento agudo (´) y símbolos de dinero ($, €, £, ¥)"
+                   pattern="[A-Za-z0-9\-_]+"
+                   title="Solo letras, números, guiones y guiones bajos"
                    required>
             <button type="submit" name="marcar_pago_pagado" class="btn btn-sm btn-success">
                 <i class="fas fa-check-circle me-1"></i>Marcar Pago
@@ -45,10 +44,30 @@ if (!function_exists('renderFormularioMarcarPago')) {
     }
 }
 
-// NOTA: renderFormularioCancelarPedido() fue eliminada
-// Los clientes ya no pueden cancelar pedidos desde el perfil
-// Solo el personal de VENTAS puede cancelar pedidos desde el panel de ventas (ventas.php)
-
+if (!function_exists('renderFormularioCancelarPedido')) {
+    /**
+     * Renderiza formulario para cancelar pedido
+     * Solo se muestra cuando el pedido y el pago están en estado "Pendiente"
+     * 
+     * @param array $pedido Datos del pedido
+     * @param array|null $pago Datos del pago (opcional)
+     * @return void
+     */
+    function renderFormularioCancelarPedido($pedido, $pago = null) {
+        $id_pedido = intval($pedido['id_pedido']);
+        ?>
+        <form method="POST" action="" class="d-inline">
+            <input type="hidden" name="id_pedido" value="<?= $id_pedido ?>">
+            <button type="submit" 
+                    name="cancelar_pedido_cliente" 
+                    class="btn btn-sm btn-secondary"
+                    onclick="return confirm('¿Estás seguro de que deseas cancelar este pedido?');">
+                <i class="fas fa-times-circle me-1"></i>Cancelar Pedido
+            </button>
+        </form>
+        <?php
+    }
+}
 
 if (!function_exists('renderModalVerPedido')) {
     /**

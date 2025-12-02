@@ -4,16 +4,22 @@
  * FUNCIONES COMUNES DEL CARRITO - Tienda Seda y Lino
  * ========================================================================
  * Funciones helper reutilizables para operaciones del carrito de compras
- * 
+ *
  * FUNCIONES:
  * - tieneProductosReales(): Verifica si el carrito tiene productos reales (excluyendo _meta)
- * - calcularCantidadTotalCarrito(): Calcula la cantidad total de items en el carrito
+ * - calcularCantidadTotalCarrito(): Definida en carrito_cookie_functions.php (centralizada)
  * - limpiarMensajesErrorObsoletos(): Limpia mensajes de error obsoletos de la sesión
- * 
+ *
  * @package TiendaSedaYLino
  * @version 1.0
  * ========================================================================
  */
+
+// Cargar funciones de carrito con cookies (incluye calcularCantidadTotalCarrito)
+require_once __DIR__ . '/carrito_cookie_functions.php';
+
+// Requerir seguridad para redirigirConMensaje centralizada
+require_once __DIR__ . '/security_functions.php';
 
 /**
  * Verifica si el carrito tiene productos reales (excluyendo metadatos _meta)
@@ -42,32 +48,13 @@ function tieneProductosReales($carrito) {
 }
 
 /**
- * Calcula la cantidad total de items en el carrito
- * Suma todas las cantidades de cada variante
- * 
- * @param array $carrito Array del carrito
- * @return int Cantidad total de unidades en el carrito
+ * calcularCantidadTotalCarrito() - Definida en carrito_cookie_functions.php
+ *
+ * Función centralizada para calcular cantidad total de items en el carrito.
+ * Se carga automáticamente al inicio de este archivo.
+ *
+ * @see carrito_cookie_functions.php::calcularCantidadTotalCarrito()
  */
-function calcularCantidadTotalCarrito($carrito) {
-    if (!is_array($carrito) || empty($carrito)) {
-        return 0;
-    }
-    
-    $cantidad_total = 0;
-    foreach ($carrito as $clave => $item) {
-        // Saltar metadatos del carrito (_meta no es un producto)
-        if ($clave === '_meta') {
-            continue;
-        }
-        
-        // Validar que el item tenga campo cantidad
-        if (isset($item['cantidad']) && is_numeric($item['cantidad'])) {
-            $cantidad_total += (int)$item['cantidad'];
-        }
-    }
-    
-    return $cantidad_total;
-}
 
 /**
  * Limpia mensajes de error obsoletos de la sesión
@@ -342,16 +329,17 @@ function enviarRespuestaAjaxExito($mensaje, $datos_adicionales = []) {
 
 /**
  * Redirige con mensaje de sesión
- * 
+ * Función centralizada en security_functions.php
+ *
  * @param string $url URL de destino
  * @param string $mensaje Mensaje a guardar en sesión
+ * @param string $tipo Tipo de mensaje (success, error, warning, info)
  * @return void
+ *
+ * NOTA: Esta función se define en security_functions.php para evitar duplicación.
+ * Verificar que security_functions.php esté incluido antes de usar.
  */
-function redirigirConMensaje($url, $mensaje) {
-    $_SESSION['mensaje_carrito'] = $mensaje;
-    header('Location: ' . $url);
-    exit;
-}
+// Función removida - usar la versión centralizada de security_functions.php
 
 /**
  * Calcula el total del carrito actualizado para respuestas AJAX

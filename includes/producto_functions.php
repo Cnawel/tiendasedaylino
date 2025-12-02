@@ -24,12 +24,8 @@
  * Obtiene el stock disponible para una combinación de talla y color desde un array en memoria
  * 
  * NOTA: Esta función trabaja con datos ya cargados en memoria (arrays de variantes).
- * Para consultar stock directamente desde la base de datos, usar obtenerStockDisponible() 
- * de includes/queries/stock_queries.php
- * 
- * DIFERENCIAS:
- * - obtenerStock(): Trabaja con arrays en memoria, busca por talle+color en variantes ya cargadas
- * - obtenerStockDisponible(): Consulta la BD directamente por ID de variante
+ * Para consultar stock directamente desde la base de datos, consultar directamente
+ * la tabla Stock_Variantes.
  * 
  * @param array $variantes Array de variantes del producto (ya cargadas en memoria)
  * @param string $talla Talla seleccionada
@@ -142,5 +138,124 @@ function generarStockPorTalleYColor($variantes) {
     }
     
     return $stock_por_talle_color;
+}
+
+/**
+ * Normaliza un color para uso consistente en PHP y JavaScript
+ * Convierte a formato: Primera Letra Mayúscula
+ *
+ * @param string $color Color a normalizar
+ * @return string Color normalizado
+ */
+function normalizeColor($color) {
+    return ucfirst(strtolower(trim($color)));
+}
+
+/**
+ * Selecciona el talle predeterminado con lógica de prioridad
+ *
+ * Prioridad:
+ * 1. Talle 'M' con stock (si requireStock = true)
+ * 2. Primer talle con stock (si requireStock = true)
+ * 3. Talle 'M' sin stock
+ * 4. Primer talle disponible
+ *
+ * @param array $tallas_info Array de información de tallas (debe contener 'talle' y 'tiene_stock')
+ * @param bool $requireStock Si true, prioriza tallas con stock
+ * @return string|null Talle seleccionado o null si no hay tallas
+ */
+function selectDefaultTalle($tallas_info, $requireStock = false) {
+    if (empty($tallas_info)) {
+        return null;
+    }
+
+    // Prioridad 1: Buscar 'M' con stock (o sin si !requireStock)
+    foreach ($tallas_info as $info) {
+        if (!$requireStock || $info['tiene_stock']) {
+            if ($info['talle'] === 'M') {
+                return 'M';
+            }
+        }
+    }
+
+    // Prioridad 2: Buscar primer disponible con/sin stock
+    foreach ($tallas_info as $info) {
+        if (!$requireStock || $info['tiene_stock']) {
+            return $info['talle'];
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Extrae imágenes válidas de un registro de fotos
+ *
+ * @param array $photoRecord Registro con foto1_prod y foto2_prod
+ * @return array Array con rutas de imágenes que existen
+ */
+function extractValidImages($photoRecord) {
+    $images = [];
+
+    if (!empty($photoRecord['foto1_prod'])) {
+        $images[] = $photoRecord['foto1_prod'];
+    }
+
+    if (!empty($photoRecord['foto2_prod'])) {
+        $images[] = $photoRecord['foto2_prod'];
+    }
+
+    return $images;
+}
+
+/**
+ * Calcula información de tallas disponibles con stock
+ *
+ * @param array $variantes Array de variantes del producto
+ * @param array $orden_tallas_estandar Orden preferido de tallas
+ * @return array Array de información por talle: ['talle', 'tiene_stock', 'stock_total']
+ */
+function prepareTallesInfo($variantes, $orden_tallas_estandar) {
+    $tallas_info = [];
+    $tallas_en_variantes = array_unique(array_column($variantes, 'talle'));
+
+    // Procesar tallas en orden estándar
+    foreach ($orden_tallas_estandar as $talla_std) {
+        if (in_array($talla_std, $tallas_en_variantes)) {
+            $tallas_info[] = createTallaInfo($talla_std, $variantes);
+        }
+    }
+
+    // Agregar tallas no estándar si necesario
+    if (empty($tallas_info)) {
+        foreach ($tallas_en_variantes as $talla) {
+            $tallas_info[] = createTallaInfo($talla, $variantes);
+        }
+    }
+
+    return $tallas_info;
+}
+
+/**
+ * Crea información de una talla individual
+ *
+ * @param string $talla Talla a procesar
+ * @param array $variantes Array de variantes
+ * @return array Info de talla: ['talle', 'tiene_stock', 'stock_total']
+ */
+function createTallaInfo($talla, $variantes) {
+    $stock_total = 0;
+
+    foreach ($variantes as $variante) {
+        if ($variante['talle'] === $talla) {
+            $stock_total += (int)$variante['stock'];
+        }
+    }
+
+    return [
+        'talle' => $talla,
+        'tiene_stock' => $stock_total > 0,
+        'stock_total' => $stock_total
+    ];
 }
 

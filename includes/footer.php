@@ -62,6 +62,26 @@ if (!function_exists('render_footer')) {
                                     <i class="fas fa-envelope me-2"></i>Contacto
                                 </a>
                             </li>
+                            <li class="mb-2">
+                                <a href="como-comprar.php" class="footer-link">
+                                    <i class="fas fa-shopping-cart me-2"></i>Cómo Comprar
+                                </a>
+                            </li>
+                            <li class="mb-2">
+                                <a href="politica-devolucion.php" class="footer-link">
+                                    <i class="fas fa-undo me-2"></i>Política de Devolución
+                                </a>
+                            </li>
+                            <li class="mb-2">
+                                <a href="terminos.php" class="footer-link">
+                                    <i class="fas fa-file-contract me-2"></i>Términos y Condiciones
+                                </a>
+                            </li>
+                            <li class="mb-2">
+                                <a href="privacidad.php" class="footer-link">
+                                    <i class="fas fa-shield-alt me-2"></i>Política de Privacidad
+                                </a>
+                            </li>
                         </ul>
                     </div>
 
@@ -124,7 +144,9 @@ if (!function_exists('render_footer')) {
                     </div>
                     <div class="col-md-6 text-center text-md-end">
                         <a href="terminos.php" class="footer-link-small me-3">Términos y Condiciones</a>
-                        <a href="privacidad.php" class="footer-link-small">Política de Privacidad</a>
+                        <a href="privacidad.php" class="footer-link-small me-3">Política de Privacidad</a>
+                        <a href="como-comprar.php" class="footer-link-small me-3">Como Comprar</a>
+                        <a href="politica-devolucion.php" class="footer-link-small">Política de Devolución</a>
                     </div>
                 </div>
             </div>

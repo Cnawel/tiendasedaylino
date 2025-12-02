@@ -74,7 +74,6 @@ function obtenerFormaPagoPorId($mysqli, $id_forma_pago) {
     return $forma_pago;
 }
 
-
 /**
  * Crea una nueva forma de pago
  * 
@@ -126,60 +125,6 @@ function actualizarFormaPago($mysqli, $id_forma_pago, $nombre, $descripcion = nu
     $stmt->bind_param('ssi', $nombre, $descripcion, $id_forma_pago);
     if (!$stmt->execute()) {
         error_log("ERROR actualizarFormaPago - execute falló: " . $stmt->error);
-        $stmt->close();
-        return false;
-    }
-    
-    $stmt->close();
-    return true;
-}
-
-/**
- * Desactiva una forma de pago (soft delete)
- * 
- * @param mysqli $mysqli Conexión a la base de datos
- * @param int $id_forma_pago ID de la forma de pago
- * @return bool True si se desactivó correctamente, false en caso contrario
- */
-function desactivarFormaPago($mysqli, $id_forma_pago) {
-    $sql = "UPDATE Forma_Pagos SET activo = 0 WHERE id_forma_pago = ?";
-    
-    $stmt = $mysqli->prepare($sql);
-    if (!$stmt) {
-        error_log("ERROR desactivarFormaPago - prepare falló: " . $mysqli->error);
-        return false;
-    }
-    
-    $stmt->bind_param('i', $id_forma_pago);
-    if (!$stmt->execute()) {
-        error_log("ERROR desactivarFormaPago - execute falló: " . $stmt->error);
-        $stmt->close();
-        return false;
-    }
-    
-    $stmt->close();
-    return true;
-}
-
-/**
- * Activa una forma de pago
- * 
- * @param mysqli $mysqli Conexión a la base de datos
- * @param int $id_forma_pago ID de la forma de pago
- * @return bool True si se activó correctamente, false en caso contrario
- */
-function activarFormaPago($mysqli, $id_forma_pago) {
-    $sql = "UPDATE Forma_Pagos SET activo = 1 WHERE id_forma_pago = ?";
-    
-    $stmt = $mysqli->prepare($sql);
-    if (!$stmt) {
-        error_log("ERROR activarFormaPago - prepare falló: " . $mysqli->error);
-        return false;
-    }
-    
-    $stmt->bind_param('i', $id_forma_pago);
-    if (!$stmt->execute()) {
-        error_log("ERROR activarFormaPago - execute falló: " . $stmt->error);
         $stmt->close();
         return false;
     }

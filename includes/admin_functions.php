@@ -4,26 +4,34 @@
  * FUNCIONES AUXILIARES DE ADMINISTRACIÓN - Tienda Seda y Lino
  * ========================================================================
  * Funciones auxiliares para el panel de administración
- * 
+ *
  * NOTA: Las funciones de consultas a BD (esUltimoAdmin, actualizarUsuarioBD, emailEnUso)
  * ahora usan las funciones centralizadas de includes/queries/usuario_queries.php
  * para mantener coherencia y seguridad.
- * 
+ *
+ * NOTA: validarEmail() y validarPassword() han sido centralizadas en validation_functions.php
+ *
  * FUNCIONES:
  * - esUltimoAdmin(): Verifica si un usuario es el último administrador
  * - actualizarUsuarioBD(): Actualiza datos de usuario en BD
  * - validarNombreApellido(): Valida y sanitiza nombre/apellido
- * - validarEmail(): Valida y sanitiza email
- * - validarPassword(): Valida contraseña con reglas de complejidad
+ * - validarEmail(): Valida y sanitiza email (en validation_functions.php)
+ * - validarPassword(): Valida contraseña con reglas de complejidad (en validation_functions.php)
  * - procesarCreacionUsuarioStaff(): Procesa creación de usuarios staff (ventas/marketing)
  * - procesarCambioRol(): Procesa cambio de rol de usuario
  * - procesarActualizacionUsuario(): Procesa actualización de datos de usuario
  * - procesarEliminacionUsuario(): Procesa eliminación (desactivación) de usuario
- * 
+ * - filtrarUsuariosActivos(): Filtra array de usuarios activos (activo = 1)
+ * - validarFiltroRol(): Valida filtro de rol desde GET
+ * - obtenerMensajeSession(): Obtiene y limpia mensajes de sesión
+ *
  * @package TiendaSedaYLino
  * @version 1.0
  * ========================================================================
  */
+
+// Incluir funciones de validación centralizadas
+require_once __DIR__ . '/validation_functions.php';
 
 // Cargar funciones de queries de usuarios
 $usuario_queries_path = __DIR__ . '/queries/usuario_queries.php';
@@ -173,100 +181,11 @@ function validarNombreApellido($valor, $campo = 'campo') {
  * @param string $valor Valor a validar
  * @return array ['valido' => bool, 'valor' => string, 'error' => string]
  */
-function validarEmail($valor) {
-    // LÓGICA DE NEGOCIO: Valida y sanitiza emails según estándares internacionales.
-    // REGLAS: Obligatorio, máximo 150 caracteres, formato válido según RFC, prevenir XSS.
-    
-    // Normalizar: remover espacios al inicio y final
-    // LÓGICA: Los espacios en emails son inválidos y pueden causar errores de autenticación
-    $valor = trim($valor);
-    
-    // VALIDACIÓN 1: Campo obligatorio
-    // REGLA DE NEGOCIO: El email es el identificador único del usuario y es obligatorio
-    if (empty($valor)) {
-        return ['valido' => false, 'valor' => '', 'error' => 'El correo electrónico es obligatorio.'];
-    }
-    
-    // VALIDACIÓN 2: Longitud mínima (6 caracteres)
-    // REGLA DE NEGOCIO: Según diccionario de datos, longitud mínima: 6 caracteres
-    // LÓGICA: Previene emails demasiado cortos que no son válidos
-    if (strlen($valor) < 6) {
-        return ['valido' => false, 'valor' => '', 'error' => 'El correo electrónico debe tener al menos 6 caracteres.'];
-    }
-    
-    // VALIDACIÓN 3: Longitud máxima (150 caracteres)
-    // REGLA DE NEGOCIO: Límite compatible con estándares de base de datos y RFC 5321
-    // LÓGICA: Previene emails excesivamente largos que pueden causar problemas de almacenamiento
-    if (strlen($valor) > 150) {
-        return ['valido' => false, 'valor' => '', 'error' => 'El correo electrónico no puede exceder 150 caracteres.'];
-    }
-    
-    // VALIDACIÓN 4: Formato válido según RFC
-    // REGLA DE NEGOCIO: El email debe cumplir con el formato estándar (usuario@dominio.extensión)
-    // LÓGICA: Usa filter_var() de PHP que valida según RFC 5322, el estándar internacional para emails
-    // Valida: estructura básica (usuario@dominio), caracteres permitidos, extensión válida
-    if (!filter_var($valor, FILTER_VALIDATE_EMAIL)) {
-        return ['valido' => false, 'valor' => '', 'error' => 'El formato del correo electrónico no es válido.'];
-    }
-    
-    // SANITIZACIÓN: Prevenir ataques XSS
-    // REGLA DE SEGURIDAD: Escapar caracteres HTML especiales para prevenir inyección de código
-    // LÓGICA: Aunque el email es validado por formato, se sanitiza para mostrar en HTML de forma segura
-    $valor = htmlspecialchars($valor, ENT_QUOTES, 'UTF-8');
-    
-    return ['valido' => true, 'valor' => $valor, 'error' => ''];
-}
+// validarEmail() ha sido movida a validation_functions.php (refactoring de código)
+// Usar: require_once 'validation_functions.php'; y luego validarEmail($valor);
 
-/**
- * Valida una contraseña
- * @param string $password Contraseña a validar
- * @param bool $requiere_complejidad Si requiere complejidad (minúscula, mayúscula, número, especial)
- * @return array ['valido' => bool, 'error' => string]
- */
-function validarPassword($password, $requiere_complejidad = true) {
-    // LÓGICA DE NEGOCIO: Valida contraseñas según reglas de seguridad y complejidad.
-    // REGLAS: Obligatoria, mínimo 8 caracteres, máximo 128, complejidad opcional (minúscula, mayúscula, número, especial).
-    // IMPORTANTE: NO usar trim() en password - puede cambiar la contraseña (los espacios son válidos en algunos casos).
-    
-    // VALIDACIÓN 1: Campo obligatorio
-    // REGLA DE NEGOCIO: Las contraseñas son obligatorias para proteger cuentas de usuario
-    // LÓGICA: Verifica que la contraseña no esté vacía (sin usar trim para no modificar espacios)
-    if ($password === '' || strlen($password) === 0) {
-        return ['valido' => false, 'error' => 'La contraseña es obligatoria.'];
-    }
-    
-    // VALIDACIÓN 2: Longitud mínima (8 caracteres)
-    // REGLA DE SEGURIDAD: Mínimo 8 caracteres es el estándar de seguridad recomendado
-    // LÓGICA: Contraseñas más cortas son vulnerables a ataques de fuerza bruta
-    if (strlen($password) < 8) {
-        return ['valido' => false, 'error' => 'La contraseña debe tener al menos 8 caracteres.'];
-    }
-    
-    // VALIDACIÓN 3: Longitud máxima (128 caracteres)
-    // REGLA DE NEGOCIO: Límite de 128 caracteres para compatibilidad con sistemas de hash
-    // LÓGICA: Previene contraseñas excesivamente largas que pueden causar problemas de rendimiento
-    if (strlen($password) > 128) {
-        return ['valido' => false, 'error' => 'La contraseña no puede exceder 128 caracteres.'];
-    }
-    
-    // VALIDACIÓN 4: Complejidad (solo si se requiere)
-    // REGLA DE SEGURIDAD: Requiere combinación de tipos de caracteres para mayor seguridad
-    // LÓGICA: Contraseñas con múltiples tipos de caracteres son más resistentes a ataques
-    if ($requiere_complejidad) {
-        // Requiere: 1 minúscula, 1 mayúscula, 1 número, 1 carácter especial
-        // REGLA: (?=.*[a-z]) = al menos una minúscula
-        //        (?=.*[A-Z]) = al menos una mayúscula
-        //        (?=.*\d) = al menos un número
-        //        (?=.*[@$!%*?&]) = al menos un carácter especial de la lista permitida
-        // LÓGICA: Los caracteres especiales permitidos son seguros y comunes en contraseñas
-        if (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/', $password)) {
-            return ['valido' => false, 'error' => 'La contraseña debe contener al menos: 1 minúscula, 1 mayúscula, 1 número y 1 carácter especial (@$!%*?&).'];
-        }
-    }
-    
-    // Si pasa todas las validaciones, la contraseña es válida
-    return ['valido' => true, 'error' => ''];
-}
+// validarPassword() ha sido movida a validation_functions.php (refactoring de código)
+// Usar: require_once 'validation_functions.php'; y luego validarPassword($password, $requiere_complejidad);
 
 /**
  * Procesa la creación de un usuario de staff (ventas/marketing)
@@ -315,12 +234,21 @@ function procesarCreacionUsuarioStaff($mysqli, $post) {
         return ['mensaje' => 'El email ya está registrado en el sistema.', 'mensaje_tipo' => 'warning'];
     }
     
-    // Validar contraseña temporal (permite contraseñas débiles para staff)
-    if ($password_temporal === '' || strlen($password_temporal) === 0) {
-        return ['mensaje' => 'Debes proporcionar una contraseña temporal para el usuario.', 'mensaje_tipo' => 'danger'];
+    // Validar contraseña temporal: permite campos vacíos para generar aleatoria
+    $password_generada = false;
+    if (($password_temporal === '' || strlen($password_temporal) === 0) && 
+        ($confirmar_password_temporal === '' || strlen($confirmar_password_temporal) === 0)) {
+        // Ambos campos vacíos: generar contraseña aleatoria
+        $password_temporal = generarPasswordAleatoria(12);
+        $password_generada = true;
+    } elseif ($password_temporal === '' || strlen($password_temporal) === 0) {
+        // Solo el primer campo está vacío
+        return ['mensaje' => 'Si deseas establecer una contraseña, completa ambos campos. O déjalos vacíos para generar una aleatoria.', 'mensaje_tipo' => 'danger'];
     } elseif ($confirmar_password_temporal === '' || strlen($confirmar_password_temporal) === 0) {
+        // Solo el segundo campo está vacío
         return ['mensaje' => 'Debes confirmar la contraseña temporal.', 'mensaje_tipo' => 'danger'];
     } elseif ($password_temporal !== $confirmar_password_temporal) {
+        // Las contraseñas no coinciden
         return ['mensaje' => 'Las contraseñas no coinciden.', 'mensaje_tipo' => 'danger'];
     } elseif (strlen($password_temporal) < 6) {
         // Mínimo 6 caracteres para contraseña temporal
@@ -345,7 +273,12 @@ function procesarCreacionUsuarioStaff($mysqli, $post) {
     if ($id_usuario_nuevo > 0) {
         // Verificar que el hash se guardó correctamente usando función centralizada
         if (verificarHashContrasena($mysqli, $id_usuario_nuevo, $password_temporal)) {
-            $mensaje_exito = 'Usuario de ' . strtoupper($rol_staff) . ' creado exitosamente. Contraseña temporal: ' . htmlspecialchars($password_temporal) . ' (El usuario debe cambiarla al iniciar sesión)';
+            // Construir mensaje de éxito
+            if ($password_generada) {
+                $mensaje_exito = 'Usuario de ' . strtoupper($rol_staff) . ' creado exitosamente. Contraseña temporal generada: ' . htmlspecialchars($password_temporal) . ' (El usuario debe cambiarla al iniciar sesión)';
+            } else {
+                $mensaje_exito = 'Usuario de ' . strtoupper($rol_staff) . ' creado exitosamente. Contraseña temporal: ' . htmlspecialchars($password_temporal) . ' (El usuario debe cambiarla al iniciar sesión)';
+            }
             
             // Limpiar variables sensibles de memoria
             $password_temporal = null;
@@ -631,6 +564,23 @@ function procesarEliminacionUsuario($mysqli, $post, $id_usuario_actual) {
     // ACCIÓN 3: ELIMINAR USUARIO FÍSICAMENTE (Hard Delete) O ANONIMIZAR
     // ============================================================================
     if ($accion_eliminar) {
+        // VALIDACIÓN: El usuario debe estar inactivo antes de poder eliminarlo
+        // Obtener estado activo del usuario desde la base de datos
+        $sql_estado = "SELECT activo FROM Usuarios WHERE id_usuario = ? LIMIT 1";
+        $stmt_estado = $mysqli->prepare($sql_estado);
+        if ($stmt_estado) {
+            $stmt_estado->bind_param('i', $del_user_id);
+            $stmt_estado->execute();
+            $result_estado = $stmt_estado->get_result();
+            $usuario_estado = $result_estado->fetch_assoc();
+            $stmt_estado->close();
+            
+            // Verificar que el usuario esté inactivo (activo = 0)
+            if ($usuario_estado && intval($usuario_estado['activo']) === 1) {
+                return ['mensaje' => 'El usuario debe estar inactivo antes de poder eliminarlo. Por favor, desactívalo primero.', 'mensaje_tipo' => 'warning'];
+            }
+        }
+        
         // Verificar si el usuario ya está anonimizado
         $ya_anonimizado = verificarUsuarioAnonimizado($mysqli, $del_user_id);
         
@@ -683,7 +633,81 @@ function procesarEliminacionUsuario($mysqli, $post, $id_usuario_actual) {
             return ['mensaje' => 'Error al eliminar usuario', 'mensaje_tipo' => 'danger'];
         }
     }
-    
+
     return false;
+}
+
+/**
+ * Filtra usuarios activos de un array de usuarios
+ *
+ * LÓGICA: Extrae la lógica de array_filter que se usaba en admin.php (línea 160-166)
+ * para mantener el código más limpio y reutilizable.
+ *
+ * @param array $usuarios Array de usuarios desde obtenerTodosUsuarios()
+ * @return array Array filtrado solo con usuarios activos (activo = 1)
+ */
+function filtrarUsuariosActivos($usuarios) {
+    return array_values(array_filter($usuarios, function($usuario) {
+        $activo = isset($usuario['activo']) ? intval($usuario['activo']) : 1;
+        return $activo === 1;
+    }));
+}
+
+/**
+ * Valida un filtro de rol GET
+ *
+ * LÓGICA: Extrae la validación de filtro de rol que se usaba en admin.php (línea 142-149)
+ * para centralizar la validación y hacerla reutilizable.
+ *
+ * @param string|null $filtro_rol Valor del filtro desde $_GET['filtro_rol']
+ * @return string|null Rol validado o null si no es válido
+ */
+function validarFiltroRol($filtro_rol) {
+    // Si no hay filtro, retornar null
+    if ($filtro_rol === null || $filtro_rol === '') {
+        return null;
+    }
+
+    // Lista de roles válidos según diccionario de datos
+    $roles_validos = ['cliente', 'ventas', 'marketing', 'admin'];
+
+    // Validar que el filtro esté en la lista de roles válidos
+    // Normalizar a minúsculas para comparación consistente
+    $filtro_normalizado = strtolower(trim($filtro_rol));
+
+    if (in_array($filtro_normalizado, $roles_validos, true)) {
+        return $filtro_normalizado;
+    }
+
+    // Si no es válido, retornar null
+    return null;
+}
+
+/**
+ * Obtiene mensajes y tipo de mensaje almacenados en sesión
+ *
+ * LÓGICA: Extrae la lógica de obtención de mensajes de sesión que se usaba en admin.php
+ * (línea 99-108) para centralizar y hacerla reutilizable en otros archivos.
+ *
+ * @return array ['mensaje' => string, 'mensaje_tipo' => string] o array vacío si no hay
+ */
+function obtenerMensajeSession() {
+    $mensaje = '';
+    $mensaje_tipo = '';
+
+    // Obtener mensaje y tipo si existen en sesión
+    if (isset($_SESSION['mensaje'])) {
+        $mensaje = $_SESSION['mensaje'];
+        $mensaje_tipo = isset($_SESSION['mensaje_tipo']) ? $_SESSION['mensaje_tipo'] : 'success';
+
+        // Limpiar después de leer
+        unset($_SESSION['mensaje']);
+        unset($_SESSION['mensaje_tipo']);
+    }
+
+    return [
+        'mensaje' => $mensaje,
+        'mensaje_tipo' => $mensaje_tipo
+    ];
 }
 

@@ -163,3 +163,101 @@ function crearCategoria($mysqli, $nombre_categoria) {
     return $id_categoria;
 }
 
+/**
+ * Verifica si una categoría puede eliminarse permanentemente
+ * 
+ * Una categoría puede eliminarse solo si:
+ * - NO tiene productos asociados (activos o inactivos)
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param int $id_categoria ID de la categoría a verificar
+ * @return array Array con ['puede_eliminarse' => bool, 'razon' => string, 'productos_count' => int]
+ */
+function verificarCategoriaPuedeEliminarse($mysqli, $id_categoria) {
+    $resultado = [
+        'puede_eliminarse' => false,
+        'razon' => '',
+        'productos_count' => 0
+    ];
+    
+    // Verificar que la categoría existe
+    $sql = "SELECT id_categoria, nombre_categoria, activo FROM Categorias WHERE id_categoria = ? LIMIT 1";
+    $stmt = $mysqli->prepare($sql);
+    if (!$stmt) {
+        $resultado['razon'] = 'Error al verificar la categoría';
+        return $resultado;
+    }
+    
+    $stmt->bind_param('i', $id_categoria);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $categoria = $result->fetch_assoc();
+    $stmt->close();
+    
+    if (!$categoria) {
+        $resultado['razon'] = 'La categoría no existe';
+        return $resultado;
+    }
+    
+    // Contar TODOS los productos asociados a esta categoría (activos e inactivos)
+    $sql = "SELECT COUNT(*) as total FROM Productos WHERE id_categoria = ?";
+    $stmt = $mysqli->prepare($sql);
+    if (!$stmt) {
+        $resultado['razon'] = 'Error al contar productos asociados';
+        return $resultado;
+    }
+    
+    $stmt->bind_param('i', $id_categoria);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $stmt->close();
+    
+    $productos_count = isset($row['total']) ? intval($row['total']) : 0;
+    $resultado['productos_count'] = $productos_count;
+    
+    // Si tiene productos asociados, no se puede eliminar
+    if ($productos_count > 0) {
+        $resultado['razon'] = "La categoría tiene $productos_count producto(s) asociado(s). Debe eliminar los productos primero.";
+        return $resultado;
+    }
+    
+    // Si llegamos aquí, la categoría puede eliminarse
+    $resultado['puede_eliminarse'] = true;
+    $resultado['razon'] = 'La categoría puede eliminarse';
+    
+    return $resultado;
+}
+
+/**
+ * Elimina permanentemente una categoría de la base de datos
+ * 
+ * Esta función realiza un DELETE directo de la categoría.
+ * IMPORTANTE: Solo debe usarse después de verificar que la categoría
+ * no tiene productos asociados usando verificarCategoriaPuedeEliminarse().
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param int $id_categoria ID de la categoría a eliminar
+ * @return bool True si se eliminó correctamente, false en caso contrario
+ */
+function eliminarCategoriaPermanentemente($mysqli, $id_categoria) {
+    $sql = "DELETE FROM Categorias WHERE id_categoria = ?";
+    
+    $stmt = $mysqli->prepare($sql);
+    if (!$stmt) {
+        error_log("ERROR eliminarCategoriaPermanentemente - prepare falló: " . $mysqli->error);
+        return false;
+    }
+    
+    $stmt->bind_param('i', $id_categoria);
+    $resultado = $stmt->execute();
+    
+    if (!$resultado) {
+        error_log("ERROR eliminarCategoriaPermanentemente - execute falló: " . $stmt->error);
+    }
+    
+    $stmt->close();
+    
+    return $resultado;
+}
+

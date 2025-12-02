@@ -9,7 +9,7 @@
  * Este archivo implementa la lógica PHP que reemplaza los siguientes triggers de MySQL:
  * - trg_actualizar_stock_insert: actualizarStockDesdeMovimiento() y registrarMovimientoStock()
  * - trg_validar_ajuste_stock: validarAjusteStock()
- * - trg_validar_stock_antes_update: validarStockNoNegativo() y actualizarStockVariante()
+ * - trg_validar_stock_antes_update: (validación integrada en actualizarStockDesdeMovimiento())
  * - trg_validar_stock_disponible_antes_venta: validarStockDisponibleVenta()
  * 
  * PATRÓN DE TRANSACCIONES:
@@ -50,12 +50,9 @@
  * - validarAjusteStock() - Valida que ajustes negativos no causen stock negativo
  * - validarStockDisponibleVenta() - Valida stock suficiente antes de venta
  * - validarStockDisponibleCarrito() - Valida stock para operaciones de carrito (validación previa)
- * - validarStockNoNegativo() - Valida que stock no sea negativo al actualizar directamente
- * - validarVarianteYProductoActivos() - Valida que variante y producto estén activos
  * 
  * === ACTUALIZACIÓN DE STOCK ===
  * - actualizarStockDesdeMovimiento() - Actualiza stock según tipo de movimiento (interna)
- * - actualizarStockVariante() - Actualiza stock directamente con validación
  * - registrarMovimientoStock() - Registra movimiento y actualiza stock automáticamente
  * 
  * === GESTIÓN DE PEDIDOS ===
@@ -65,7 +62,6 @@
  * - verificarCoherenciaStockDespuesDescuento() - Sanity check post-condición (solo debug)
  * 
  * === CONSULTAS DE STOCK ===
- * - obtenerStockDisponible() - Obtiene stock disponible de una variante
  * - obtenerMovimientosStockRecientes() - Obtiene movimientos recientes para métricas
  * 
  * === GESTIÓN DE VARIANTES ===
@@ -74,7 +70,6 @@
  * - verificarVarianteExistente() - Verifica si existe variante con misma combinación
  * - actualizarVarianteStock() - Actualiza talle y color de una variante
  * - desactivarVarianteStock() - Desactiva una variante (soft delete)
- * - obtenerTodasVariantesProductoPorGrupo() - Obtiene variantes agrupadas por producto
  * 
  * NOTAS IMPORTANTES:
  * - Todas las operaciones de stock deben usar las funciones de este archivo
@@ -88,6 +83,47 @@
 // ============================================================================
 // SECCIÓN 1: VALIDACIONES DE STOCK
 // ============================================================================
+
+/**
+ * Obtiene datos de variante y producto para validaciones
+ * 
+ * FUNCIÓN INTERNA: Usada por validarAjusteStock() y validarStockDisponibleVenta()
+ * para obtener datos comunes y evitar código duplicado.
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param int $id_variante ID de la variante
+ * @return array Array con 'stock', 'variante_activa', 'producto_activo'
+ * @throws Exception Si la variante no existe o hay error en la consulta
+ */
+function _obtenerDatosVarianteYProducto($mysqli, $id_variante) {
+    $sql = "
+        SELECT sv.stock, sv.activo as variante_activa, p.activo as producto_activo 
+        FROM Stock_Variantes sv
+        INNER JOIN Productos p ON sv.id_producto = p.id_producto
+        WHERE sv.id_variante = ?
+    ";
+    
+    $stmt = $mysqli->prepare($sql);
+    if (!$stmt) {
+        throw new Exception('Error al obtener datos de variante #' . $id_variante . ': ' . $mysqli->error);
+    }
+    
+    $stmt->bind_param('i', $id_variante);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $datos = $result->fetch_assoc();
+    $stmt->close();
+    
+    if (!$datos) {
+        throw new Exception('La variante de stock no existe');
+    }
+    
+    return [
+        'stock' => intval($datos['stock']),
+        'variante_activa' => intval($datos['variante_activa']),
+        'producto_activo' => intval($datos['producto_activo'])
+    ];
+}
 
 /**
  * Valida que un ajuste no cause stock negativo y que producto/variante estén activos
@@ -110,31 +146,11 @@
 function validarAjusteStock($mysqli, $id_variante, $cantidad) {
     // Validación previa sin FOR UPDATE - la validación real se hace en actualizarStockDesdeMovimiento()
     // con actualización atómica que previene race conditions
-    $sql = "
-        SELECT sv.stock, sv.activo as variante_activa, p.activo as producto_activo 
-        FROM Stock_Variantes sv
-        INNER JOIN Productos p ON sv.id_producto = p.id_producto
-        WHERE sv.id_variante = ?
-    ";
+    $datos = _obtenerDatosVarianteYProducto($mysqli, $id_variante);
     
-    $stmt = $mysqli->prepare($sql);
-    if (!$stmt) {
-        throw new Exception('Error al validar ajuste de stock para variante #' . $id_variante . ': ' . $mysqli->error);
-    }
-    
-    $stmt->bind_param('i', $id_variante);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $datos = $result->fetch_assoc();
-    $stmt->close();
-    
-    if (!$datos) {
-        throw new Exception('La variante de stock no existe');
-    }
-    
-    $stock_actual = intval($datos['stock']);
-    $variante_activa = intval($datos['variante_activa']);
-    $producto_activo = intval($datos['producto_activo']);
+    $stock_actual = $datos['stock'];
+    $variante_activa = $datos['variante_activa'];
+    $producto_activo = $datos['producto_activo'];
     
     if ($variante_activa === 0) {
         throw new Exception('No se puede ajustar una variante inactiva');
@@ -173,31 +189,11 @@ function validarAjusteStock($mysqli, $id_variante, $cantidad) {
 function validarStockDisponibleVenta($mysqli, $id_variante, $cantidad) {
     // Validación previa sin FOR UPDATE - la validación real se hace en actualizarStockDesdeMovimiento()
     // con actualización atómica que previene race conditions
-    $sql = "
-        SELECT sv.stock, sv.activo as variante_activa, p.activo as producto_activo 
-        FROM Stock_Variantes sv
-        INNER JOIN Productos p ON sv.id_producto = p.id_producto
-        WHERE sv.id_variante = ?
-    ";
+    $datos = _obtenerDatosVarianteYProducto($mysqli, $id_variante);
     
-    $stmt = $mysqli->prepare($sql);
-    if (!$stmt) {
-        throw new Exception('Error al validar stock disponible para variante #' . $id_variante . ': ' . $mysqli->error);
-    }
-    
-    $stmt->bind_param('i', $id_variante);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $datos = $result->fetch_assoc();
-    $stmt->close();
-    
-    if (!$datos) {
-        throw new Exception('La variante de stock no existe');
-    }
-    
-    $stock_actual = intval($datos['stock']);
-    $variante_activa = intval($datos['variante_activa']);
-    $producto_activo = intval($datos['producto_activo']);
+    $stock_actual = $datos['stock'];
+    $variante_activa = $datos['variante_activa'];
+    $producto_activo = $datos['producto_activo'];
     
     if ($variante_activa === 0) {
         throw new Exception('No se puede vender una variante inactiva');
@@ -207,9 +203,20 @@ function validarStockDisponibleVenta($mysqli, $id_variante, $cantidad) {
         throw new Exception('No se puede vender un producto inactivo');
     }
     
+    // Considerar reservas activas (pedidos pendientes < 24 horas)
+    // Restar stock reservado del stock disponible para validación consistente
+    // Esto asegura que la validación sea consistente con validarStockDisponible()
+    $stock_reservado = obtenerStockReservado($mysqli, $id_variante);
+    $stock_disponible = $stock_actual - $stock_reservado;
+    
+    // Asegurar que no sea negativo
+    if ($stock_disponible < 0) {
+        $stock_disponible = 0;
+    }
+    
     // Validación previa (la validación real se hace en actualizarStockDesdeMovimiento con WHERE)
-    if ($stock_actual < $cantidad) {
-        throw new Exception("Stock insuficiente. Stock disponible: {$stock_actual}, Intento de venta: {$cantidad}");
+    if ($stock_disponible < $cantidad) {
+        throw new Exception("Stock insuficiente para variante #{$id_variante}. Stock disponible: {$stock_disponible}, Cantidad solicitada: {$cantidad}");
     }
 }
 
@@ -255,6 +262,11 @@ function validarStockDisponibleVenta($mysqli, $id_variante, $cantidad) {
  * @throws Exception Si la variante no existe, está inactiva o no hay stock suficiente
  */
 function validarStockDisponible($mysqli, $id_producto, $talle, $color, $cantidad_solicitada, $modo = 'preliminar', $cantidad_actual_carrito = 0) {
+    // Liberar reservas expiradas antes de validar stock (solo en modo definitivo para no afectar rendimiento)
+    if ($modo === 'definitivo') {
+        liberarReservasExpiradas($mysqli);
+    }
+    
     // Validar parámetros
     $id_producto = intval($id_producto);
     $talle = trim(strval($talle));
@@ -263,16 +275,28 @@ function validarStockDisponible($mysqli, $id_producto, $talle, $color, $cantidad
     $cantidad_actual_carrito = intval($cantidad_actual_carrito);
     $modo = trim(strval($modo));
     
-    if ($id_producto <= 0 || empty($talle) || empty($color) || $cantidad_solicitada <= 0) {
+    // Validar parámetros básicos
+    if ($id_producto <= 0 || empty($talle) || empty($color)) {
         throw new Exception('Parámetros inválidos para validar stock');
+    }
+    
+    // Validar rango de cantidad según diccionario: 1-1000 para Detalle_Pedido
+    if ($cantidad_solicitada < 1) {
+        throw new Exception('La cantidad debe ser al menos 1 unidad.');
+    }
+    
+    if ($cantidad_solicitada > 1000) {
+        throw new Exception('La cantidad no puede exceder 1000 unidades por item.');
     }
     
     if ($modo !== 'preliminar' && $modo !== 'definitivo') {
         throw new Exception('Modo de validación inválido. Debe ser "preliminar" o "definitivo"');
     }
     
-    // Validación sin FOR UPDATE - solo SELECT simple
-    // La validación atómica real se hace después en actualizarStockDesdeMovimiento() con UPDATE WHERE
+    // Validación con FOR UPDATE en modo definitivo para bloquear filas durante transacción
+    // Esto previene que dos clientes validen stock simultáneamente al crear pedidos
+    // En modo preliminar, no usar FOR UPDATE para mejor rendimiento
+    $usar_for_update = ($modo === 'definitivo');
     $sql = "
         SELECT 
             sv.id_variante,
@@ -286,7 +310,7 @@ function validarStockDisponible($mysqli, $id_producto, $talle, $color, $cantidad
         WHERE sv.id_producto = ?
           AND sv.talle = ?
           AND sv.color = ?
-    ";
+        " . ($usar_for_update ? "FOR UPDATE" : "");
     
     $stmt = $mysqli->prepare($sql);
     if (!$stmt) {
@@ -319,6 +343,17 @@ function validarStockDisponible($mysqli, $id_producto, $talle, $color, $cantidad
     
     if ($producto_activo === 0) {
         throw new Exception('El producto seleccionado está inactivo');
+    }
+    
+    // Considerar reservas activas (pedidos pendientes < 24 horas)
+    // Restar stock reservado del stock disponible
+    $id_variante = intval($datos['id_variante']);
+    $stock_reservado = obtenerStockReservado($mysqli, $id_variante);
+    $stock_disponible = $stock_disponible - $stock_reservado;
+    
+    // Asegurar que no sea negativo
+    if ($stock_disponible < 0) {
+        $stock_disponible = 0;
     }
     
     // Calcular cantidad total que se tendría en el carrito (si aplica)
@@ -354,6 +389,66 @@ function validarStockDisponible($mysqli, $id_producto, $talle, $color, $cantidad
         'talle' => $talle,
         'color' => $color
     ];
+}
+
+/**
+ * Obtiene la cantidad de stock reservado para una variante
+ * 
+ * Calcula el stock reservado considerando pedidos pendientes con menos de 24 horas
+ * que aún no tienen pago aprobado. Estos pedidos "reservan" stock temporalmente.
+ * 
+ * Lógica de reserva:
+ * - Pedidos en estado 'pendiente' o 'pendiente_validado_stock'
+ * - Con fecha_pedido dentro de las últimas 24 horas
+ * - Con pago en estado 'pendiente' o 'pendiente_aprobacion' (no aprobado)
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param int $id_variante ID de la variante
+ * @return int Cantidad de stock reservado
+ */
+function obtenerStockReservado($mysqli, $id_variante) {
+    $id_variante = intval($id_variante);
+    
+    if ($id_variante <= 0) {
+        return 0;
+    }
+    
+    // Calcular stock reservado: suma de movimientos tipo 'venta' con observaciones "RESERVA: "
+    // Solo contar reservas de pedidos con menos de 24 horas (reservas activas)
+    // Estos movimientos se crean al reservar stock al crear un pedido
+    // Se convierten en ventas al aprobar el pago (cambian observaciones)
+    // Se revierten al cancelar el pedido (se crean movimientos tipo 'ingreso')
+    // Las reservas expiradas (>24 horas) se liberan automáticamente
+    $sql = "
+        SELECT IFNULL(SUM(ms.cantidad), 0) as stock_reservado
+        FROM Movimientos_Stock ms
+        INNER JOIN Pedidos p ON ms.id_pedido = p.id_pedido
+        WHERE ms.id_variante = ?
+          AND ms.tipo_movimiento = 'venta'
+          AND ms.observaciones LIKE 'RESERVA: %'
+          AND p.fecha_pedido > DATE_SUB(NOW(), INTERVAL 24 HOUR)
+          AND p.estado_pedido IN ('pendiente', 'pendiente_validado_stock')
+    ";
+    
+    $stmt = $mysqli->prepare($sql);
+    if (!$stmt) {
+        error_log("Error al preparar query de stock reservado: " . $mysqli->error);
+        return 0;
+    }
+    
+    $stmt->bind_param('i', $id_variante);
+    if (!$stmt->execute()) {
+        $error_msg = $stmt->error;
+        $stmt->close();
+        error_log("Error al ejecutar query de stock reservado: " . $error_msg);
+        return 0;
+    }
+    
+    $result = $stmt->get_result();
+    $datos = $result->fetch_assoc();
+    $stmt->close();
+    
+    return intval($datos['stock_reservado'] ?? 0);
 }
 
 /**
@@ -498,75 +593,57 @@ function actualizarStockDesdeMovimiento($mysqli, $id_variante, $tipo_movimiento,
             throw new Exception("No se pudo actualizar stock para variante #{$id_variante}");
         }
     }
-}
-
-/**
- * Valida que el stock no sea negativo al actualizar Stock_Variantes directamente
- * 
- * FUNCIÓN INTERNA: Usada principalmente por actualizarStockVariante() para validar
- * que una actualización directa de stock no resulte en valores negativos.
- * 
- * Reemplaza la lógica del trigger trg_validar_stock_antes_update
- * 
- * @param mysqli $mysqli Conexión a la base de datos
- * @param int $id_variante ID de la variante
- * @param int $nuevo_stock Nuevo valor de stock a validar
- * @throws Exception Si el stock sería negativo
- */
-function validarStockNoNegativo($mysqli, $id_variante, $nuevo_stock) {
-    if ($nuevo_stock < 0) {
-        // Obtener stock actual para el mensaje de error completo
-        $sql = "SELECT stock FROM Stock_Variantes WHERE id_variante = ?";
-        $stmt = $mysqli->prepare($sql);
-        if ($stmt) {
-            $stmt->bind_param('i', $id_variante);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            $datos = $result->fetch_assoc();
-            $stmt->close();
-            
-            $stock_actual = $datos ? intval($datos['stock']) : 0;
-            throw new Exception("No se puede tener stock negativo para variante #{$id_variante}. Stock actual: {$stock_actual}, Intento de actualizar a: {$nuevo_stock}");
-        } else {
-            throw new Exception("No se puede tener stock negativo para variante #{$id_variante}. Intento de actualizar a: {$nuevo_stock}");
+    
+    // Validar que el stock resultante no exceda el límite máximo (10000)
+    $sql_stock_final = "SELECT stock FROM Stock_Variantes WHERE id_variante = ?";
+    $stmt_stock_final = $mysqli->prepare($sql_stock_final);
+    if ($stmt_stock_final) {
+        $stmt_stock_final->bind_param('i', $id_variante);
+        $stmt_stock_final->execute();
+        $result_stock_final = $stmt_stock_final->get_result();
+        $datos_stock_final = $result_stock_final->fetch_assoc();
+        $stmt_stock_final->close();
+        
+        if ($datos_stock_final) {
+            $stock_final = intval($datos_stock_final['stock']);
+            validarRangoStock($stock_final);
         }
     }
 }
 
 /**
- * Actualiza el stock de una variante con validación de stock no negativo
- * Reemplaza el trigger trg_validar_stock_antes_update
+ * Valida que el stock esté dentro del rango permitido (0-10000)
  * 
- * NOTA: Esta función solo debe usarse para actualizaciones directas de stock.
- * En la mayoría de los casos, el stock debe actualizarse mediante movimientos usando registrarMovimientoStock()
+ * Valida que el valor de stock esté entre 0 y 10000 según las reglas de negocio.
+ * Esta validación reemplaza el CHECK constraint de MySQL para mayor portabilidad.
  * 
- * @param mysqli $mysqli Conexión a la base de datos
- * @param int $id_variante ID de la variante
- * @param int $nuevo_stock Nuevo valor de stock
- * @return bool True si se actualizó correctamente
- * @throws Exception Si el stock sería negativo o la variante no existe
+ * @param int $stock Valor de stock a validar
+ * @throws Exception Si el stock está fuera del rango permitido (0-10000)
  */
-function actualizarStockVariante($mysqli, $id_variante, $nuevo_stock) {
-    // Validar que el stock no sea negativo (reemplaza trg_validar_stock_antes_update)
-    validarStockNoNegativo($mysqli, $id_variante, $nuevo_stock);
-    
-    // Actualizar stock
-    $sql = "UPDATE Stock_Variantes SET stock = ?, fecha_actualizacion = NOW() WHERE id_variante = ?";
-    
-    $stmt = $mysqli->prepare($sql);
-    if (!$stmt) {
-        throw new Exception('Error al preparar actualización de stock para variante #' . $id_variante . ': ' . $mysqli->error);
+function validarRangoStock($stock) {
+    $stock = intval($stock);
+    if ($stock < 0) {
+        throw new Exception("El stock no puede ser negativo. Valor recibido: {$stock}");
     }
-    
-    $stmt->bind_param('ii', $nuevo_stock, $id_variante);
-    $resultado = $stmt->execute();
-    $stmt->close();
-    
-    if (!$resultado) {
-        throw new Exception('Error al actualizar stock de la variante #' . $id_variante . ' a ' . $nuevo_stock . ': ' . $mysqli->error);
+    if ($stock > 10000) {
+        throw new Exception("El stock no puede exceder 10000 unidades. Valor recibido: {$stock}");
     }
-    
-    return true;
+}
+
+/**
+ * Valida que la cantidad de un movimiento esté dentro del rango permitido (-10000 a 10000)
+ * 
+ * Valida que la cantidad de un movimiento de stock esté entre -10000 y 10000 según las reglas de negocio.
+ * Esta validación reemplaza el CHECK constraint de MySQL para mayor portabilidad.
+ * 
+ * @param int $cantidad Cantidad del movimiento a validar
+ * @throws Exception Si la cantidad está fuera del rango permitido (-10000 a 10000)
+ */
+function validarRangoCantidadMovimiento($cantidad) {
+    $cantidad = intval($cantidad);
+    if ($cantidad < -10000 || $cantidad > 10000) {
+        throw new Exception("La cantidad del movimiento debe estar entre -10000 y 10000. Valor recibido: {$cantidad}");
+    }
 }
 
 /**
@@ -603,6 +680,9 @@ function registrarMovimientoStock($mysqli, $id_variante, $tipo_movimiento, $cant
     if ($tipo_movimiento !== 'ajuste') {
         $cantidad = abs($cantidad);
     }
+    
+    // Validar rango de cantidad del movimiento (-10000 a 10000)
+    validarRangoCantidadMovimiento($cantidad);
     
     // Validar tipo de movimiento
     $tipos_validos = ['venta', 'ingreso', 'ajuste'];
@@ -692,11 +772,14 @@ function registrarMovimientoStock($mysqli, $id_variante, $tipo_movimiento, $cant
  * @return int Número de movimientos tipo 'venta' para el pedido
  */
 function verificarVentasPreviasPedido($mysqli, $id_pedido) {
+    // Verificar ventas reales (no reservas)
+    // Las reservas tienen observaciones "RESERVA: " y no se cuentan como ventas
     $sql = "
         SELECT COUNT(*) as cantidad_ventas
         FROM Movimientos_Stock
         WHERE id_pedido = ?
           AND tipo_movimiento = 'venta'
+          AND (observaciones IS NULL OR observaciones NOT LIKE 'RESERVA: %')
     ";
     
     $stmt = $mysqli->prepare($sql);
@@ -718,6 +801,9 @@ function verificarVentasPreviasPedido($mysqli, $id_pedido) {
     
     return intval($row['cantidad_ventas'] ?? 0);
 }
+
+// Consolidated helper: load shared Detalle_Pedido helper
+require_once __DIR__ . '/detalle_pedido_queries.php';
 
 /**
  * Verifica la coherencia del stock después de descontar (sanity check)
@@ -847,11 +933,223 @@ function verificarCoherenciaStockDespuesDescuento($mysqli, $id_pedido, $stock_an
 }
 
 /**
+ * Reserva stock al crear un pedido
+ * Crea movimientos de tipo 'venta' con observaciones "RESERVA: Pedido #X" para cada producto
+ * El stock se descuenta físicamente pero se marca como reservado (no vendido aún)
+ * 
+ * DIFERENCIAS CON descontarStockPedido():
+ * - reservarStockPedido(): Reserva stock al crear pedido (movimientos con observaciones "RESERVA:")
+ * - descontarStockPedido(): Convierte reservas en ventas o crea ventas directas al aprobar pago
+ * 
+ * IDEMPOTENCIA: Esta función es idempotente. Si se llama múltiples veces para el mismo pedido,
+ * solo reservará stock la primera vez. Llamadas subsecuentes retornarán true sin hacer nada.
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param int $id_pedido ID del pedido
+ * @param int $id_usuario ID del usuario del pedido (opcional)
+ * @param bool $en_transaccion Si true, no inicia/commit transacción (ya está dentro de una)
+ * @return bool True si se reservó correctamente o ya estaba reservado (idempotente)
+ */
+function reservarStockPedido($mysqli, $id_pedido, $id_usuario = null, $en_transaccion = false) {
+    // Validar que el pedido existe
+    $sql_verificar_pedido = "SELECT id_pedido, estado_pedido FROM Pedidos WHERE id_pedido = ?";
+    $stmt_verificar_pedido = $mysqli->prepare($sql_verificar_pedido);
+    if (!$stmt_verificar_pedido) {
+        if (!$en_transaccion) {
+            return false;
+        }
+        throw new Exception('Error al preparar verificación de pedido: ' . $mysqli->error);
+    }
+    $stmt_verificar_pedido->bind_param('i', $id_pedido);
+    $stmt_verificar_pedido->execute();
+    $result_verificar_pedido = $stmt_verificar_pedido->get_result();
+    $pedido_data = $result_verificar_pedido->fetch_assoc();
+    $stmt_verificar_pedido->close();
+    
+    if (!$pedido_data) {
+        if (!$en_transaccion) {
+            return false;
+        }
+        throw new Exception('El pedido no existe. ID pedido: ' . $id_pedido);
+    }
+    
+    // Guardrail de idempotencia: verificar si ya hay reservas para este pedido
+    $reservas_previas = verificarReservasPreviasPedido($mysqli, $id_pedido);
+    if ($reservas_previas > 0) {
+        // Ya se reservó stock antes para este pedido, no hacer nada (idempotente)
+        error_log("reservarStockPedido: Pedido #{$id_pedido} ya tiene {$reservas_previas} reservas registradas. Operación idempotente.");
+        return true;
+    }
+    
+    // Obtener detalles del pedido (helper centralizado)
+    $detalles = obtenerDetallesPedido($mysqli, $id_pedido);
+    
+    if (empty($detalles)) {
+        return false;
+    }
+    
+    // Solo iniciar transacción si no estamos dentro de una existente
+    if (!$en_transaccion) {
+        $mysqli->begin_transaction();
+    }
+    
+    try {
+        foreach ($detalles as $detalle) {
+            $id_variante = intval($detalle['id_variante']);
+            $cantidad = intval($detalle['cantidad']);
+            
+            // Registrar movimiento de venta con observaciones que indican que es una reserva
+            // El stock se descuenta físicamente, pero se marca como reservado
+            $observaciones = "RESERVA: Pedido #{$id_pedido}";
+            try {
+                registrarMovimientoStock($mysqli, $id_variante, 'venta', $cantidad, $id_usuario, $id_pedido, $observaciones, true);
+            } catch (Exception $e) {
+                // Re-lanzar con contexto adicional del pedido
+                throw new Exception("Error al reservar stock del pedido #{$id_pedido} - Variante #{$id_variante} (cantidad: {$cantidad}): " . $e->getMessage(), 0, $e);
+            }
+        }
+        
+        // Solo commit si iniciamos la transacción
+        if (!$en_transaccion) {
+            $mysqli->commit();
+        }
+        return true;
+        
+    } catch (Exception $e) {
+        // Solo rollback si iniciamos la transacción
+        if (!$en_transaccion) {
+            $mysqli->rollback();
+        }
+        error_log("Error al reservar stock del pedido #{$id_pedido}: " . $e->getMessage());
+        throw $e; // Re-lanzar excepción para que la transacción externa la maneje
+    }
+}
+
+/**
+ * Verifica si ya hay reservas previas para un pedido
+ * Las reservas se identifican por movimientos tipo 'venta' con observaciones que empiezan con "RESERVA: "
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param int $id_pedido ID del pedido
+ * @return int Cantidad de reservas encontradas
+ */
+function verificarReservasPreviasPedido($mysqli, $id_pedido) {
+    $sql = "
+        SELECT COUNT(*) as cantidad_reservas
+        FROM Movimientos_Stock
+        WHERE id_pedido = ?
+          AND tipo_movimiento = 'venta'
+          AND observaciones LIKE 'RESERVA: %'
+    ";
+    
+    $stmt = $mysqli->prepare($sql);
+    if (!$stmt) {
+        error_log("Error al preparar verificación de reservas previas para pedido #{$id_pedido}: " . $mysqli->error);
+        return 0;
+    }
+    
+    $stmt->bind_param('i', $id_pedido);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $stmt->close();
+    
+    return intval($row['cantidad_reservas'] ?? 0);
+}
+
+/**
+ * Libera reservas expiradas (más de 24 horas sin aprobación de pago)
+ * Crea movimientos tipo 'ingreso' para restaurar el stock reservado
+ * 
+ * Esta función debe llamarse periódicamente (ej: en cada validación de stock o mediante cron)
+ * para liberar automáticamente reservas que expiraron
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @return array Array con 'total_liberadas' y 'pedidos_liberados'
+ */
+function liberarReservasExpiradas($mysqli) {
+    $resultado = [
+        'total_liberadas' => 0,
+        'pedidos_liberados' => []
+    ];
+    
+    // Buscar pedidos con reservas expiradas (>24 horas sin pago aprobado)
+    $sql = "
+        SELECT DISTINCT p.id_pedido, p.fecha_pedido, p.id_usuario
+        FROM Pedidos p
+        INNER JOIN Movimientos_Stock ms ON p.id_pedido = ms.id_pedido
+        LEFT JOIN Pagos pag ON p.id_pedido = pag.id_pedido
+        WHERE p.estado_pedido IN ('pendiente', 'pendiente_validado_stock')
+          AND ms.tipo_movimiento = 'venta'
+          AND ms.observaciones LIKE 'RESERVA: %'
+          AND p.fecha_pedido <= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+          AND (pag.id_pago IS NULL OR pag.estado_pago NOT IN ('aprobado'))
+    ";
+    
+    $stmt = $mysqli->prepare($sql);
+    if (!$stmt) {
+        error_log("Error al preparar consulta de reservas expiradas: " . $mysqli->error);
+        return $resultado;
+    }
+    
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $pedidos_expirados = [];
+    while ($row = $result->fetch_assoc()) {
+        $pedidos_expirados[] = $row;
+    }
+    $stmt->close();
+    
+    if (empty($pedidos_expirados)) {
+        return $resultado;
+    }
+    
+    // Procesar cada pedido con reservas expiradas
+    foreach ($pedidos_expirados as $pedido) {
+        $id_pedido = intval($pedido['id_pedido']);
+        $id_usuario = intval($pedido['id_usuario']);
+        
+        $mysqli->begin_transaction();
+        
+        try {
+            // Obtener detalles del pedido para revertir reservas (helper centralizado)
+            $detalles_reserva = obtenerDetallesPedido($mysqli, $id_pedido);
+            
+            // Crear movimientos tipo 'ingreso' para revertir cada reserva expirada
+            foreach ($detalles_reserva as $detalle) {
+                $id_variante = intval($detalle['id_variante']);
+                $cantidad = intval($detalle['cantidad']);
+                
+                $observaciones = "Liberación automática reserva expirada - Pedido #{$id_pedido}";
+                try {
+                    registrarMovimientoStock($mysqli, $id_variante, 'ingreso', $cantidad, $id_usuario, $id_pedido, $observaciones, true);
+                } catch (Exception $e) {
+                    throw new Exception("Error al liberar reserva expirada del pedido #{$id_pedido} - Variante #{$id_variante}: " . $e->getMessage(), 0, $e);
+                }
+            }
+            
+            $mysqli->commit();
+            
+            $resultado['total_liberadas'] += count($detalles_reserva);
+            $resultado['pedidos_liberados'][] = $id_pedido;
+            
+            error_log("Reservas expiradas liberadas para pedido #{$id_pedido} (más de 24 horas sin aprobación)");
+            
+        } catch (Exception $e) {
+            $mysqli->rollback();
+            error_log("Error al liberar reservas expiradas del pedido #{$id_pedido}: " . $e->getMessage());
+        }
+    }
+    
+    return $resultado;
+}
+
+/**
  * Descuenta stock cuando se aprueba un pago
- * Crea movimientos de tipo 'venta' para cada producto del pedido
+ * Si hay reservas previas, las convierte en ventas. Si no hay reservas, crea ventas nuevas.
  * 
  * DIFERENCIAS CON revertirStockPedido():
- * - descontarStockPedido(): Descuenta stock al aprobar pago (crea movimientos tipo 'venta')
+ * - descontarStockPedido(): Descuenta stock al aprobar pago (convierte reservas o crea ventas)
  * - revertirStockPedido(): Restaura stock al cancelar/rechazar pedido (crea movimientos tipo 'ingreso')
  * 
  * IDEMPOTENCIA: Esta función es idempotente. Si se llama múltiples veces para el mismo pedido,
@@ -866,7 +1164,37 @@ function verificarCoherenciaStockDespuesDescuento($mysqli, $id_pedido, $stock_an
  * @return bool True si se descontó correctamente o ya estaba descontado (idempotente)
  */
 function descontarStockPedido($mysqli, $id_pedido, $id_usuario = null, $en_transaccion = false) {
+    // Validar que el pedido existe (integridad referencial)
+    $sql_verificar_pedido = "SELECT id_pedido, estado_pedido FROM Pedidos WHERE id_pedido = ?";
+    $stmt_verificar_pedido = $mysqli->prepare($sql_verificar_pedido);
+    if (!$stmt_verificar_pedido) {
+        if (!$en_transaccion) {
+            return false;
+        }
+        throw new Exception('Error al preparar verificación de pedido: ' . $mysqli->error);
+    }
+    $stmt_verificar_pedido->bind_param('i', $id_pedido);
+    if (!$stmt_verificar_pedido->execute()) {
+        $error_msg = $stmt_verificar_pedido->error;
+        $stmt_verificar_pedido->close();
+        if (!$en_transaccion) {
+            return false;
+        }
+        throw new Exception('Error al verificar existencia del pedido: ' . $error_msg);
+    }
+    $result_verificar_pedido = $stmt_verificar_pedido->get_result();
+    $pedido_data = $result_verificar_pedido->fetch_assoc();
+    $stmt_verificar_pedido->close();
+    
+    if (!$pedido_data) {
+        if (!$en_transaccion) {
+            return false;
+        }
+        throw new Exception('El pedido no existe. ID pedido: ' . $id_pedido);
+    }
+    
     // Guardrail de idempotencia: verificar si ya se descontó stock para este pedido
+    // Verificar ventas (no reservas) - si ya hay ventas, no hacer nada
     $ventas_previas = verificarVentasPreviasPedido($mysqli, $id_pedido);
     if ($ventas_previas > 0) {
         // Ya se descontó stock antes para este pedido, no hacer nada (idempotente)
@@ -874,35 +1202,12 @@ function descontarStockPedido($mysqli, $id_pedido, $id_usuario = null, $en_trans
         return true;
     }
     
-    // MEJORA DE RENDIMIENTO: Esta query usa el índice idx_detalle_pedido_pedido que ya existe.
-    // MEJORA DE SEGURIDAD: Considerar agregar validación de que el pedido existe y está en estado válido
-    // antes de descontar stock, para evitar descuentos en pedidos cancelados o ya procesados.
+    // Verificar si hay reservas previas para este pedido
+    $reservas_previas = verificarReservasPreviasPedido($mysqli, $id_pedido);
+    $tiene_reservas = ($reservas_previas > 0);
     
-    // Obtener detalles del pedido con id_variante directamente
-    $sql = "
-        SELECT 
-            dp.id_detalle,
-            dp.id_variante,
-            dp.cantidad,
-            dp.precio_unitario
-        FROM Detalle_Pedido dp
-        WHERE dp.id_pedido = ?
-    ";
-    
-    $stmt = $mysqli->prepare($sql);
-    if (!$stmt) {
-        return false;
-    }
-    
-    $stmt->bind_param('i', $id_pedido);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    $detalles = [];
-    while ($row = $result->fetch_assoc()) {
-        $detalles[] = $row;
-    }
-    $stmt->close();
+    // Obtener detalles del pedido (helper centralizado)
+    $detalles = obtenerDetallesPedido($mysqli, $id_pedido);
     
     if (empty($detalles)) {
         return false;
@@ -938,18 +1243,54 @@ function descontarStockPedido($mysqli, $id_pedido, $id_usuario = null, $en_trans
             }
         }
         
-        foreach ($detalles as $detalle) {
-            $id_variante = intval($detalle['id_variante']);
-            $cantidad = intval($detalle['cantidad']);
+        if ($tiene_reservas) {
+            // Convertir reservas en ventas: actualizar observaciones de movimientos de reserva
+            foreach ($detalles as $detalle) {
+                $id_variante = intval($detalle['id_variante']);
+                $cantidad = intval($detalle['cantidad']);
+                
+                // Actualizar observaciones de movimientos de reserva a venta confirmada
+                $sql_actualizar_reserva = "
+                    UPDATE Movimientos_Stock
+                    SET observaciones = ?
+                    WHERE id_pedido = ?
+                      AND id_variante = ?
+                      AND tipo_movimiento = 'venta'
+                      AND observaciones LIKE 'RESERVA: %'
+                    LIMIT ?
+                ";
+                
+                $stmt_actualizar = $mysqli->prepare($sql_actualizar_reserva);
+                if (!$stmt_actualizar) {
+                    throw new Exception('Error al preparar actualización de reserva a venta: ' . $mysqli->error);
+                }
+                
+                $observaciones_venta = "Venta confirmada - Pedido #{$id_pedido}";
+                $stmt_actualizar->bind_param('siii', $observaciones_venta, $id_pedido, $id_variante, $cantidad);
+                if (!$stmt_actualizar->execute()) {
+                    $error_msg = $stmt_actualizar->error;
+                    $stmt_actualizar->close();
+                    throw new Exception("Error al convertir reserva en venta para pedido #{$id_pedido} - Variante #{$id_variante}: " . $error_msg);
+                }
+                $stmt_actualizar->close();
+            }
             
-            // Registrar movimiento de venta (cantidad siempre positiva)
-            // registrarMovimientoStock() valida stock disponible y actualiza con validación atómica
-            $observaciones = "Venta confirmada - Pedido #{$id_pedido}";
-            try {
-                registrarMovimientoStock($mysqli, $id_variante, 'venta', $cantidad, $id_usuario, $id_pedido, $observaciones, true);
-            } catch (Exception $e) {
-                // Re-lanzar con contexto adicional del pedido
-                throw new Exception("Error al descontar stock del pedido #{$id_pedido} - Variante #{$id_variante} (cantidad: {$cantidad}): " . $e->getMessage(), 0, $e);
+            error_log("descontarStockPedido: Pedido #{$id_pedido} - Convertidas {$reservas_previas} reservas en ventas.");
+        } else {
+            // No hay reservas: crear movimientos de venta nuevos (comportamiento original)
+            foreach ($detalles as $detalle) {
+                $id_variante = intval($detalle['id_variante']);
+                $cantidad = intval($detalle['cantidad']);
+                
+                // Registrar movimiento de venta (cantidad siempre positiva)
+                // registrarMovimientoStock() valida stock disponible y actualiza con validación atómica
+                $observaciones = "Venta confirmada - Pedido #{$id_pedido}";
+                try {
+                    registrarMovimientoStock($mysqli, $id_variante, 'venta', $cantidad, $id_usuario, $id_pedido, $observaciones, true);
+                } catch (Exception $e) {
+                    // Re-lanzar con contexto adicional del pedido
+                    throw new Exception("Error al descontar stock del pedido #{$id_pedido} - Variante #{$id_variante} (cantidad: {$cantidad}): " . $e->getMessage(), 0, $e);
+                }
             }
         }
         
@@ -1046,21 +1387,51 @@ function revertirStockPedido($mysqli, $id_pedido, $id_usuario = null, $motivo = 
         return false; // No revertir si el estado no lo permite
     }
     
+    // Verificar si hay reservas para este pedido
+    $reservas_previas = verificarReservasPreviasPedido($mysqli, $id_pedido);
+    $tiene_reservas = ($reservas_previas > 0);
+    
     // Iniciar transacción
     $mysqli->begin_transaction();
     
     try {
-        // PASO 2: Calcular neto de movimientos por variante
+        if ($tiene_reservas) {
+            // Revertir reservas: crear movimientos tipo 'ingreso' para restaurar stock reservado
+            // Obtener detalles del pedido para revertir reservas (helper centralizado)
+            $detalles_reserva = obtenerDetallesPedido($mysqli, $id_pedido);
+            
+            // Crear movimientos tipo 'ingreso' para revertir cada reserva
+            foreach ($detalles_reserva as $detalle) {
+                $id_variante = intval($detalle['id_variante']);
+                $cantidad = intval($detalle['cantidad']);
+                
+                $observaciones = "Reversión reserva - Pedido #{$id_pedido}" . ($motivo ? " - {$motivo}" : "");
+                try {
+                    registrarMovimientoStock($mysqli, $id_variante, 'ingreso', $cantidad, $id_usuario, $id_pedido, $observaciones, true);
+                } catch (Exception $e) {
+                    throw new Exception("Error al revertir reserva del pedido #{$id_pedido} - Variante #{$id_variante}: " . $e->getMessage(), 0, $e);
+                }
+            }
+            
+            error_log("revertirStockPedido: Pedido #{$id_pedido} - Revertidas {$reservas_previas} reservas.");
+            $mysqli->commit();
+            return true;
+        }
+        
+        // PASO 2: Calcular neto de movimientos por variante (solo si no hay reservas)
         // ESTRATEGIA SIMPLIFICADA: Dividir en 2 queries simples en lugar de una query compleja con CASE
         // Query 1: Obtener ventas (salidas) por variante
         // Query 2: Obtener ingresos/devoluciones (entradas) por variante
         // Calcular neto en PHP: neto = ventas - entradas
         
         // Query 1: Obtener ventas (salidas) agrupadas por variante
+        // Excluir reservas (observaciones "RESERVA: ") - solo contar ventas reales
         $sql_ventas = "
             SELECT id_variante, SUM(cantidad) as total_ventas
             FROM Movimientos_Stock
-            WHERE id_pedido = ? AND tipo_movimiento = 'venta'
+            WHERE id_pedido = ? 
+              AND tipo_movimiento = 'venta'
+              AND (observaciones IS NULL OR observaciones NOT LIKE 'RESERVA: %')
             GROUP BY id_variante
         ";
         
@@ -1164,41 +1535,6 @@ function revertirStockPedido($mysqli, $id_pedido, $id_usuario = null, $motivo = 
 // ============================================================================
 
 /**
- * Obtiene el stock disponible de una variante consultando directamente la base de datos
- * 
- * NOTA: Esta función consulta la BD directamente por ID de variante.
- * Para trabajar con arrays de variantes ya cargados en memoria, usar obtenerStock() 
- * de includes/producto_functions.php
- * 
- * DIFERENCIAS:
- * - obtenerStockDisponible(): Consulta la BD directamente por ID de variante (requiere $mysqli)
- * - obtenerStock(): Trabaja con arrays en memoria, busca por talle+color en variantes ya cargadas
- * 
- * Función simple para consultar el stock actual de una variante.
- * No realiza bloqueos (FOR UPDATE), útil para consultas de solo lectura.
- * 
- * @param mysqli $mysqli Conexión a la base de datos
- * @param int $id_variante ID de la variante
- * @return int Stock disponible (0 si la variante no existe)
- */
-function obtenerStockDisponible($mysqli, $id_variante) {
-    $sql = "SELECT stock FROM Stock_Variantes WHERE id_variante = ?";
-    
-    $stmt = $mysqli->prepare($sql);
-    if (!$stmt) {
-        return 0;
-    }
-    
-    $stmt->bind_param('i', $id_variante);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $stock = $result->fetch_assoc();
-    $stmt->close();
-    
-    return $stock ? intval($stock['stock']) : 0;
-}
-
-/**
  * Obtiene los movimientos de stock más recientes para métricas
  * 
  * @param mysqli $mysqli Conexión a la base de datos
@@ -1276,6 +1612,10 @@ function insertarVarianteStock($mysqli, $id_producto, $talle, $color, $stock_ini
     // para mantener la trazabilidad y consistencia del sistema
     $stock_inicial = 0;
     
+    // Validar rango de stock (0-10000)
+    validarRangoStock($stock_inicial);
+    
+    // fecha_creacion tiene DEFAULT CURRENT_TIMESTAMP en la tabla, no es necesario especificarlo explícitamente
     $sql = "INSERT INTO Stock_Variantes (id_producto, talle, color, stock, activo) VALUES (?, ?, ?, ?, 1)";
     
     $stmt = $mysqli->prepare($sql);
@@ -1486,126 +1826,4 @@ function desactivarVarianteStock($mysqli, $id_variante) {
     return true;
 }
 
-/**
- * Obtiene todas las variantes activas de productos con el mismo nombre, categoría y género
- * Retorna un array con las variantes, priorizando las del producto actual
- * 
- * @param mysqli $mysqli Conexión a la base de datos
- * @param string $nombre_producto Nombre del producto
- * @param int $id_categoria ID de la categoría
- * @param string $genero Género del producto
- * @param int|null $id_producto_actual ID del producto actual (para priorizar sus variantes)
- * @return array Array de variantes con id_variante, id_producto, talle, color, stock
- */
-function obtenerTodasVariantesProductoPorGrupo($mysqli, $nombre_producto, $id_categoria, $genero, $id_producto_actual = null) {
-    $sql = "
-        SELECT sv.id_variante, sv.id_producto, sv.talle, sv.color, sv.stock
-        FROM Stock_Variantes sv
-        INNER JOIN Productos p ON sv.id_producto = p.id_producto
-        WHERE p.nombre_producto = ?
-        AND p.id_categoria = ?
-        AND p.genero = ?
-        AND sv.activo = 1
-        AND p.activo = 1
-        ORDER BY sv.color, sv.talle
-    ";
-    
-    $stmt = $mysqli->prepare($sql);
-    if (!$stmt) {
-        return [];
-    }
-    
-    $stmt->bind_param('sis', $nombre_producto, $id_categoria, $genero);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    $todas_variantes_completas = [];
-    $variantes_unicas = []; // Clave: talle+color normalizado para evitar duplicados
-    
-    while ($row_variante = $result->fetch_assoc()) {
-        // Crear clave única normalizada (talle+color en minúsculas)
-        $clave_variante = strtolower(trim($row_variante['talle'] . '_' . $row_variante['color']));
-        
-        // Priorizar variantes del producto actual
-        if (!isset($variantes_unicas[$clave_variante])) {
-            $variantes_unicas[$clave_variante] = $row_variante;
-            $todas_variantes_completas[] = $row_variante;
-        } elseif ($id_producto_actual !== null && $row_variante['id_producto'] == $id_producto_actual && $variantes_unicas[$clave_variante]['id_producto'] != $id_producto_actual) {
-            // Esta variante es del producto actual y la anterior no lo era, reemplazar
-            $indice_anterior = array_search($variantes_unicas[$clave_variante], $todas_variantes_completas, true);
-            if ($indice_anterior !== false) {
-                $todas_variantes_completas[$indice_anterior] = $row_variante;
-            }
-            $variantes_unicas[$clave_variante] = $row_variante;
-        }
-    }
-    
-    $stmt->close();
-    
-    return $todas_variantes_completas;
-}
-
-/**
- * Valida que una variante y su producto estén activos
- * 
- * Función de validación reutilizable para verificar el estado activo de una variante
- * y su producto asociado. Útil para validaciones previas antes de operaciones que
- * requieren que ambos estén activos.
- * 
- * @param mysqli $mysqli Conexión a la base de datos
- * @param int $id_variante ID de la variante a validar
- * @param bool $usar_for_update Si true, usa FOR UPDATE para bloqueo de fila (requiere transacción)
- * @return array Array con 'variante_activa' => bool, 'producto_activo' => bool
- * @throws Exception Si la variante no existe o si está inactiva o su producto está inactivo
- */
-function validarVarianteYProductoActivos($mysqli, $id_variante, $usar_for_update = false) {
-    $sql = "
-        SELECT sv.activo as variante_activa, p.activo as producto_activo 
-        FROM Stock_Variantes sv
-        INNER JOIN Productos p ON sv.id_producto = p.id_producto
-        WHERE sv.id_variante = ?
-    ";
-    
-    if ($usar_for_update) {
-        $sql .= " FOR UPDATE";
-    }
-    
-    $sql .= " LIMIT 1";
-    
-    $stmt = $mysqli->prepare($sql);
-    if (!$stmt) {
-        throw new Exception('Error al validar estado de variante y producto: ' . $mysqli->error);
-    }
-    
-    $stmt->bind_param('i', $id_variante);
-    if (!$stmt->execute()) {
-        $error_msg = $stmt->error;
-        $stmt->close();
-        throw new Exception('Error al ejecutar validación de variante y producto: ' . $error_msg);
-    }
-    
-    $result = $stmt->get_result();
-    $datos = $result->fetch_assoc();
-    $stmt->close();
-    
-    if (!$datos || !is_array($datos)) {
-        throw new Exception('La variante de stock no existe');
-    }
-    
-    $variante_activa = intval($datos['variante_activa']) === 1;
-    $producto_activo = intval($datos['producto_activo']) === 1;
-    
-    if (!$variante_activa) {
-        throw new Exception('No se puede operar con una variante inactiva');
-    }
-    
-    if (!$producto_activo) {
-        throw new Exception('No se puede operar con un producto inactivo');
-    }
-    
-    return [
-        'variante_activa' => $variante_activa,
-        'producto_activo' => $producto_activo
-    ];
-}
 
