@@ -1,27 +1,6 @@
 -- =========================
 -- SQL Tienda Seda y Lino
--- Estructura completa de base de datos (REFERENCIA)
--- =========================
--- 
--- ⚠️ IMPORTANTE: Este archivo es SOLO para REFERENCIA.
--- Para instalación inicial de la base de datos, usar: sql/inicial.sql
--- 
--- Este archivo contiene la estructura completa de la base de datos
--- incluyendo todas las mejoras de Prioridad 1 y mejoras críticas:
--- - Tablas con columnas actualizadas (id_pedido en Movimientos_Stock, monto en Pagos, fecha_actualizacion)
--- - Validaciones de integridad implementadas en PHP (NO se usan triggers - ver includes/queries/)
--- - Índices para mejorar rendimiento
--- - Validaciones a nivel de base de datos
--- - Campos de soft delete (activo) en tablas principales
--- - Campos de auditoría (fecha_creacion, fecha_actualizacion)
--- - Campos funcionales (sku, numero_transaccion, etc.)
--- - UNIQUE KEY para prevenir duplicados
--- - Triggers históricos comentados (NO se usan, solo para referencia)
--- 
--- DIFERENCIAS CON inicial.sql:
--- - Este archivo NO incluye inserción de usuario admin inicial
--- - Este archivo incluye triggers comentados para referencia histórica
--- - inicial.sql es el archivo recomendado para instalación inicial
+-- Estructura completa de base de datos
 -- =========================
 
 -- Configuración de codificación UTF-8
