@@ -12,6 +12,8 @@
 # Archivos con Credenciales Locales (NO SUBIR)
 # ==============================
 
+composer.phar
+
 rules.md
 docs/
 
