@@ -1,0 +1,232 @@
+/**
+ * ========================================================================
+ * PALETA DE COLORES - Tienda Seda y Lino
+ * ========================================================================
+ * Sistema de diseño centralizado basado en variables CSS
+ * 
+ * ESTRUCTURA:
+ * 1. Colores Tienda (Clientes) - :root
+ * 2. Colores Paneles Internos (Admin/Marketing/Ventas) - .panel-theme
+ * 
+ * USO:
+ * - Importar este archivo ANTES de style.css en header.php
+ * - Usar variables con var(--nombre-variable)
+ * - Los paneles internos deben tener clase .panel-theme en el body/html
+ * 
+ * EJEMPLO:
+ * background-color: var(--color-bg-primary);
+ * color: var(--color-text-primary);
+ * border: 1px solid var(--color-border-primary);
+ * ========================================================================
+ */
+
+/* ========================================================================
+   PARTE 1: COLORES TIENDA (CLIENTES)
+   Elegancia moderna estilo francés - Grises y cremas
+   ======================================================================== */
+
+:root {
+    /* ============================================
+       FONDOS - Colores base crema/gris
+       ============================================ */
+    --color-bg-primary: #FFFFFF;
+    --color-bg-secondary: #FBFBF9;
+    --color-bg-tertiary: #FAFAF8;
+    --color-bg-gradient-start: #FAFAF8;
+    --color-bg-gradient-end: #F5F5F0;
+    --color-bg-hover: #F0F0ED;
+    --color-bg-section: linear-gradient(135deg, #FAFAF8 0%, #F5F5F0 100%);
+    
+    /* ============================================
+       TEXTOS - Grises elegantes
+       ============================================ */
+    --color-text-primary: #6B6B6B;
+    --color-text-secondary: #8B8B7A;
+    --color-text-tertiary: #9B9B8B;
+    --color-text-dark: #4A4A4A;
+    --color-text-light: #FFFFFF;
+    --color-text-muted: #9B9B8B;
+    
+    /* ============================================
+       BORDES - Líneas sutiles
+       ============================================ */
+    --color-border-primary: #E8E8E5;
+    --color-border-secondary: #D4D4D0;
+    --color-border-tertiary: #C4C4C0;
+    --color-border-dark: #6B6B5F;
+    
+    /* ============================================
+       BOTONES - Gradientes elegantes
+       ============================================ */
+    --color-btn-primary: linear-gradient(135deg, #8B8B7A 0%, #7A7A6B 100%);
+    --color-btn-primary-hover: linear-gradient(135deg, #7A7A6B 0%, #6B6B5F 100%);
+    --color-btn-text: #FFFFFF;
+    --color-btn-shadow: rgba(107, 107, 107, 0.25);
+    
+    /* ============================================
+       INPUTS - Campos de formulario
+       ============================================ */
+    --color-input-bg: #FFFFFF;
+    --color-input-border: #E8E8E5;
+    --color-input-border-focus: #8B8B7A;
+    --color-input-shadow: rgba(139, 139, 122, 0.1);
+    
+    /* ============================================
+       TARJETAS - Cards y contenedores
+       ============================================ */
+    --color-card-bg: linear-gradient(135deg, #FFFFFF 0%, #FBFBF9 100%);
+    --color-card-border: #E8E8E5;
+    --color-card-shadow: rgba(107, 107, 107, 0.08);
+    --color-card-shadow-hover: rgba(107, 107, 107, 0.12);
+    
+    /* ============================================
+       ESTADOS - Active, hover, focus
+       ============================================ */
+    --color-active-bg: linear-gradient(135deg, #8B8B7A 0%, #7A7A6B 100%);
+    --color-active-text: #FFFFFF;
+    --color-active-border: #6B6B5F;
+    --color-hover-bg: linear-gradient(135deg, #FAFAF8 0%, #F0F0ED 100%);
+    --color-hover-border: #C4C4C0;
+    
+    /* ============================================
+       FOOTER - Pie de página
+       ============================================ */
+    --color-footer-bg: linear-gradient(135deg, #F5F5F0 0%, #F9F9F7 100%);
+    --color-footer-text: #6B6B6B;
+    --color-footer-title: #8B8B7A;
+    --color-footer-link: #6B6B6B;
+    --color-footer-link-hover: #8B8B7A;
+    --color-footer-divider: #E8E8E5;
+    --color-footer-accent: linear-gradient(90deg, #8B8B7A, #7A7A6B, #8B8B7A);
+    
+    /* ============================================
+       ACCIONES - Botones de acción principales (celeste azulado)
+       ============================================ */
+    --color-action-primary: #4A9FD6;
+    --color-action-primary-hover: #3A8FC6;
+    --color-action-primary-light: #E3F2F8;
+    --color-action-shadow: rgba(74, 159, 214, 0.3);
+}
+
+/* ========================================================================
+   PARTE 2: COLORES PANELES INTERNOS (ADMIN/MARKETING/VENTAS)
+   Estilo software profesional - Azules oscuros, verdes, rojos, amarillos
+   ======================================================================== */
+
+.panel-theme,
+body.admin-page,
+body.marketing-page,
+body.ventas-page {
+    /* ============================================
+       FONDOS - Azules oscuros profesionales
+       ============================================ */
+    --color-bg-primary: #2c3e50;
+    --color-bg-secondary: #34495e;
+    --color-bg-tertiary: #ecf0f1;
+    --color-bg-gradient-start: #2c3e50;
+    --color-bg-gradient-end: #34495e;
+    --color-bg-hover: #95a5a6;
+    --color-bg-section: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    
+    /* ============================================
+       TEXTOS - Contraste profesional
+       ============================================ */
+    --color-text-primary: #2c3e50;
+    --color-text-secondary: #34495e;
+    --color-text-tertiary: #95a5a6;
+    --color-text-dark: #1a252f;
+    --color-text-light: #ecf0f1;
+    --color-text-muted: #bdc3c7;
+    
+    /* ============================================
+       BORDES - Líneas profesionales
+       ============================================ */
+    --color-border-primary: #bdc3c7;
+    --color-border-secondary: #95a5a6;
+    --color-border-tertiary: #7f8c8d;
+    --color-border-dark: #34495e;
+    
+    /* ============================================
+       BOTONES - Colores según acción
+       ============================================ */
+    --color-btn-primary: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    --color-btn-primary-hover: linear-gradient(135deg, #2980b9 0%, #21618c 100%);
+    --color-btn-success: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+    --color-btn-success-hover: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+    --color-btn-danger: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    --color-btn-danger-hover: linear-gradient(135deg, #c0392b 0%, #a93226 100%);
+    --color-btn-warning: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+    --color-btn-warning-hover: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+    --color-btn-text: #FFFFFF;
+    --color-btn-shadow: rgba(44, 62, 80, 0.3);
+    
+    /* ============================================
+       INPUTS - Campos profesionales
+       ============================================ */
+    --color-input-bg: #FFFFFF;
+    --color-input-border: #bdc3c7;
+    --color-input-border-focus: #3498db;
+    --color-input-shadow: rgba(52, 152, 219, 0.2);
+    
+    /* ============================================
+       TARJETAS - Cards del panel
+       ============================================ */
+    --color-card-bg: #FFFFFF;
+    --color-card-border: #e0e0e0;
+    --color-card-shadow: rgba(0, 0, 0, 0.1);
+    --color-card-shadow-hover: rgba(0, 0, 0, 0.15);
+    
+    /* ============================================
+       ESTADOS - Indicadores profesionales
+       ============================================ */
+    --color-success: #2ecc71;
+    --color-success-light: #d4edda;
+    --color-danger: #e74c3c;
+    --color-danger-light: #f8d7da;
+    --color-warning: #f39c12;
+    --color-warning-light: #fff3cd;
+    --color-info: #3498db;
+    --color-info-light: #d1ecf1;
+    --color-active-bg: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    --color-active-text: #FFFFFF;
+    --color-active-border: #2980b9;
+    --color-hover-bg: #f8f9fa;
+    --color-hover-border: #3498db;
+    
+    /* ============================================
+       BADGES - Etiquetas de estado
+       ============================================ */
+    --color-badge-success: #28a745;
+    --color-badge-danger: #dc3545;
+    --color-badge-warning: #ffc107;
+    --color-badge-info: #17a2b8;
+    --color-badge-secondary: #6c757d;
+    
+    /* ============================================
+       TABLAS - Filas y encabezados
+       ============================================ */
+    --color-table-header: #2c3e50;
+    --color-table-header-text: #FFFFFF;
+    --color-table-row-hover: #f8f9fa;
+    --color-table-border: #dee2e6;
+    
+    /* ============================================
+       FOOTER PANEL - Pie de página panel
+       ============================================ */
+    --color-footer-bg: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    --color-footer-text: #bdc3c7;
+    --color-footer-title: #ecf0f1;
+    --color-footer-link: #bdc3c7;
+    --color-footer-link-hover: #3498db;
+    --color-footer-divider: rgba(255, 255, 255, 0.1);
+    --color-footer-accent: linear-gradient(90deg, #3498db, #2ecc71, #f39c12, #e74c3c);
+}
+
+/* ========================================================================
+   MODO OSCURO (OPCIONAL - Para futuras implementaciones)
+   ======================================================================== */
+
+@media (prefers-color-scheme: dark) {
+    /* Se puede implementar en el futuro si se requiere */
+}
+
