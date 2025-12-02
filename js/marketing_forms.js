@@ -10,7 +10,9 @@
  * - copiarNombre(): Copia nombre de imagen al portapapeles
  * - validarNombreProducto(): Valida nombre de producto (caracteres permitidos)
  * - validarPrecio(): Valida precio (formato numérico)
+ * - validarDescripcionCategoria(): Valida descripción de categoría (caracteres permitidos)
  * - validarDescripcionProducto(): Valida descripción de producto (caracteres permitidos)
+ * - validarSku(): Valida SKU (3-50 caracteres, letras, números, guiones y guiones bajos)
  * 
  * @package TiendaSedaYLino
  * @version 2.0
@@ -130,8 +132,43 @@ function validarPrecio(valor) {
     
     const precioFloat = parseFloat(valor);
     
-    if (isNaN(precioFloat) || precioFloat <= 0) {
-        return {valido: false, error: 'El precio debe ser mayor a cero.'};
+    // Validar que el precio sea >= 0 según diccionario de datos
+    // Permite precio = 0 (productos gratuitos o promocionales)
+    if (isNaN(precioFloat) || precioFloat < 0) {
+        return {valido: false, error: 'El precio no puede ser negativo.'};
+    }
+    
+    return {valido: true, error: ''};
+}
+
+/**
+ * Valida descripción de categoría
+ * Permite: letras, números, espacios, acentos, guiones, puntos, comas, dos puntos, punto y coma
+ * Bloquea: símbolos peligrosos (< > { } [ ] | \ / &)
+ * 
+ * NOTA: Existe versión PHP equivalente en marketing_functions.php
+ * Ambas versiones deben mantener la misma lógica de validación.
+ * 
+ * @param {string} valor - Valor a validar
+ * @return {object} {valido: boolean, error: string}
+ */
+function validarDescripcionCategoria(valor) {
+    valor = valor.trim();
+    
+    // La descripción es opcional, si está vacía es válida
+    if (!valor) {
+        return {valido: true, error: ''};
+    }
+    
+    // Validar caracteres permitidos: letras, números, espacios, acentos, guiones, puntos, comas, dos puntos, punto y coma
+    // Bloquear símbolos peligrosos: < > { } [ ] | \ / &
+    if (/[<>{}\[\]|\\\/&]/.test(valor)) {
+        return {valido: false, error: 'La descripción contiene caracteres no permitidos. No se permiten los símbolos: < > { } [ ] | \\ / &'};
+    }
+    
+    // Validar longitud máxima (255 caracteres)
+    if (valor.length > 255) {
+        return {valido: false, error: 'La descripción no puede exceder 255 caracteres.'};
     }
     
     return {valido: true, error: ''};
@@ -165,6 +202,41 @@ function validarDescripcionProducto(valor) {
     // Validar longitud máxima (255 caracteres)
     if (valor.length > 255) {
         return {valido: false, error: 'La descripción no puede exceder 255 caracteres.'};
+    }
+    
+    return {valido: true, error: ''};
+}
+
+/**
+ * Valida SKU (código de producto)
+ * Permite: letras, números, guiones y guiones bajos según diccionario [A-Z, a-z, 0-9, -, _]
+ * 
+ * NOTA: Existe versión PHP equivalente en marketing_functions.php
+ * Ambas versiones deben mantener la misma lógica de validación.
+ * 
+ * @param {string} valor - Valor a validar
+ * @return {object} {valido: boolean, error: string}
+ */
+function validarSku(valor) {
+    valor = valor.trim();
+    
+    if (!valor) {
+        return {valido: false, error: 'El SKU es obligatorio.'};
+    }
+    
+    // Validar longitud mínima según diccionario: 3 caracteres
+    if (valor.length < 3) {
+        return {valido: false, error: 'El SKU debe tener al menos 3 caracteres.'};
+    }
+    
+    // Validar longitud máxima según diccionario: 50 caracteres
+    if (valor.length > 50) {
+        return {valido: false, error: 'El SKU no puede exceder 50 caracteres.'};
+    }
+    
+    // Validar caracteres permitidos según diccionario: [A-Z, a-z, 0-9, -,_]
+    if (!/^[A-Za-z0-9\-_]+$/.test(valor)) {
+        return {valido: false, error: 'El SKU solo puede contener letras, números, guiones y guiones bajos.'};
     }
     
     return {valido: true, error: ''};

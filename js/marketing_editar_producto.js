@@ -26,6 +26,42 @@ let contadorVariantes = 0;
  * antes de este archivo para que la funcionalidad esté disponible.
  */
 
+// Inicializar validación de stock para inputs existentes al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    // Validar todos los inputs de stock existentes (0-10000 según diccionario)
+    const stockInputs = document.querySelectorAll('input[name*="[stock]"], .stock-input');
+    stockInputs.forEach(function(input) {
+        input.addEventListener('blur', function() {
+            const stockValue = parseInt(this.value) || 0;
+            if (stockValue < 0) {
+                this.classList.add('is-invalid');
+                if (this.setCustomValidity) {
+                    this.setCustomValidity('El stock no puede ser negativo');
+                }
+            } else if (stockValue > 10000) {
+                this.classList.add('is-invalid');
+                if (this.setCustomValidity) {
+                    this.setCustomValidity('El stock no puede exceder 10000 unidades');
+                }
+            } else {
+                this.classList.remove('is-invalid');
+                if (this.setCustomValidity) {
+                    this.setCustomValidity('');
+                }
+            }
+        });
+        
+        input.addEventListener('input', function() {
+            if (this.classList.contains('is-invalid')) {
+                this.classList.remove('is-invalid');
+                if (this.setCustomValidity) {
+                    this.setCustomValidity('');
+                }
+            }
+        });
+    });
+});
+
 /**
  * Agregar una nueva variante (talle + color + stock)
  */
@@ -53,7 +89,7 @@ function agregarVariante() {
             </select>
         </div>
         <div class="col-md-3">
-            <input type="number" min="0" class="form-control form-control-sm" name="nuevas_variantes[${index}][stock]" value="0" placeholder="Stock" required>
+            <input type="number" min="0" max="10000" class="form-control form-control-sm" name="nuevas_variantes[${index}][stock]" value="0" placeholder="Stock" required>
         </div>
         <div class="col-md-1">
             <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-variante">
@@ -63,6 +99,31 @@ function agregarVariante() {
     `;
     
     container.appendChild(varianteDiv);
+    
+    // Agregar validación de stock (0-10000 según diccionario) al nuevo input
+    const stockInput = varianteDiv.querySelector('input[name*="[stock]"]');
+    if (stockInput) {
+        stockInput.addEventListener('blur', function() {
+            const stockValue = parseInt(this.value) || 0;
+            if (stockValue < 0) {
+                this.classList.add('is-invalid');
+                this.setCustomValidity('El stock no puede ser negativo');
+            } else if (stockValue > 10000) {
+                this.classList.add('is-invalid');
+                this.setCustomValidity('El stock no puede exceder 10000 unidades');
+            } else {
+                this.classList.remove('is-invalid');
+                this.setCustomValidity('');
+            }
+        });
+        
+        stockInput.addEventListener('input', function() {
+            if (this.classList.contains('is-invalid')) {
+                this.classList.remove('is-invalid');
+                this.setCustomValidity('');
+            }
+        });
+    }
     
     // Agregar event listener al botón de eliminar usando addEventListener en lugar de onclick
     const btnEliminar = varianteDiv.querySelector('.btn-eliminar-variante');

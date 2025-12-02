@@ -79,8 +79,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Validar al perder el foco usando función consolidada
         telefonoInput.addEventListener('blur', function() {
             if (typeof validarTelefono === 'function') {
-                // Teléfono es opcional en checkout
-                validarTelefono(this, true);
+                // NOTA: Teléfono es obligatorio para coincidir con validación PHP en procesar-pedido.php
+                validarTelefono(this, false);
             }
         });
     }
@@ -89,8 +89,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const codigoPostalInput = document.getElementById('codigo_postal');
     if (codigoPostalInput) {
         codigoPostalInput.addEventListener('input', function(e) {
-            // Usar función consolidada de common_js_functions.php
-            validarCodigoPostal(e.target);
+            if (typeof validarCodigoPostal === 'function') {
+                validarCodigoPostal(this, 'input', true);
+            }
+        });
+        
+        codigoPostalInput.addEventListener('blur', function() {
+            if (typeof validarCodigoPostal === 'function') {
+                validarCodigoPostal(this, 'blur', true);
+            }
         });
     }
     
@@ -105,19 +112,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         direccionCalleInput.addEventListener('input', function(e) {
-            // Filtrar caracteres no permitidos mientras se escribe
-            const value = e.target.value;
-            const validPattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]*$/;
-            if (!validPattern.test(value)) {
-                e.target.value = value.replace(/[^A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]/g, '');
-            }
-            
-            // Limpiar validación mientras se escribe
-            if (this.classList.contains('is-invalid')) {
-                this.classList.remove('is-invalid');
-                if (this.setCustomValidity) {
-                    this.setCustomValidity('');
-                }
+            if (typeof filtrarDireccion === 'function') {
+                filtrarDireccion(this, 'calle');
             }
         });
     }
@@ -133,19 +129,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         direccionNumeroInput.addEventListener('input', function(e) {
-            // Filtrar caracteres no permitidos mientras se escribe
-            const value = e.target.value;
-            const validPattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]*$/;
-            if (!validPattern.test(value)) {
-                e.target.value = value.replace(/[^A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]/g, '');
-            }
-            
-            // Limpiar validación mientras se escribe
-            if (this.classList.contains('is-invalid')) {
-                this.classList.remove('is-invalid');
-                if (this.setCustomValidity) {
-                    this.setCustomValidity('');
-                }
+            if (typeof filtrarDireccion === 'function') {
+                filtrarDireccion(this, 'numero');
             }
         });
     }
@@ -162,19 +147,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         direccionPisoInput.addEventListener('input', function(e) {
-            // Filtrar caracteres no permitidos mientras se escribe
-            const value = e.target.value;
-            const validPattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]*$/;
-            if (!validPattern.test(value)) {
-                e.target.value = value.replace(/[^A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]/g, '');
-            }
-            
-            // Limpiar validación mientras se escribe
-            if (this.classList.contains('is-invalid')) {
-                this.classList.remove('is-invalid');
-                if (this.setCustomValidity) {
-                    this.setCustomValidity('');
-                }
+            if (typeof filtrarDireccion === 'function') {
+                filtrarDireccion(this, 'piso');
             }
         });
     }
@@ -317,6 +291,64 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Calcular envío inicial al cargar la página
         recalcularEnvio();
+    }
+    
+    // Validación de observaciones (máximo 500 caracteres según diccionario)
+    const observacionesTextarea = document.getElementById('observaciones');
+    if (observacionesTextarea) {
+        // Contador de caracteres
+        const contadorObservaciones = document.createElement('small');
+        contadorObservaciones.className = 'form-text text-muted mt-1';
+        contadorObservaciones.id = 'contador_observaciones';
+        observacionesTextarea.parentElement.appendChild(contadorObservaciones);
+        
+        function actualizarContador() {
+            const longitud = observacionesTextarea.value.length;
+            contadorObservaciones.textContent = `${longitud}/500 caracteres`;
+            if (longitud > 500) {
+                contadorObservaciones.classList.add('text-danger');
+                contadorObservaciones.classList.remove('text-muted');
+            } else {
+                contadorObservaciones.classList.remove('text-danger');
+                contadorObservaciones.classList.add('text-muted');
+            }
+        }
+        
+        // Actualizar contador al escribir
+        observacionesTextarea.addEventListener('input', function() {
+            actualizarContador();
+            
+            // Validar longitud máxima
+            if (this.value.length > 500) {
+                this.classList.add('is-invalid');
+                if (this.setCustomValidity) {
+                    this.setCustomValidity('Las observaciones no pueden exceder 500 caracteres');
+                }
+            } else {
+                this.classList.remove('is-invalid');
+                if (this.setCustomValidity) {
+                    this.setCustomValidity('');
+                }
+            }
+        });
+        
+        // Validar al perder el foco
+        observacionesTextarea.addEventListener('blur', function() {
+            if (this.value.length > 500) {
+                this.classList.add('is-invalid');
+                if (this.setCustomValidity) {
+                    this.setCustomValidity('Las observaciones no pueden exceder 500 caracteres');
+                }
+            } else {
+                this.classList.remove('is-invalid');
+                if (this.setCustomValidity) {
+                    this.setCustomValidity('');
+                }
+            }
+        });
+        
+        // Inicializar contador
+        actualizarContador();
     }
     
     // Mensaje fijo de pago manual - ya no se usa lógica dinámica

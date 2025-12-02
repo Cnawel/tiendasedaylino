@@ -31,6 +31,49 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // ========================================================================
+    // Validación en tiempo real de respuesta_recupero (Paso 1)
+    // Según diccionario: 4-20 caracteres, patrón [A-Z, a-z, 0-9, espacios]
+    // ========================================================================
+    if (respuestaRecuperoInput) {
+        respuestaRecuperoInput.addEventListener('input', function() {
+            const valor = this.value.trim();
+            const respuestaPattern = /^[a-zA-Z0-9 ]+$/;
+            
+            // Limpiar validación mientras se escribe
+            if (valor && valor.length >= 4 && valor.length <= 20 && respuestaPattern.test(valor)) {
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            } else if (valor) {
+                this.classList.remove('is-valid');
+            }
+        });
+        
+        respuestaRecuperoInput.addEventListener('blur', function() {
+            const valor = this.value.trim();
+            const respuestaPattern = /^[a-zA-Z0-9 ]+$/;
+            
+            if (!valor) {
+                this.classList.remove('is-valid', 'is-invalid');
+            } else if (valor.length < 4) {
+                this.classList.remove('is-valid');
+                this.classList.add('is-invalid');
+                mostrarFeedbackValidacion(this, false, 'La respuesta debe tener al menos 4 caracteres');
+            } else if (valor.length > 20) {
+                this.classList.remove('is-valid');
+                this.classList.add('is-invalid');
+                mostrarFeedbackValidacion(this, false, 'La respuesta no puede exceder 20 caracteres');
+            } else if (!respuestaPattern.test(valor)) {
+                this.classList.remove('is-valid');
+                this.classList.add('is-invalid');
+                mostrarFeedbackValidacion(this, false, 'Solo se permiten letras, números y espacios');
+            } else {
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            }
+        });
+    }
+    
+    // ========================================================================
     // Toggle mostrar/ocultar contraseñas (Paso 2)
     // Usa togglePassword() de common_js_functions.php
     // ========================================================================
@@ -90,9 +133,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 isValid = false;
             }
             
-            if (respuestaRecuperoInput && !respuestaRecuperoInput.value.trim()) {
-                respuestaRecuperoInput.classList.add('is-invalid');
-                isValid = false;
+            if (respuestaRecuperoInput) {
+                const respuestaValor = respuestaRecuperoInput.value.trim();
+                const respuestaPattern = /^[a-zA-Z0-9 ]+$/;
+
+                if (!respuestaValor) {
+                    respuestaRecuperoInput.classList.add('is-invalid');
+                    isValid = false;
+                } else if (respuestaValor.length < 4) {
+                    respuestaRecuperoInput.classList.add('is-invalid');
+                    isValid = false;
+                } else if (respuestaValor.length > 20) {
+                    respuestaRecuperoInput.classList.add('is-invalid');
+                    isValid = false;
+                } else if (!respuestaPattern.test(respuestaValor)) {
+                    respuestaRecuperoInput.classList.add('is-invalid');
+                    isValid = false;
+                }
             }
             
             if (!isValid) {
@@ -123,7 +180,7 @@ document.addEventListener('DOMContentLoaded', function() {
         cambiarForm.addEventListener('submit', function(e) {
             let isValid = true;
             
-            if (nuevaContrasenaInput && (!nuevaContrasenaInput.value || nuevaContrasenaInput.value.length < 6)) {
+            if (nuevaContrasenaInput && (!nuevaContrasenaInput.value || nuevaContrasenaInput.value.length < 6 || nuevaContrasenaInput.value.length > 20)) {
                 nuevaContrasenaInput.classList.add('is-invalid');
                 isValid = false;
             }
@@ -152,16 +209,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // ========================================================================
-    // Limpiar errores al interactuar
-    // ========================================================================
-    if (respuestaRecuperoInput) {
-        respuestaRecuperoInput.addEventListener('input', function() {
-            if (this.value.trim()) {
-                this.classList.remove('is-invalid');
-            }
-        });
-    }
     
     if (nuevaContrasenaInput) {
         nuevaContrasenaInput.addEventListener('input', function() {

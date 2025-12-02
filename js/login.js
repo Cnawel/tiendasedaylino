@@ -42,11 +42,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Usa la función togglePassword de common_js_functions.php
     // ========================================================================
     if (togglePasswordBtn && passwordInput) {
-        // Remover listeners previos si existen
-        const newToggleBtn = togglePasswordBtn.cloneNode(true);
-        togglePasswordBtn.parentNode.replaceChild(newToggleBtn, togglePasswordBtn);
-        
-        newToggleBtn.addEventListener('click', function(e) {
+        togglePasswordBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
             
@@ -66,11 +62,9 @@ document.addEventListener('DOMContentLoaded', function() {
     loginForm.addEventListener('submit', function(e) {
         let isValid = true;
         
-        // Validar email (obligatorio)
-        // Usar función consolidada de common_js_functions.php
+        // Validar email (obligatorio) usando función centralizada
         if (!emailInput.value.trim() || 
-            (typeof validateEmail === 'function' && !validateEmail(emailInput.value.trim())) ||
-            (!emailInput.classList.contains('is-valid'))) {
+            (typeof validateEmail === 'function' && !validateEmail(emailInput.value.trim()))) {
             emailInput.classList.add('is-invalid');
             isValid = false;
         }

@@ -8,14 +8,7 @@
  */
 
 // Log inmediato para verificar que el archivo se carga
-try {
-    console.log('[Perfil] Script perfil.js cargado - Timestamp:', new Date().toISOString());
-} catch(e) {
-    // Si console no está disponible, intentar alert
-    if (typeof alert !== 'undefined') {
-        alert('Perfil.js cargado pero console no disponible');
-    }
-}
+console.log('[Perfil] Script perfil.js cargado');
 
 // Verificar si el DOM ya está listo
 if (document.readyState === 'loading') {
@@ -151,10 +144,16 @@ function inicializarPerfil() {
         });
         
         // Validación al perder el foco usando función consolidada
+        // NOTA: teléfono es opcional, pero si tiene valor debe ser 6-20 caracteres
         telefonoInput.addEventListener('blur', function() {
             if (typeof validarTelefono === 'function') {
-                // Teléfono es opcional en perfil
-                validarTelefono(this, true);
+                // Validar solo si tiene valor
+                if (this.value.trim()) {
+                    validarTelefono(this, true);
+                } else {
+                    // Si está vacío, limpiar validación
+                    this.classList.remove('is-invalid', 'is-valid');
+                }
             }
         });
     }
@@ -183,8 +182,9 @@ function inicializarPerfil() {
             }
             
             // Limitar longitud máxima
-            if (this.value.length > 50) {
-                this.value = this.value.substring(0, 50);
+            // NOTA: Límite máximo 100 caracteres para coincidir con validación PHP en admin_functions.php
+            if (this.value.length > 100) {
+                this.value = this.value.substring(0, 100);
             }
         });
         
@@ -194,7 +194,8 @@ function inicializarPerfil() {
             if (!valor) {
                 this.classList.remove('is-valid', 'is-invalid');
             } else if (typeof validarNombreApellido === 'function') {
-                const esValido = validarNombreApellido(valor, 2, 50);
+                // NOTA: Límite máximo 100 caracteres para coincidir con validación PHP en admin_functions.php
+                const esValido = validarNombreApellido(valor, 2, 100);
                 if (esValido) {
                     this.classList.remove('is-invalid');
                     this.classList.add('is-valid');
@@ -272,7 +273,8 @@ function inicializarPerfil() {
                     nombreInput.classList.remove('is-valid');
                     hayErrores = true;
                 } else if (typeof validarNombreApellido === 'function') {
-                    const esValido = validarNombreApellido(nombreValor, 2, 50);
+                    // NOTA: Límite máximo 100 caracteres para coincidir con validación PHP en admin_functions.php
+                    const esValido = validarNombreApellido(nombreValor, 2, 100);
                     if (esValido) {
                         nombreInput.classList.remove('is-invalid');
                         nombreInput.classList.add('is-valid');
@@ -364,64 +366,9 @@ function inicializarPerfil() {
                 }
             }
             
-            // Validar fecha de nacimiento (opcional, pero si tiene valor debe ser válida)
-            if (fechaNacimientoInput) {
-                const fechaValor = fechaNacimientoInput.value;
-                
-                if (fechaValor) {
-                    // Si tiene valor, validar
-                    const fechaSeleccionada = new Date(fechaValor);
-                    const hoy = new Date();
-                    hoy.setHours(0, 0, 0, 0);
-                    
-                    const añoSeleccionado = fechaSeleccionada.getFullYear();
-                    
-                    // Validar rango de año (1925-2012)
-                    if (añoSeleccionado < 1925 || añoSeleccionado > 2012) {
-                        fechaNacimientoInput.classList.add('is-invalid');
-                        fechaNacimientoInput.classList.remove('is-valid');
-                        if (fechaFeedback) {
-                            fechaFeedback.textContent = 'La fecha de nacimiento debe estar entre 1925 y 2012';
-                        }
-                        hayErrores = true;
-                    }
-                    // Validar que no sea futura
-                    else if (fechaSeleccionada > hoy) {
-                        fechaNacimientoInput.classList.add('is-invalid');
-                        fechaNacimientoInput.classList.remove('is-valid');
-                        if (fechaFeedback) {
-                            fechaFeedback.textContent = 'La fecha no puede ser futura';
-                        }
-                        hayErrores = true;
-                    }
-                    // Validar edad mínima (13 años)
-                    else {
-                        const edad = hoy.getFullYear() - fechaSeleccionada.getFullYear();
-                        const mes = hoy.getMonth() - fechaSeleccionada.getMonth();
-                        const edadCompleta = (mes < 0 || (mes === 0 && hoy.getDate() < fechaSeleccionada.getDate())) ? edad - 1 : edad;
-                        
-                        if (edadCompleta < 13) {
-                            fechaNacimientoInput.classList.add('is-invalid');
-                            fechaNacimientoInput.classList.remove('is-valid');
-                            if (fechaFeedback) {
-                                fechaFeedback.textContent = 'Debes tener al menos 13 años';
-                            }
-                            hayErrores = true;
-                        } else {
-                            fechaNacimientoInput.classList.remove('is-invalid');
-                            fechaNacimientoInput.classList.add('is-valid');
-                            if (fechaFeedback) {
-                                fechaFeedback.textContent = 'Edad: ' + edadCompleta + ' años';
-                            }
-                        }
-                    }
-                } else {
-                    // Si está vacío, limpiar validación (es opcional)
-                    fechaNacimientoInput.classList.remove('is-invalid', 'is-valid');
-                    if (fechaFeedback) {
-                        fechaFeedback.textContent = '';
-                    }
-                }
+            // Validar fecha de nacimiento (la validación completa ya se hace en evento 'change')
+            if (fechaNacimientoInput && fechaNacimientoInput.classList.contains('is-invalid')) {
+                hayErrores = true;
             }
             
             // Si hay errores, prevenir envío y scroll al primer error
@@ -480,7 +427,7 @@ function inicializarPerfil() {
             formCambiarContrasena.addEventListener('submit', function(e) {
                 // Usar función consolidada de common_js_functions.php
                 if (typeof validarContrasenaUsuario === 'function') {
-                    if (!validarContrasenaUsuario(null, nuevaContrasena, confirmarContrasena, 6, 32)) {
+                    if (!validarContrasenaUsuario(null, nuevaContrasena, confirmarContrasena, 6, 20)) {
                         e.preventDefault();
                         return false;
                     }
@@ -495,9 +442,9 @@ function inicializarPerfil() {
                         return false;
                     }
                     
-                    if (nuevaContrasena.value.length < 6 || nuevaContrasena.value.length > 32) {
+                    if (nuevaContrasena.value.length < 6 || nuevaContrasena.value.length > 20) {
                         e.preventDefault();
-                        alert('La contraseña debe tener entre 6 y 32 caracteres');
+                        alert('La contraseña debe tener entre 6 y 20 caracteres');
                         nuevaContrasena.focus();
                         return false;
                     }
@@ -515,7 +462,15 @@ function inicializarPerfil() {
     if (codigoPostalInput) {
         codigoPostalInput.addEventListener('input', function(e) {
             // Usar función consolidada de common_js_functions.php
-            validarCodigoPostal(e.target);
+            if (typeof validarCodigoPostal === 'function') {
+                validarCodigoPostal(e.target, 'input', true);
+            }
+        });
+        
+        codigoPostalInput.addEventListener('blur', function() {
+            if (typeof validarCodigoPostal === 'function') {
+                validarCodigoPostal(this, 'blur', true);
+            }
         });
     }
     
@@ -586,21 +541,8 @@ function inicializarPerfil() {
             });
             
             envioDireccionCalle.addEventListener('input', function(e) {
-                // Filtrar caracteres no permitidos mientras se escribe
-                const value = e.target.value;
-                const validPattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]*$/;
-                if (!validPattern.test(value)) {
-                    e.target.value = value.replace(/[^A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]/g, '');
-                }
-                
-                // Limpiar validación mientras se escribe
-                if (this.classList.contains('is-invalid')) {
-                    this.classList.remove('is-invalid');
-                    const feedback = this.parentElement.querySelector('.invalid-feedback');
-                    if (feedback) {
-                        feedback.textContent = '';
-                        feedback.style.display = 'none';
-                    }
+                if (typeof filtrarDireccion === 'function') {
+                    filtrarDireccion(this, 'calle');
                 }
             });
         }
@@ -618,21 +560,8 @@ function inicializarPerfil() {
             });
             
             envioDireccionNumero.addEventListener('input', function(e) {
-                // Filtrar caracteres no permitidos mientras se escribe
-                const value = e.target.value;
-                const validPattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]*$/;
-                if (!validPattern.test(value)) {
-                    e.target.value = value.replace(/[^A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]/g, '');
-                }
-                
-                // Limpiar validación mientras se escribe
-                if (this.classList.contains('is-invalid')) {
-                    this.classList.remove('is-invalid');
-                    const feedback = this.parentElement.querySelector('.invalid-feedback');
-                    if (feedback) {
-                        feedback.textContent = '';
-                        feedback.style.display = 'none';
-                    }
+                if (typeof filtrarDireccion === 'function') {
+                    filtrarDireccion(this, 'numero');
                 }
             });
         }
@@ -651,21 +580,8 @@ function inicializarPerfil() {
             });
             
             envioDireccionPiso.addEventListener('input', function(e) {
-                // Filtrar caracteres no permitidos mientras se escribe
-                const value = e.target.value;
-                const validPattern = /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]*$/;
-                if (!validPattern.test(value)) {
-                    e.target.value = value.replace(/[^A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]/g, '');
-                }
-                
-                // Limpiar validación mientras se escribe
-                if (this.classList.contains('is-invalid')) {
-                    this.classList.remove('is-invalid');
-                    const feedback = this.parentElement.querySelector('.invalid-feedback');
-                    if (feedback) {
-                        feedback.textContent = '';
-                        feedback.style.display = 'none';
-                    }
+                if (typeof filtrarDireccion === 'function') {
+                    filtrarDireccion(this, 'piso');
                 }
             });
         }
@@ -693,14 +609,17 @@ function inicializarPerfil() {
             
             envioLocalidad.addEventListener('blur', function() {
                 const valor = this.value.trim();
-                const pattern = /^[A-Za-z0-9 ]+$/;
+                // Patrón según diccionario: solo letras (con acentos) y espacios, sin números
+                const pattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
                 
                 if (!valor) {
                     mostrarFeedbackValidacion(this, false, 'La localidad es requerida');
                 } else if (valor.length < 3) {
                     mostrarFeedbackValidacion(this, false, 'La localidad debe tener al menos 3 caracteres');
+                } else if (valor.length > 100) {
+                    mostrarFeedbackValidacion(this, false, 'La localidad no puede exceder 100 caracteres');
                 } else if (!pattern.test(valor)) {
-                    mostrarFeedbackValidacion(this, false, 'Solo se permiten letras, números y espacios');
+                    mostrarFeedbackValidacion(this, false, 'Solo se permiten letras (incluyendo acentos) y espacios');
                 } else {
                     mostrarFeedbackValidacion(this, true, '');
                 }
@@ -708,10 +627,11 @@ function inicializarPerfil() {
             
             envioLocalidad.addEventListener('input', function(e) {
                 // Filtrar caracteres no permitidos mientras se escribe
+                // Patrón según diccionario: solo letras (con acentos) y espacios, sin números
                 const value = e.target.value;
-                const validPattern = /^[A-Za-z0-9 ]*$/;
+                const validPattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]*$/;
                 if (!validPattern.test(value)) {
-                    e.target.value = value.replace(/[^A-Za-z0-9 ]/g, '');
+                    e.target.value = value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, '');
                 }
                 
                 // Limpiar validación mientras se escribe
@@ -732,34 +652,14 @@ function inicializarPerfil() {
             envioCodigoPostal.setAttribute('data-validacion-inicializada', 'true');
             
             envioCodigoPostal.addEventListener('blur', function() {
-                const valor = this.value.trim();
-                const pattern = /^[A-Za-z0-9 ]+$/;
-                
-                if (!valor) {
-                    mostrarFeedbackValidacion(this, false, 'El código postal es requerido');
-                } else if (!pattern.test(valor)) {
-                    mostrarFeedbackValidacion(this, false, 'Solo se permiten letras, números y espacios');
-                } else {
-                    mostrarFeedbackValidacion(this, true, '');
+                if (typeof validarCodigoPostal === 'function') {
+                    validarCodigoPostal(this, 'blur', true);
                 }
             });
             
             envioCodigoPostal.addEventListener('input', function(e) {
-                // Filtrar caracteres no permitidos mientras se escribe
-                const value = e.target.value;
-                const validPattern = /^[A-Za-z0-9 ]*$/;
-                if (!validPattern.test(value)) {
-                    e.target.value = value.replace(/[^A-Za-z0-9 ]/g, '');
-                }
-                
-                // Limpiar validación mientras se escribe
-                if (this.classList.contains('is-invalid')) {
-                    this.classList.remove('is-invalid');
-                    const feedback = this.parentElement.querySelector('.invalid-feedback');
-                    if (feedback) {
-                        feedback.textContent = '';
-                        feedback.style.display = 'none';
-                    }
+                if (typeof validarCodigoPostal === 'function') {
+                    validarCodigoPostal(this, 'input', true);
                 }
             });
         }
@@ -846,11 +746,6 @@ function inicializarPerfil() {
         }
     }
     
-    // Función para verificar si Bootstrap está cargado
-    function verificarBootstrapCargado() {
-        return typeof bootstrap !== 'undefined' && bootstrap && bootstrap.Tab;
-    }
-    
     // Función para inicializar validación con múltiples intentos
     function intentarInicializarValidacion() {
         const envioPane = document.getElementById('envio');
@@ -875,83 +770,25 @@ function inicializarPerfil() {
         }
     }
     
-    // Intentar inicializar inmediatamente
-    inicializarSistemaValidacion();
-    
-    // Si no se pudo inicializar, intentar después de delays
-    setTimeout(function() {
-        if (!intentarInicializarValidacion()) {
-            // Último intento después de más tiempo
-            setTimeout(function() {
-                inicializarSistemaValidacion();
-            }, 500);
-        } else {
-            // Si se inicializó en este intento, procesar mensajes
-            setTimeout(procesarMensajesServidor, 100);
-        }
-    }, 200);
-    
-    // Reprocesar mensajes después de más tiempo (por si el DOM cambió o se activó la pestaña)
-    setTimeout(function() {
-        procesarMensajesServidor();
-    }, 500);
-    
     // Inicializar cuando se active la pestaña de envío (evento de Bootstrap)
-    // NOTA: Solo usar eventos de Bootstrap, NO agregar listeners de click que puedan interferir
+    // NOTA: Solo usar eventos de Bootstrap para evitar duplicación
     const envioTab = document.getElementById('envio-tab');
     if (envioTab) {
-        // Usar SOLO el evento de Bootstrap tabs - no agregar listeners de click
-        // Bootstrap maneja los clics automáticamente, solo escuchamos cuando la pestaña se muestra
-        envioTab.addEventListener('shown.bs.tab', function() {
-            // Esperar un momento para que el DOM se actualice
-            setTimeout(function() {
-                inicializarValidacionEnvio();
-                // Reprocesar mensajes después de activar la pestaña
-                setTimeout(procesarMensajesServidor, 150);
-            }, 100);
-        });
-        
-        // Si Bootstrap no está cargado, esperar a que se cargue
-        if (!verificarBootstrapCargado()) {
-            // Esperar a que Bootstrap se cargue y luego agregar el listener
-            let bootstrapCheckInterval = setInterval(function() {
-                if (verificarBootstrapCargado()) {
-                    clearInterval(bootstrapCheckInterval);
-                    // El listener ya está agregado arriba, Bootstrap lo manejará
-                }
-            }, 100);
-            
-            // Limpiar el intervalo después de 5 segundos si Bootstrap no se carga
-            setTimeout(function() {
-                clearInterval(bootstrapCheckInterval);
-            }, 5000);
+        // Validar que Bootstrap existe ANTES de usar
+        if (typeof bootstrap !== 'undefined' && bootstrap && bootstrap.Tab) {
+            envioTab.addEventListener('shown.bs.tab', function() {
+                setTimeout(function() {
+                    inicializarValidacionEnvio();
+                    procesarMensajesServidor();
+                }, 100);
+            });
         }
     }
     
-    // También escuchar cambios en las pestañas usando MutationObserver como fallback
-    const tabContent = document.getElementById('perfilTabsContent');
-    if (tabContent) {
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                    const envioPane = document.getElementById('envio');
-                    if (envioPane && envioPane.classList.contains('active') && envioPane.classList.contains('show')) {
-                        setTimeout(function() {
-                            inicializarValidacionEnvio();
-                            // Reprocesar mensajes después de que la pestaña se active
-                            setTimeout(procesarMensajesServidor, 150);
-                        }, 100);
-                    }
-                }
-            });
-        });
-        
-        // Observar cambios en el tab-content
-        observer.observe(tabContent, {
-            attributes: true,
-            attributeFilter: ['class'],
-            subtree: true
-        });
+    // Intentar inicializar si la pestaña ya está activa al cargar
+    const envioPane = document.getElementById('envio');
+    if (envioPane && envioPane.classList.contains('active') && envioPane.classList.contains('show')) {
+        inicializarSistemaValidacion();
     }
     
     // ========================================================================
@@ -1027,6 +864,22 @@ function inicializarPerfil() {
                     return false;
                 }
                 
+                // Validar longitud máxima: 100 caracteres (sin mínimo)
+                if (codigoPago.length > 100) {
+                    inputCodigo.classList.add('is-invalid');
+                    mostrarFeedbackValidacion(inputCodigo, false, 'El número de transacción no puede exceder 100 caracteres');
+                    inputCodigo.focus();
+                    return false;
+                }
+                
+                // Validar caracteres permitidos según diccionario: [A-Z, a-z, 0-9, -, _]
+                if (!/^[A-Za-z0-9\-_]+$/.test(codigoPago)) {
+                    inputCodigo.classList.add('is-invalid');
+                    mostrarFeedbackValidacion(inputCodigo, false, 'El número de transacción solo puede contener letras, números, guiones y guiones bajos');
+                    inputCodigo.focus();
+                    return false;
+                }
+                
                 // Limpiar errores previos
                 inputCodigo.classList.remove('is-invalid');
                 
@@ -1095,116 +948,20 @@ function inicializarPerfil() {
     // que puede no estar visible al cargar la página, por lo que necesitamos
     // re-inicializar cuando se muestre la pestaña
     const pedidosTab = document.getElementById('pedidos-tab');
-    if (pedidosTab) {
-        // Usar el evento de Bootstrap tabs para re-inicializar cuando se muestre la pestaña
+    if (pedidosTab && typeof bootstrap !== 'undefined' && bootstrap && bootstrap.Tab) {
         pedidosTab.addEventListener('shown.bs.tab', function() {
-            // Esperar un momento para que el DOM se actualice completamente
             setTimeout(function() {
                 inicializarConfirmacionesMarcarPago();
             }, 100);
         });
-        
-        // Si Bootstrap no está cargado, esperar a que se cargue
-        if (!verificarBootstrapCargado()) {
-            let bootstrapCheckInterval = setInterval(function() {
-                if (verificarBootstrapCargado()) {
-                    clearInterval(bootstrapCheckInterval);
-                    // El listener ya está agregado arriba, Bootstrap lo manejará
-                }
-            }, 100);
-            
-            // Limpiar el intervalo después de 5 segundos si Bootstrap no se carga
-            setTimeout(function() {
-                clearInterval(bootstrapCheckInterval);
-            }, 5000);
-        }
     }
     
-    // También usar MutationObserver como fallback para detectar cuando la pestaña se muestra
+    // Inicializar si la pestaña ya está activa al cargar
     const pedidosPane = document.getElementById('pedidos');
-    if (pedidosPane) {
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                    if (pedidosPane.classList.contains('active') && pedidosPane.classList.contains('show')) {
-                        setTimeout(function() {
-                            inicializarConfirmacionesMarcarPago();
-                        }, 100);
-                    }
-                }
-            });
-        });
-        
-        // Observar cambios en el tab-pane de pedidos
-        observer.observe(pedidosPane, {
-            attributes: true,
-            attributeFilter: ['class']
-        });
-    }
-    
-    // ========================================================================
-    // ACTIVAR PESTAÑA SEGÚN PARÁMETRO URL (solo en perfil.php)
-    // ========================================================================
-    if (window.location.pathname.includes('perfil.php')) {
-        const urlParams = new URLSearchParams(window.location.search);
-        const tabParam = urlParams.get('tab');
-        
-        if (tabParam) {
-            const tabsValidos = ['datos', 'envio', 'pedidos', 'contrasena'];
-            if (tabsValidos.includes(tabParam)) {
-                // Activar pestaña usando Bootstrap
-                const tabButton = document.getElementById(tabParam + '-tab');
-                if (tabButton && typeof bootstrap !== 'undefined') {
-                    // Si es la pestaña de pedidos, inicializar formularios después de activarla
-                    if (tabParam === 'pedidos') {
-                        // Agregar listener ANTES de activar la pestaña
-                        tabButton.addEventListener('shown.bs.tab', function() {
-                            console.log('[Perfil] Pestaña pedidos activada, inicializando formularios...');
-                            setTimeout(function() {
-                                inicializarConfirmacionesMarcarPago();
-                            }, 200);
-                        }, { once: true });
-                    }
-                    
-                    // Activar la pestaña
-                    const tab = new bootstrap.Tab(tabButton);
-                    tab.show();
-                } else if (tabButton) {
-                    // Si Bootstrap no está disponible, esperar a que se cargue
-                    console.log('[Perfil] Esperando a que Bootstrap se cargue...');
-                    let bootstrapCheckInterval = setInterval(function() {
-                        if (typeof bootstrap !== 'undefined' && bootstrap && bootstrap.Tab) {
-                            clearInterval(bootstrapCheckInterval);
-                            if (tabParam === 'pedidos') {
-                                tabButton.addEventListener('shown.bs.tab', function() {
-                                    console.log('[Perfil] Pestaña pedidos activada, inicializando formularios...');
-                                    setTimeout(function() {
-                                        inicializarConfirmacionesMarcarPago();
-                                    }, 200);
-                                }, { once: true });
-                            }
-                            const tab = new bootstrap.Tab(tabButton);
-                            tab.show();
-                        }
-                    }, 100);
-                    
-                    setTimeout(function() {
-                        clearInterval(bootstrapCheckInterval);
-                    }, 5000);
-                }
-            }
-        } else {
-            // Si no hay parámetro tab pero estamos en perfil.php, inicializar de todas formas
-            // (por si la pestaña de pedidos ya está activa por defecto)
-            setTimeout(function() {
-                inicializarConfirmacionesMarcarPago();
-            }, 500);
-        }
-    } else {
-        // Si no estamos en perfil.php pero el código se ejecuta, inicializar de todas formas
+    if (pedidosPane && pedidosPane.classList.contains('active') && pedidosPane.classList.contains('show')) {
         setTimeout(function() {
             inicializarConfirmacionesMarcarPago();
-        }, 500);
+        }, 100);
     }
     
 }

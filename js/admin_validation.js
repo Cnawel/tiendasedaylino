@@ -147,8 +147,8 @@ function inicializarValidacionEdicion(modalId) {
                         confirmarInput.classList.remove('is-valid', 'is-invalid');
                     }
                 } else {
-                    // Validar longitud: mínimo 6 caracteres, máximo 32
-                    if (value.length >= 6 && value.length <= 32) {
+                    // Validar longitud: mínimo 6 caracteres, máximo 20
+                    if (value.length >= 6 && value.length <= 20) {
                         this.classList.remove('is-invalid');
                         this.classList.add('is-valid');
                     } else {
@@ -340,22 +340,84 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Validación contraseñas
+    // Validación contraseñas con carteles informativos
     const passwordInput = document.getElementById('password_temporal');
     const confirmarInput = document.getElementById('confirmar_password_temporal');
+    
+    // Crear carteles informativos
+    function crearCartelesInformativos() {
+        const passwordWrapper = passwordInput?.closest('.col-md-6');
+        const confirmarWrapper = confirmarInput?.closest('.col-md-6');
+        
+        if (!passwordWrapper || !confirmarWrapper) return;
+        
+        // Remover carteles existentes si los hay
+        const cartelExistente = passwordWrapper.querySelector('.password-info-alert');
+        if (cartelExistente) {
+            cartelExistente.remove();
+        }
+        
+        // Crear cartel informativo
+        const cartelInfo = document.createElement('div');
+        cartelInfo.className = 'alert alert-info password-info-alert mt-2';
+        cartelInfo.innerHTML = '<i class="fas fa-info-circle me-2"></i><strong>Opciones:</strong> Puedes escribir la contraseña y repetirla, o dejar ambos campos vacíos para generar una contraseña aleatoria (se mostrará al crear el usuario).';
+        cartelInfo.style.fontSize = '0.875rem';
+        
+        // Insertar después del campo de confirmar contraseña
+        confirmarWrapper.appendChild(cartelInfo);
+    }
+    
+    // Función para actualizar carteles según estado de los campos
+    function actualizarCartelesInformativos() {
+        const cartelInfo = document.querySelector('.password-info-alert');
+        if (!cartelInfo) return;
+        
+        const passwordValue = passwordInput?.value || '';
+        const confirmarValue = confirmarInput?.value || '';
+        
+        if (passwordValue === '' && confirmarValue === '') {
+            // Ambos vacíos: mostrar mensaje de generación aleatoria
+            cartelInfo.className = 'alert alert-info password-info-alert mt-2';
+            cartelInfo.innerHTML = '<i class="fas fa-key me-2"></i><strong>Contraseña aleatoria:</strong> Los campos están vacíos. Se generará una contraseña aleatoria segura que se mostrará al crear el usuario.';
+        } else if (passwordValue !== '' || confirmarValue !== '') {
+            // Al menos uno tiene valor: mostrar mensaje de opciones
+            cartelInfo.className = 'alert alert-info password-info-alert mt-2';
+            cartelInfo.innerHTML = '<i class="fas fa-info-circle me-2"></i><strong>Opciones:</strong> Puedes escribir la contraseña y repetirla, o dejar ambos campos vacíos para generar una contraseña aleatoria (se mostrará al crear el usuario).';
+        }
+    }
+    
+    // Crear carteles al cargar
+    if (passwordInput && confirmarInput) {
+        crearCartelesInformativos();
+    }
     
     if (passwordInput) {
         passwordInput.addEventListener('input', function() {
             const value = this.value;
-            if (value === '') {
+            
+            // Remover required si ambos están vacíos
+            if (value === '' && (!confirmarInput || confirmarInput.value === '')) {
+                this.removeAttribute('required');
+                if (confirmarInput) confirmarInput.removeAttribute('required');
                 this.classList.remove('is-valid', 'is-invalid');
-            } else if (value.length >= 6 && value.length <= 32) {
-                this.classList.remove('is-invalid');
-                this.classList.add('is-valid');
-            } else {
-                this.classList.remove('is-valid');
-                this.classList.add('is-invalid');
+            } else if (value !== '') {
+                // Si tiene valor, hacer required
+                this.setAttribute('required', 'required');
+                if (confirmarInput) confirmarInput.setAttribute('required', 'required');
+                
+                // Validar longitud
+                if (value.length >= 6 && value.length <= 20) {
+                    this.classList.remove('is-invalid');
+                    this.classList.add('is-valid');
+                } else {
+                    this.classList.remove('is-valid');
+                    this.classList.add('is-invalid');
+                }
             }
+            
+            // Actualizar carteles
+            actualizarCartelesInformativos();
+            
             // Validar coincidencia cuando cambia la contraseña usando función consolidada
             if (confirmarInput) {
                 if (typeof validarCoincidenciaPasswordStaff === 'function') {
@@ -367,6 +429,22 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (confirmarInput) {
         confirmarInput.addEventListener('input', function() {
+            const value = this.value;
+            
+            // Remover required si ambos están vacíos
+            if (value === '' && (!passwordInput || passwordInput.value === '')) {
+                this.removeAttribute('required');
+                if (passwordInput) passwordInput.removeAttribute('required');
+                this.classList.remove('is-valid', 'is-invalid');
+            } else if (value !== '') {
+                // Si tiene valor, hacer required
+                this.setAttribute('required', 'required');
+                if (passwordInput) passwordInput.setAttribute('required', 'required');
+            }
+            
+            // Actualizar carteles
+            actualizarCartelesInformativos();
+            
             // Usar función consolidada de common_js_functions.php
             if (typeof validarCoincidenciaPasswordStaff === 'function') {
                 validarCoincidenciaPasswordStaff();
@@ -398,18 +476,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 isValid = false;
             }
             
-            // Validar contraseñas
+            // Validar contraseñas (permite campos vacíos para generar aleatoria)
             const password = passwordInput?.value || '';
             const confirmar = confirmarInput?.value || '';
             
-            if (password.length < 6 || password.length > 32) {
+            // Si ambos están vacíos, está bien (se generará aleatoria)
+            if (password === '' && confirmar === '') {
+                // Ambos vacíos: válido, se generará contraseña aleatoria
+            } else if (password === '' && confirmar !== '') {
+                // Solo confirmar tiene valor: error
                 passwordInput?.classList.add('is-invalid');
                 isValid = false;
-            }
-            
-            if (password !== confirmar) {
+            } else if (password !== '' && confirmar === '') {
+                // Solo password tiene valor: error
                 confirmarInput?.classList.add('is-invalid');
                 isValid = false;
+            } else {
+                // Ambos tienen valor: validar longitud y coincidencia
+                if (password.length < 6 || password.length > 20) {
+                    passwordInput?.classList.add('is-invalid');
+                    isValid = false;
+                }
+                
+                if (password !== confirmar) {
+                    confirmarInput?.classList.add('is-invalid');
+                    isValid = false;
+                }
             }
             
             if (!isValid) {
@@ -526,6 +618,11 @@ document.addEventListener('DOMContentLoaded', function() {
             formulario.addEventListener('submit', function(e) {
                 e.preventDefault();
                 
+                // Mostrar confirmación antes de desactivar
+                if (!confirm('¿Estás seguro de desactivar esta cuenta? El usuario no podrá iniciar sesión.')) {
+                    return; // Usuario canceló la acción
+                }
+                
                 // Obtener datos del formulario
                 const idUsuario = formulario.querySelector('[name="del_user_id"]')?.value;
                 
@@ -554,6 +651,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (advertenciaAdmin && advertenciaAdmin.textContent.includes('último administrador')) {
                         esUltimoAdmin = true;
                     }
+                }
+                
+                // Agregar campo hidden con la acción para asegurar que se envíe en POST
+                // (necesario porque submit() programático no incluye el botón en POST)
+                let campoAccion = formulario.querySelector('input[name="desactivar_usuario"]');
+                if (!campoAccion) {
+                    campoAccion = document.createElement('input');
+                    campoAccion.type = 'hidden';
+                    campoAccion.name = 'desactivar_usuario';
+                    campoAccion.value = '1';
+                    formulario.appendChild(campoAccion);
                 }
                 
                 // Enviar formulario con bloqueo de botón

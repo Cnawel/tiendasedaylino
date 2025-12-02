@@ -43,12 +43,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     return { valido: false, mensaje: 'El nombre es obligatorio.' };
                 } else if (typeof validarNombreApellido === 'function') {
                     // Usar función consolidada de common_js_functions.php
-                    const esValido = validarNombreApellido(valorTrimmed, 2, 50);
+                    // NOTA: Límite máximo 100 caracteres para coincidir con validación PHP en admin_functions.php
+                    const esValido = validarNombreApellido(valorTrimmed, 2, 100);
                     if (!esValido) {
                         if (valorTrimmed.length < 2) {
                             return { valido: false, mensaje: 'El nombre debe tener al menos 2 caracteres.' };
-                        } else if (valorTrimmed.length > 50) {
-                            return { valido: false, mensaje: 'El nombre no puede exceder 50 caracteres.' };
+                        } else if (valorTrimmed.length > 100) {
+                            return { valido: false, mensaje: 'El nombre no puede exceder 100 caracteres.' };
                         } else {
                             return { valido: false, mensaje: 'El nombre solo puede contener letras, espacios, apóstrofe (\') y acento agudo (´).' };
                         }
@@ -58,8 +59,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     const nombrePattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+$/;
                     if (valorTrimmed.length < 2) {
                         return { valido: false, mensaje: 'El nombre debe tener al menos 2 caracteres.' };
-                    } else if (valorTrimmed.length > 50) {
-                        return { valido: false, mensaje: 'El nombre no puede exceder 50 caracteres.' };
+                    } else if (valorTrimmed.length > 100) {
+                        return { valido: false, mensaje: 'El nombre no puede exceder 100 caracteres.' };
                     } else if (!nombrePattern.test(valorTrimmed)) {
                         return { valido: false, mensaje: 'El nombre solo puede contener letras, espacios, apóstrofe (\') y acento agudo (´).' };
                     }
@@ -68,8 +69,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 
             case 'apellido':
                 if (!valorTrimmed) {
-                    // Apellido es opcional, no mostrar error si está vacío
-                    return { valido: true, mensaje: '' };
+                    // Apellido es obligatorio
+                    return { valido: false, mensaje: 'El apellido es obligatorio.' };
                 } else if (typeof validarNombreApellido === 'function') {
                     // Usar función consolidada de common_js_functions.php
                     const esValido = validarNombreApellido(valorTrimmed, 2, 100);
@@ -98,12 +99,19 @@ document.addEventListener('DOMContentLoaded', function() {
             case 'email':
                 if (!valorTrimmed) {
                     return { valido: false, mensaje: 'El correo electrónico es obligatorio.' };
-                } else if (valorTrimmed.length < 6 || valorTrimmed.length > 150) {
-                    return { valido: false, mensaje: 'El correo electrónico debe tener entre 6 y 150 caracteres.' };
+                } else if (valorTrimmed.length < 6 || valorTrimmed.length > 100) {
+                    // NOTA: Límite máximo 100 caracteres según diccionario de datos
+                    return { valido: false, mensaje: 'El correo electrónico debe tener entre 6 y 100 caracteres.' };
                 } else {
-                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                    if (!emailRegex.test(valorTrimmed)) {
+                    // Usar función centralizada validateEmail() de common_js_functions.php
+                    if (typeof validateEmail === 'function' && !validateEmail(valorTrimmed)) {
                         return { valido: false, mensaje: 'El formato del correo electrónico no es válido.' };
+                    } else if (typeof validateEmail !== 'function') {
+                        // Fallback si la función no está disponible
+                        const estructuraBasica = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                        if (!estructuraBasica.test(valorTrimmed)) {
+                            return { valido: false, mensaje: 'El formato del correo electrónico no es válido.' };
+                        }
                     }
                 }
                 return { valido: true, mensaje: '' };
@@ -138,35 +146,25 @@ document.addEventListener('DOMContentLoaded', function() {
                     return { valido: false, mensaje: 'La respuesta de recupero es obligatoria.' };
                 } else if (valorTrimmed.length < 4) {
                     return { valido: false, mensaje: 'La respuesta de recupero debe tener al menos 4 caracteres.' };
-                } else if (valor.length > 20) {
+                } else if (valorTrimmed.length > 20) {
                     return { valido: false, mensaje: 'La respuesta de recupero no puede exceder 20 caracteres.' };
-                } else if (!respuestaPattern.test(valor)) {
+                } else if (!respuestaPattern.test(valorTrimmed)) {
                     return { valido: false, mensaje: 'La respuesta de recupero solo puede contener letras, números y espacios.' };
                 }
                 return { valido: true, mensaje: '' };
                 
             case 'password':
-                if (!valor || valor.length === 0) {
+                if (!valor) {
                     return { valido: false, mensaje: 'La contraseña es obligatoria.' };
-                } else if (valor.length < 8) {
-                    return { valido: false, mensaje: 'La contraseña debe tener al menos 8 caracteres.' };
-                } else if (valor.length > 128) {
-                    return { valido: false, mensaje: 'La contraseña no puede exceder 128 caracteres.' };
-                } else {
-                    // Validar complejidad: minúscula, mayúscula, número, carácter especial
-                    const tieneMinuscula = /[a-z]/.test(valor);
-                    const tieneMayuscula = /[A-Z]/.test(valor);
-                    const tieneNumero = /[0-9]/.test(valor);
-                    const tieneEspecial = /[@$!%*?&]/.test(valor);
-                    
-                    if (!tieneMinuscula || !tieneMayuscula || !tieneNumero || !tieneEspecial) {
-                        return { valido: false, mensaje: 'La contraseña debe contener al menos: 1 minúscula, 1 mayúscula, 1 número y 1 carácter especial (@$!%*?&).' };
-                    }
+                } else if (valor.length < 6) {
+                    return { valido: false, mensaje: 'La contraseña debe tener al menos 6 caracteres.' };
+                } else if (valor.length > 20) {
+                    return { valido: false, mensaje: 'La contraseña no puede exceder 20 caracteres.' };
                 }
                 return { valido: true, mensaje: '' };
                 
             case 'password_confirm':
-                if (!valor || valor.length === 0) {
+                if (!valor) {
                     return { valido: false, mensaje: 'La confirmación de contraseña es obligatoria.' };
                 } else if (passwordInput.value !== valor) {
                     return { valido: false, mensaje: 'Las contraseñas no coinciden.' };
@@ -199,7 +197,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const validFeedback = container?.querySelector('.valid-feedback');
         
         if (resultado.valido) {
-            setFieldValidation(input, true);
+            if (typeof setFieldValidation === 'function') {
+                setFieldValidation(input, true);
+            } else {
+                input.classList.remove('is-invalid');
+                input.classList.add('is-valid');
+            }
             // Limpiar mensajes de error si existen
             if (invalidFeedback) {
                 invalidFeedback.style.display = 'none';
@@ -210,7 +213,16 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } else {
             // Usar función consolidada para mostrar error
-            mostrarErrorCampo(input, invalidFeedback, resultado.mensaje || '');
+            if (typeof mostrarErrorCampo === 'function') {
+                mostrarErrorCampo(input, invalidFeedback, resultado.mensaje || '');
+            } else {
+                input.classList.remove('is-valid');
+                input.classList.add('is-invalid');
+                if (invalidFeedback) {
+                    invalidFeedback.textContent = resultado.mensaje || '';
+                    invalidFeedback.style.display = 'block';
+                }
+            }
             // Ocultar mensaje de éxito si existe
             if (validFeedback) {
                 validFeedback.style.display = 'none';
@@ -227,7 +239,11 @@ document.addEventListener('DOMContentLoaded', function() {
     nombreInput.addEventListener('input', function() {
         const resultado = validarCampoCompleto('nombre', this);
         if (this.value.trim() === '') {
-            setFieldValidation(this, null);
+            if (typeof setFieldValidation === 'function') {
+                setFieldValidation(this, null);
+            } else {
+                this.classList.remove('is-valid', 'is-invalid');
+            }
         } else {
             aplicarValidacionCampo(this, resultado);
         }
@@ -238,11 +254,11 @@ document.addEventListener('DOMContentLoaded', function() {
         aplicarValidacionCampo(this, resultado);
     });
     
-    // Validación en tiempo real de apellido (opcional)
+    // Validación en tiempo real de apellido (obligatorio)
     apellidoInput.addEventListener('input', function() {
         const resultado = validarCampoCompleto('apellido', this);
         if (this.value.trim() === '') {
-            // Apellido es opcional, no mostrar error si está vacío
+            // No mostrar validación mientras está vacío durante el input
             this.classList.remove('is-valid', 'is-invalid');
         } else {
             aplicarValidacionCampo(this, resultado);
@@ -251,19 +267,18 @@ document.addEventListener('DOMContentLoaded', function() {
     
     apellidoInput.addEventListener('blur', function() {
         const resultado = validarCampoCompleto('apellido', this);
-        if (this.value.trim() === '') {
-            // Apellido es opcional, no mostrar error si está vacío
-            this.classList.remove('is-valid', 'is-invalid');
-        } else {
-            aplicarValidacionCampo(this, resultado);
-        }
+        aplicarValidacionCampo(this, resultado);
     });
     
     // Validación en tiempo real del email
     emailInput.addEventListener('input', function() {
         const resultado = validarCampoCompleto('email', this);
         if (this.value.trim() === '') {
-            setFieldValidation(this, null);
+            if (typeof setFieldValidation === 'function') {
+                setFieldValidation(this, null);
+            } else {
+                this.classList.remove('is-valid', 'is-invalid');
+            }
         } else {
             aplicarValidacionCampo(this, resultado);
         }
@@ -309,8 +324,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // CRITERIOS DE FORTALEZA (solo informativo, no bloquea registro)
         // ========================================================================
         
-        // Longitud mínima (8 caracteres ahora, coincidiendo con PHP)
-        if (password.length >= 8) strength += 30;
+        // Longitud mínima (6 caracteres ahora, coincidiendo con PHP)
+        if (password.length >= 6) strength += 30;
         if (password.length >= 12) strength += 10;
         if (password.length >= 16) strength += 10;
         if (password.length >= 20) strength += 10;
@@ -347,7 +362,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Validar confirmación si ya tiene valor
         if (passwordConfirmInput.value) {
-            validatePasswordConfirm();
+            const resultado = validarCampoCompleto('password_confirm', passwordConfirmInput);
+            aplicarValidacionCampo(passwordConfirmInput, resultado);
         }
     }
     
@@ -356,11 +372,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Usa la función togglePassword de common_js_functions.php
     // ========================================================================
     if (togglePasswordBtn && passwordInput) {
-        // Remover listeners previos si existen
-        const newToggleBtn = togglePasswordBtn.cloneNode(true);
-        togglePasswordBtn.parentNode.replaceChild(newToggleBtn, togglePasswordBtn);
-        
-        newToggleBtn.addEventListener('click', function(e) {
+        togglePasswordBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
             
@@ -374,11 +386,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     if (togglePasswordConfirmBtn && passwordConfirmInput) {
-        // Remover listeners previos si existen
-        const newToggleConfirmBtn = togglePasswordConfirmBtn.cloneNode(true);
-        togglePasswordConfirmBtn.parentNode.replaceChild(newToggleConfirmBtn, togglePasswordConfirmBtn);
-        
-        newToggleConfirmBtn.addEventListener('click', function(e) {
+        togglePasswordConfirmBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
             
@@ -415,48 +423,66 @@ document.addEventListener('DOMContentLoaded', function() {
     // ========================================================================
     // Validación del formulario al enviar - usando función centralizada
     // ========================================================================
-    registerForm.addEventListener('submit', function(e) {
-        let isValid = true;
-        
-        // Validar todos los campos usando función centralizada
-        const campos = [
-            { id: 'nombre', input: nombreInput },
-            { id: 'apellido', input: apellidoInput },
-            { id: 'email', input: emailInput },
-            { id: 'fecha_nacimiento', input: fechaNacimientoInput },
-            { id: 'pregunta_recupero', input: preguntaRecuperoInput },
-            { id: 'respuesta_recupero', input: respuestaRecuperoInput },
-            { id: 'password', input: passwordInput },
-            { id: 'password_confirm', input: passwordConfirmInput },
-            { id: 'acepta', input: aceptaCheckbox }
-        ];
-        
-        // Validar cada campo y aplicar clases de validación
-        campos.forEach(function(campo) {
-            if (!campo.input) return;
-            
-            const resultado = validarCampoCompleto(campo.id, campo.input);
-            aplicarValidacionCampo(campo.input, resultado);
-            
-            if (!resultado.valido) {
-                isValid = false;
+    if (registerForm) {
+        registerForm.addEventListener('submit', function(e) {
+            try {
+                let isValid = true;
+                
+                // Validar todos los campos usando función centralizada
+                const campos = [
+                    { id: 'nombre', input: nombreInput },
+                    { id: 'apellido', input: apellidoInput },
+                    { id: 'email', input: emailInput },
+                    { id: 'fecha_nacimiento', input: fechaNacimientoInput },
+                    { id: 'pregunta_recupero', input: preguntaRecuperoInput },
+                    { id: 'respuesta_recupero', input: respuestaRecuperoInput },
+                    { id: 'password', input: passwordInput },
+                    { id: 'password_confirm', input: passwordConfirmInput },
+                    { id: 'acepta', input: aceptaCheckbox }
+                ];
+                
+                // Validar cada campo y aplicar clases de validación
+                campos.forEach(function(campo) {
+                    if (!campo.input) return;
+                    
+                    try {
+                        const resultado = validarCampoCompleto(campo.id, campo.input);
+                        aplicarValidacionCampo(campo.input, resultado);
+                        
+                        if (!resultado.valido) {
+                            isValid = false;
+                        }
+                    } catch (err) {
+                        // Si hay error en la validación de un campo, continuar con los demás
+                        console.error('Error validando campo ' + campo.id + ':', err);
+                    }
+                });
+                
+                // Si no es válido, prevenir envío
+                if (!isValid) {
+                    e.preventDefault();
+                    if (registerForm && typeof scrollToFirstError === 'function') {
+                        scrollToFirstError(registerForm);
+                    }
+                    return;
+                }
+                
+                // Mostrar estado de carga
+                if (registerBtn) {
+                    const btnText = registerBtn.querySelector('.btn-text');
+                    const btnLoading = registerBtn.querySelector('.btn-loading');
+                    if (btnText) btnText.classList.add('d-none');
+                    if (btnLoading) btnLoading.classList.remove('d-none');
+                    registerBtn.disabled = true;
+                }
+            } catch (err) {
+                // Si hay un error crítico, permitir que el formulario se envíe
+                // La validación del servidor se encargará de validar los datos
+                console.error('Error en validación del formulario:', err);
+                // No prevenir el envío, dejar que el formulario se envíe normalmente
             }
         });
-        
-        // Si no es válido, prevenir envío
-        if (!isValid) {
-            e.preventDefault();
-            scrollToFirstError(formRegistro);
-            return;
-        }
-        
-        // Mostrar estado de carga
-        const btnText = registerBtn.querySelector('.btn-text');
-        const btnLoading = registerBtn.querySelector('.btn-loading');
-        btnText.classList.add('d-none');
-        btnLoading.classList.remove('d-none');
-        registerBtn.disabled = true;
-    });
+    }
     
     // ========================================================================
     // Validación en tiempo real de campos restantes usando función centralizada
@@ -534,13 +560,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // Animación suave de entrada
     // ========================================================================
     const authCard = document.querySelector('.auth-card');
-    authCard.style.opacity = '0';
-    authCard.style.transform = 'translateY(20px)';
-    
-    setTimeout(() => {
-        authCard.style.transition = 'all 0.5s ease';
-        authCard.style.opacity = '1';
-        authCard.style.transform = 'translateY(0)';
-    }, 100);
+    if (authCard) {
+        authCard.style.opacity = '0';
+        authCard.style.transform = 'translateY(20px)';
+        
+        setTimeout(() => {
+            authCard.style.transition = 'all 0.5s ease';
+            authCard.style.opacity = '1';
+            authCard.style.transform = 'translateY(0)';
+        }, 100);
+    }
 });
 

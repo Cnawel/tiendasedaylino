@@ -4,7 +4,7 @@
  * ========================================================================
  * JavaScript específico para la página de detalle de producto
  * Incluye funciones para manejo de talles, colores, stock e imágenes
- * 
+ *
  * REQUIERE VARIABLES GLOBALES:
  * - window.productoData.stockVariantes: Array de stock indexado por talle-color
  * - window.productoData.stockPorTalleColor: Array de stock organizado por talle y color
@@ -12,11 +12,96 @@
  * - window.productoData.imagenes: Array de imágenes iniciales del producto
  * - window.productoData.nombreProducto: Nombre del producto
  * - window.productoData.idProducto: ID del producto
- * 
+ *
  * @package TiendaSedaYLino
  * @version 2.0
  * ========================================================================
  */
+
+/**
+ * FUNCIONES DE NAVEGACIÓN DE IMÁGENES - Definidas antes de DOMContentLoaded
+ * para garantizar que estén disponibles cuando se inicialicen los event listeners
+ */
+
+/**
+ * Cambia la imagen principal del producto a un índice específico
+ * @param {number} index - Índice de la imagen en el array de imágenes
+ */
+function cambiarImagenPrincipal(index) {
+    console.log('cambiarImagenPrincipal() llamada con índice:', index);
+
+    // Actualizar imagen principal
+    const imagenPrincipal = document.getElementById('imagenPrincipalLimpia');
+
+    // Siempre usar window.imagenesProducto que se actualiza dinámicamente
+    const imagenes = window.imagenesProducto || [];
+
+    // DEBUG
+    console.log('DEBUG cambiarImagenPrincipal:', {
+        imagenPrincipal: imagenPrincipal ? 'EXISTE' : 'NO EXISTE',
+        imagenesCount: imagenes.length,
+        index: index
+    });
+
+    // Validar que el índice sea válido
+    if (!imagenPrincipal || !imagenes || !Array.isArray(imagenes) || index < 0 || index >= imagenes.length) {
+        console.warn('cambiarImagenPrincipal: Índice inválido o imágenes no disponibles', { index, imagenesLength: imagenes.length });
+        return;
+    }
+
+    const nuevaImagenSrc = imagenes[index];
+    if (!nuevaImagenSrc) {
+        console.warn('cambiarImagenPrincipal: URL de imagen no válida', { index, nuevaImagenSrc });
+        return;
+    }
+
+    console.log('Cambiando a imagen:', nuevaImagenSrc);
+
+    // Guardar índice actual en variable global para navegación por clic
+    window.indiceImagenActual = index;
+
+    // CAMBIO SIMPLE: Cambiar directo sin pre-carga para debugging
+    imagenPrincipal.src = nuevaImagenSrc;
+    imagenPrincipal.style.opacity = '1';
+
+    // Actualizar thumbnails activos (compatible con ambos estilos)
+    document.querySelectorAll('.thumbnail-compacto, .thumbnail-mini').forEach((item, i) => {
+        if (i === index) {
+            item.classList.add('active');
+        } else {
+            item.classList.remove('active');
+        }
+    });
+
+    console.log('cambiarImagenPrincipal COMPLETADA');
+}
+
+/**
+ * Navega a la siguiente imagen en el carrusel
+ * Función llamada directamente desde el onclick de la imagen
+ */
+function navegarSiguienteImagen() {
+    // Obtener imágenes actuales (pueden haber cambiado por color)
+    const imagenesActuales = window.imagenesProducto || [];
+
+    // Solo procesar si hay más de una imagen
+    if (imagenesActuales.length <= 1) {
+        return;
+    }
+
+    // Obtener índice actual
+    const indiceActual = window.indiceImagenActual !== undefined ? window.indiceImagenActual : 0;
+
+    // Avanzar a la siguiente imagen (volver al inicio si estamos en la última)
+    const nuevoIndice = indiceActual < imagenesActuales.length - 1 ? indiceActual + 1 : 0;
+
+    // Cambiar a la nueva imagen
+    cambiarImagenPrincipal(nuevoIndice);
+}
+
+// Hacer las funciones disponibles globalmente en window
+window.cambiarImagenPrincipal = cambiarImagenPrincipal;
+window.navegarSiguienteImagen = navegarSiguienteImagen;
 
 // Esperar a que los datos estén disponibles
 document.addEventListener('DOMContentLoaded', function() {
@@ -95,7 +180,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     /**
      * Inicializar listeners para thumbnails compactos
-     * Se ejecuta inmediatamente y también después de un delay para asegurar que la función esté disponible
+     * Solo se ejecuta una vez al cargar la página para thumbnails iniciales (generados en PHP)
      */
     function inicializarThumbnailsCompactos() {
         document.querySelectorAll('.thumbnail-compacto').forEach(function(thumb, i) {
@@ -105,35 +190,32 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             thumb.setAttribute('data-listener-inicializado', 'true');
             
-            thumb.style.cursor = 'pointer'; // Asegurar cursor de mano
-            thumb.style.pointerEvents = 'auto'; // Asegurar que los eventos de puntero funcionen
+            thumb.style.cursor = 'pointer';
+            thumb.style.pointerEvents = 'auto';
             
             // Obtener índice del atributo data-image-index o usar el índice del forEach
             const imageIndex = thumb.getAttribute('data-image-index');
             const index = imageIndex !== null ? parseInt(imageIndex) : i;
             
-            thumb.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                // Llamar a la función global cambiarImagenPrincipal
-                if (typeof window.cambiarImagenPrincipal === 'function') {
-                    window.cambiarImagenPrincipal(index);
-                } else if (typeof cambiarImagenPrincipal === 'function') {
-                    // Fallback: intentar función global sin window
-                    cambiarImagenPrincipal(index);
-                } else {
-                    console.warn('cambiarImagenPrincipal no está disponible');
-                }
-            });
+            // Usar closure para mantener el índice correcto
+            (function(idx) {
+                thumb.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Llamar a la función global cambiarImagenPrincipal
+                    if (typeof window.cambiarImagenPrincipal === 'function') {
+                        window.cambiarImagenPrincipal(idx);
+                    }
+                });
+            })(index);
         });
     }
     
-    // Inicializar inmediatamente
+    // Inicializar thumbnails iniciales (generados en PHP)
+    // Las funciones cambiarImagenPrincipal y navegarSiguienteImagen ya están definidas al inicio del archivo
+    // Se ejecutan inmediatamente sin delay
     inicializarThumbnailsCompactos();
-    
-    // También inicializar después de un pequeño delay para asegurar que la función esté disponible
-    setTimeout(inicializarThumbnailsCompactos, 100);
     
     /**
      * Inicializar event listener para la imagen principal
@@ -374,6 +456,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Agregar atributo data-image-index para que inicializarThumbnailsCompactos() pueda usarlo
                 thumbnailDiv.setAttribute('data-image-index', index);
                 
+                // Agregar event listener directamente al crear el elemento
+                // Esto asegura que funcione incluso si inicializarThumbnailsCompactos() no se ejecuta
+                thumbnailDiv.style.cursor = 'pointer';
+                thumbnailDiv.style.pointerEvents = 'auto';
+                
+                (function(idx) {
+                    thumbnailDiv.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        // Llamar a la función global cambiarImagenPrincipal
+                        if (typeof window.cambiarImagenPrincipal === 'function') {
+                            window.cambiarImagenPrincipal(idx);
+                        } else if (typeof cambiarImagenPrincipal === 'function') {
+                            cambiarImagenPrincipal(idx);
+                        } else {
+                            console.warn('cambiarImagenPrincipal no está disponible');
+                        }
+                    });
+                })(index);
+                
                 const thumbnailImg = document.createElement('img');
                 thumbnailImg.src = imagen;
                 thumbnailImg.alt = 'Miniatura ' + (index + 1);
@@ -382,10 +485,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 thumbnailsContainer.appendChild(thumbnailDiv);
             });
         }
-        
-        // Inicializar listeners para los thumbnails dinámicos recién creados
-        // Esto asegura que los thumbnails tengan sus event listeners correctamente asignados
-        inicializarThumbnailsCompactos();
         
         // Actualizar variable global de imágenes para compatibilidad con cambiarImagenPrincipal
         // Esta variable se usa en la función global cambiarImagenPrincipal
@@ -712,30 +811,30 @@ document.addEventListener('DOMContentLoaded', function() {
     function asignarListenersBotones() {
         const btnComprarAhora = document.getElementById('btn-comprar-ahora');
         if (btnComprarAhora && typeof window.comprarAhora === 'function') {
-            // Remover listeners anteriores si existen
-            const nuevoBtnComprar = btnComprarAhora.cloneNode(true);
-            btnComprarAhora.parentNode.replaceChild(nuevoBtnComprar, btnComprarAhora);
-            
-            nuevoBtnComprar.addEventListener('click', function(e) {
-                e.preventDefault();
-                if (typeof window.comprarAhora === 'function') {
-                    window.comprarAhora();
-                }
-            });
+            // Asignar listener directamente sin clonar para evitar intercambio de botones
+            if (!btnComprarAhora.dataset.listenerAsignado) {
+                btnComprarAhora.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    if (typeof window.comprarAhora === 'function') {
+                        window.comprarAhora();
+                    }
+                });
+                btnComprarAhora.dataset.listenerAsignado = 'true';
+            }
         }
         
         const btnAgregarCarrito = document.getElementById('btn-agregar-carrito');
         if (btnAgregarCarrito && typeof window.agregarAlCarrito === 'function') {
-            // Remover listeners anteriores si existen
-            const nuevoBtnAgregar = btnAgregarCarrito.cloneNode(true);
-            btnAgregarCarrito.parentNode.replaceChild(nuevoBtnAgregar, btnAgregarCarrito);
-            
-            nuevoBtnAgregar.addEventListener('click', function(e) {
-                e.preventDefault();
-                if (typeof window.agregarAlCarrito === 'function') {
-                    window.agregarAlCarrito();
-                }
-            });
+            // Asignar listener directamente sin clonar para evitar intercambio de botones
+            if (!btnAgregarCarrito.dataset.listenerAsignado) {
+                btnAgregarCarrito.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    if (typeof window.agregarAlCarrito === 'function') {
+                        window.agregarAlCarrito();
+                    }
+                });
+                btnAgregarCarrito.dataset.listenerAsignado = 'true';
+            }
         }
     }
     
@@ -749,101 +848,6 @@ document.addEventListener('DOMContentLoaded', function() {
 /**
  * Funciones globales para UX mejorada
  */
-
-/**
- * Cambia la imagen principal cuando se hace clic en una miniatura
- * Mantiene la posición fija para mejorar UX
- * @param {number} index - Índice de la imagen a mostrar
- */
-function cambiarImagenPrincipal(index) {
-    // Actualizar imagen principal
-    const imagenPrincipal = document.getElementById('imagenPrincipalLimpia');
-    
-    // Siempre usar window.imagenesProducto que se actualiza dinámicamente
-    const imagenes = window.imagenesProducto || [];
-    
-    // Validar que el índice sea válido
-    if (!imagenPrincipal || !imagenes || !Array.isArray(imagenes) || index < 0 || index >= imagenes.length) {
-        console.warn('cambiarImagenPrincipal: Índice inválido o imágenes no disponibles', { index, imagenes });
-        return;
-    }
-    
-    const nuevaImagenSrc = imagenes[index];
-    if (!nuevaImagenSrc) {
-        console.warn('cambiarImagenPrincipal: URL de imagen no válida', { index, nuevaImagenSrc });
-        return;
-    }
-    
-    // Guardar índice actual en variable global para navegación por clic
-    window.indiceImagenActual = index;
-    
-    // Pre-cargar la imagen antes de cambiar para evitar el salto
-    const imgPreload = new Image();
-    
-    imgPreload.onload = function() {
-        // Aplicar fade-out suave
-        imagenPrincipal.style.opacity = '0';
-        
-        // Cambiar imagen después de un breve delay
-        setTimeout(function() {
-            imagenPrincipal.src = nuevaImagenSrc;
-            
-            // Asegurar que object-fit y object-position se mantengan
-            imagenPrincipal.style.objectFit = 'contain';
-            imagenPrincipal.style.objectPosition = 'center center';
-            
-            // Fade-in suave
-            setTimeout(function() {
-                imagenPrincipal.style.opacity = '1';
-            }, 50);
-        }, 150);
-    };
-    
-    imgPreload.onerror = function() {
-        // Si hay error, simplemente cambiar sin pre-carga
-        imagenPrincipal.src = nuevaImagenSrc;
-        imagenPrincipal.style.opacity = '1';
-        console.warn('cambiarImagenPrincipal: Error al cargar imagen', nuevaImagenSrc);
-    };
-    
-    // Iniciar carga
-    imgPreload.src = nuevaImagenSrc;
-    
-    // Actualizar thumbnails activos (compatible con ambos estilos)
-    document.querySelectorAll('.thumbnail-compacto, .thumbnail-mini').forEach((item, i) => {
-        item.classList.toggle('active', i === index);
-    });
-}
-
-// Hacer la función disponible globalmente en window
-window.cambiarImagenPrincipal = cambiarImagenPrincipal;
-
-/**
- * Navega a la siguiente imagen en el carrusel
- * Función llamada directamente desde el onclick de la imagen
- */
-function navegarSiguienteImagen() {
-    // Obtener imágenes actuales (pueden haber cambiado por color)
-    const imagenesActuales = window.imagenesProducto || [];
-    
-    // Solo procesar si hay más de una imagen
-    if (imagenesActuales.length <= 1) {
-        return;
-    }
-    
-    // Obtener índice actual
-    const indiceActual = window.indiceImagenActual !== undefined ? window.indiceImagenActual : 0;
-    
-    // Avanzar a la siguiente imagen (volver al inicio si estamos en la última)
-    const nuevoIndice = indiceActual < imagenesActuales.length - 1 ? indiceActual + 1 : 0;
-    
-    // Cambiar a la nueva imagen
-    cambiarImagenPrincipal(nuevoIndice);
-}
-
-// Hacer la función disponible globalmente
-window.navegarSiguienteImagen = navegarSiguienteImagen;
-
 
 /**
  * Agrega producto al carrito usando AJAX (sin salir de la página)
@@ -876,6 +880,14 @@ function agregarAlCarrito(redirigirCheckout = false) {
     const btnAgregar = document.getElementById('btn-agregar-carrito');
     const btnComprar = document.getElementById('btn-comprar-ahora');
     
+    // Validar que los botones sean los correctos
+    if (btnAgregar && btnAgregar.id !== 'btn-agregar-carrito') {
+        console.error('agregarAlCarrito: Botón agregar obtenido incorrectamente');
+    }
+    if (btnComprar && btnComprar.id !== 'btn-comprar-ahora') {
+        console.error('agregarAlCarrito: Botón comprar obtenido incorrectamente');
+    }
+    
     // Validar elementos del DOM
     if (!cantidadInput) {
         console.error('agregarAlCarrito: No se encontró el input de cantidad');
@@ -895,10 +907,18 @@ function agregarAlCarrito(redirigirCheckout = false) {
     
     // Validar cantidad - leer valor fresco del input (no usar valor cacheado)
     // Esto asegura que si el usuario cambió la cantidad con los botones, se lea el valor actualizado
+    // Validar rango según diccionario: 1-1000 para Detalle_Pedido
     const cantidad = parseInt(cantidadInput.value) || 1;
     if (isNaN(cantidad) || cantidad < 1) {
-        alert('La cantidad debe ser mayor a 0');
+        alert('La cantidad debe ser al menos 1 unidad.');
         cantidadInput.value = 1;
+        return false;
+    }
+    
+    // Validar longitud máxima según diccionario: cantidad máxima 1000 en Detalle_Pedido
+    if (cantidad > 1000) {
+        alert('La cantidad no puede exceder 1000 unidades por item.');
+        cantidadInput.value = 1000;
         return false;
     }
     
@@ -1001,13 +1021,16 @@ function agregarAlCarrito(redirigirCheckout = false) {
         }
         
         // Restaurar botones siempre (incluso si hay error)
-        if (btnAgregar) {
-            btnAgregar.disabled = false;
-            btnAgregar.innerHTML = btnAgregarOriginalHTML || '<i class="fas fa-shopping-cart me-2"></i>Agregar al Carrito';
+        // Volver a obtener por ID para asegurar el orden correcto
+        const btnAgregarRestore = document.getElementById('btn-agregar-carrito');
+        const btnComprarRestore = document.getElementById('btn-comprar-ahora');
+        if (btnAgregarRestore) {
+            btnAgregarRestore.disabled = false;
+            btnAgregarRestore.innerHTML = btnAgregarOriginalHTML || '<i class="fas fa-shopping-cart me-2"></i>Agregar al Carrito';
         }
-        if (btnComprar) {
-            btnComprar.disabled = false;
-            btnComprar.innerHTML = btnComprarOriginalHTML || '<i class="fas fa-credit-card me-2"></i>Comprar Ahora';
+        if (btnComprarRestore) {
+            btnComprarRestore.disabled = false;
+            btnComprarRestore.innerHTML = btnComprarOriginalHTML || '<i class="fas fa-credit-card me-2"></i>Comprar Ahora';
         }
         
         // Verificar si la respuesta es exitosa (success puede ser true, 1, o "true")
@@ -1039,13 +1062,16 @@ function agregarAlCarrito(redirigirCheckout = false) {
     })
     .catch(error => {
         // Restaurar botones siempre en caso de error
-        if (btnAgregar) {
-            btnAgregar.disabled = false;
-            btnAgregar.innerHTML = btnAgregarOriginalHTML || '<i class="fas fa-shopping-cart me-2"></i>Agregar al Carrito';
+        // Volver a obtener por ID para asegurar el orden correcto
+        const btnAgregarRestore = document.getElementById('btn-agregar-carrito');
+        const btnComprarRestore = document.getElementById('btn-comprar-ahora');
+        if (btnAgregarRestore) {
+            btnAgregarRestore.disabled = false;
+            btnAgregarRestore.innerHTML = btnAgregarOriginalHTML || '<i class="fas fa-shopping-cart me-2"></i>Agregar al Carrito';
         }
-        if (btnComprar) {
-            btnComprar.disabled = false;
-            btnComprar.innerHTML = btnComprarOriginalHTML || '<i class="fas fa-credit-card me-2"></i>Comprar Ahora';
+        if (btnComprarRestore) {
+            btnComprarRestore.disabled = false;
+            btnComprarRestore.innerHTML = btnComprarOriginalHTML || '<i class="fas fa-credit-card me-2"></i>Comprar Ahora';
         }
         console.error('Error:', error);
         

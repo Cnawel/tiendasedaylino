@@ -70,6 +70,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const estadoActual = estadoSeleccionado || (selectEstadoPago.options[selectEstadoPago.selectedIndex]?.value || '');
         const estadoFinal = estadoSeleccionado || estadoActual;
         
+        // Deshabilitar SELECT si el pago está aprobado (no puede cambiar de estado)
+        // También verificar si ya está deshabilitado desde PHP (pedido completado)
+        if (estadoFinal === 'aprobado' || selectEstadoPago.disabled) {
+            selectEstadoPago.disabled = true;
+        }
+        
         // Mostrar/ocultar código de pago cuando se aprueba o ya está aprobado
         // Nota: El código de pago es solo lectura (llenado por el cliente), solo se muestra si existe
         if (codigoPagoContainer) {
@@ -84,10 +90,74 @@ document.addEventListener('DOMContentLoaded', function() {
         if (motivoRechazoContainer) {
             if (estadoFinal === 'rechazado') {
                 motivoRechazoContainer.style.display = 'block';
+                // Inicializar validación de motivo de rechazo
+                inicializarValidacionMotivoRechazo(pedidoId);
             } else {
                 motivoRechazoContainer.style.display = 'none';
             }
         }
+    }
+    
+    /**
+     * Inicializa validación de motivo de rechazo (máximo 500 caracteres según diccionario)
+     */
+    function inicializarValidacionMotivoRechazo(pedidoId) {
+        const textareaMotivo = document.getElementById('motivo_rechazo_' + pedidoId);
+        const textareaMotivoModal = document.getElementById('motivo_rechazo_modal_' + pedidoId);
+        const contadorMotivo = document.getElementById('contador_motivo_rechazo_' + pedidoId);
+        const contadorMotivoModal = document.getElementById('contador_motivo_rechazo_modal_' + pedidoId);
+        
+        function configurarValidacion(textarea, contador) {
+            if (!textarea) return;
+            
+            function actualizarContador() {
+                if (contador) {
+                    const longitud = textarea.value.length;
+                    contador.textContent = `${longitud}/500 caracteres`;
+                    if (longitud > 500) {
+                        contador.classList.add('text-danger');
+                        contador.classList.remove('text-muted');
+                    } else {
+                        contador.classList.remove('text-danger');
+                        contador.classList.add('text-muted');
+                    }
+                }
+            }
+            
+            textarea.addEventListener('input', function() {
+                actualizarContador();
+                if (this.value.length > 500) {
+                    this.classList.add('is-invalid');
+                    if (this.setCustomValidity) {
+                        this.setCustomValidity('El motivo de rechazo no puede exceder 500 caracteres');
+                    }
+                } else {
+                    this.classList.remove('is-invalid');
+                    if (this.setCustomValidity) {
+                        this.setCustomValidity('');
+                    }
+                }
+            });
+            
+            textarea.addEventListener('blur', function() {
+                if (this.value.length > 500) {
+                    this.classList.add('is-invalid');
+                    if (this.setCustomValidity) {
+                        this.setCustomValidity('El motivo de rechazo no puede exceder 500 caracteres');
+                    }
+                } else {
+                    this.classList.remove('is-invalid');
+                    if (this.setCustomValidity) {
+                        this.setCustomValidity('');
+                    }
+                }
+            });
+            
+            actualizarContador();
+        }
+        
+        configurarValidacion(textareaMotivo, contadorMotivo);
+        configurarValidacion(textareaMotivoModal, contadorMotivoModal);
     }
     
     // Inicializar para todos los modales al cargar la página
@@ -356,8 +426,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Checkbox para mostrar pedidos inactivos
     const checkboxInactivos = document.querySelector('[data-toggle-inactivos]');
     if (checkboxInactivos) {
-        checkboxInactivos.addEventListener('change', function() {
-            togglePedidosInactivos(this.checked);
+        checkboxInactivos.addEventListener('change', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof togglePedidosInactivos === 'function') {
+                togglePedidosInactivos(this.checked);
+            }
         });
     }
     

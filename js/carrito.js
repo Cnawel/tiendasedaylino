@@ -103,7 +103,7 @@ function actualizarResumenCarrito(datos) {
         if (datos.info_envio.es_gratis) {
             envioEl.innerHTML = '<span class="text-success fw-bold small">GRATIS</span>';
         } else {
-            envioEl.innerHTML = '<div class="small" style="font-size: 0.75rem; line-height: 1.5;">' +
+            envioEl.innerHTML = '<div class="small text-small-carrito">' +
                 '<div class="text-muted mb-1">' +
                 'CABA/GBA: <strong class="text-dark">$' + datos.info_envio.costo_caba_gba.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</strong>' +
                 '</div>' +
@@ -119,7 +119,7 @@ function actualizarResumenCarrito(datos) {
     if (alertEl && datos.info_envio) {
         let alertHTML = '';
         if (datos.info_envio.es_gratis) {
-            alertHTML = '<div class="alert alert-success mb-3 py-2" style="font-size: 0.8rem; border-left: 4px solid #198754;">' +
+            alertHTML = '<div class="alert alert-success mb-3 py-2 alert-compact-carrito alert-compact-carrito-success">' +
                 '<div class="d-flex align-items-start">' +
                 '<i class="fas fa-truck me-2 mt-1"></i>' +
                 '<div>' +
@@ -129,7 +129,7 @@ function actualizarResumenCarrito(datos) {
                 '</div>' +
                 '</div>';
         } else if (datos.monto_faltante > 0) {
-            alertHTML = '<div class="alert alert-info mb-3 py-2" style="font-size: 0.8rem; border-left: 4px solid #0dcaf0; color: #000;">' +
+            alertHTML = '<div class="alert alert-info mb-3 py-2 alert-compact-carrito alert-compact-carrito-info">' +
                 '<div class="d-flex align-items-start">' +
                 '<i class="fas fa-truck me-2 mt-1"></i>' +
                 '<div>' +
@@ -139,7 +139,7 @@ function actualizarResumenCarrito(datos) {
                 '</div>' +
                 '</div>';
         } else {
-            alertHTML = '<div class="alert alert-warning mb-3 py-2" style="font-size: 0.8rem; border-left: 4px solid #FF9800;">' +
+            alertHTML = '<div class="alert alert-warning mb-3 py-2 alert-compact-carrito alert-compact-carrito-warning">' +
                 '<div class="d-flex align-items-start">' +
                 '<i class="fas fa-info-circle me-2 mt-1"></i>' +
                 '<div>' +
@@ -160,7 +160,7 @@ function actualizarResumenCarrito(datos) {
         } else {
             totalEl.innerHTML = '<div class="text-end">' +
                 '<h6 class="text-primary mb-0 fw-bold">$' + datos.total_estimado.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '*</h6>' +
-                '<small class="text-muted" style="font-size: 0.65rem;">*Incluye envío desde $' + costoCabaGba.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</small>' +
+                '<small class="text-muted text-tiny">*Incluye envío desde $' + costoCabaGba.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</small>' +
                 '</div>';
         }
     }
