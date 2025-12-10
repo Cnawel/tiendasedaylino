@@ -134,7 +134,7 @@ function obtenerInfoEstadoPago($estado) {
  * completa de 35 combinaciones. Detecta todos los casos críticos y de advertencia
  * identificados en la matriz-estados-pedido-pago-warnings.md
  * 
- * NOTA: Esta función ahora delega a StateValidator::validateOrderPaymentState() para
+ * NOTA: Esta función ahora delega a validarCombinacionPedidoPago() para
  * centralizar la lógica de validación, pero mantiene el formato de retorno original
  * para compatibilidad.
  * 
@@ -162,27 +162,27 @@ function obtenerInfoEstadoPago($estado) {
  *   - 'accion_sugerida' => string Acción sugerida para resolver la inconsistencia
  */
 function detectarInconsistenciasEstado($estado_pedido, $estado_pago, $estado_pedido_anterior = null, $estado_pago_anterior = null) {
-    // Cargar StateValidator si no está cargado
-    require_once __DIR__ . '/state_validator.php';
-    
+    // Cargar funciones de estado si no están cargadas
+    require_once __DIR__ . '/state_functions.php';
+
     // Normalizar estado del pedido
     $estado_pedido_norm = normalizarEstado($estado_pedido);
-    
-    // Pasar null explícitamente si no hay pago, para que validateOrderPaymentState() lo maneje correctamente
+
+    // Pasar null explícitamente si no hay pago, para que validarCombinacionPedidoPago() lo maneje correctamente
     // Si normalizamos null a 'pendiente' aquí, perdemos la distinción entre "sin pago" y "pago pendiente"
     $estado_pago_para_validacion = ($estado_pago === null || $estado_pago === '') ? null : normalizarEstado($estado_pago);
-    
+
     // Normalizar para uso en mensajes (después de la validación)
     $estado_pago_norm = normalizarEstado($estado_pago);
-    
+
     $estado_pedido_anterior_norm = $estado_pedido_anterior ? normalizarEstado($estado_pedido_anterior) : null;
     $estado_pago_anterior_norm = $estado_pago_anterior ? normalizarEstado($estado_pago_anterior) : null;
-    
-    // Usar StateValidator para validar combinación (pasar null explícitamente)
-    $validation = StateValidator::validateOrderPaymentState($estado_pedido_norm, $estado_pago_para_validacion);
-    
-    // Si no hay warning, retornar formato compatible
-    if ($validation['warning'] === null) {
+
+    // Usar validarCombinacionPedidoPago() para validar combinación (pasar null explícitamente)
+    $validation = validarCombinacionPedidoPago($estado_pedido_norm, $estado_pago_para_validacion);
+
+    // Si no hay warning (es válido), retornar formato compatible
+    if ($validation['valido']) {
         return [
             'hay_inconsistencia' => false,
             'tipo' => null,
@@ -193,13 +193,11 @@ function detectarInconsistenciasEstado($estado_pedido, $estado_pago, $estado_ped
         ];
     }
     
-    // Convertir warning de StateValidator al formato esperado
-    $warning = $validation['warning'];
-    
+    // Hay inconsistencia - procesar información
     // Obtener información de estados para mensaje mejorado con transiciones
     $info_pedido = obtenerInfoEstadoPedido($estado_pedido_norm);
     $info_pago = obtenerInfoEstadoPago($estado_pago_norm);
-    
+
     // Construir texto de transición si hay estados anteriores Y hubo cambio real
     $transicion_texto = '';
     if ($estado_pedido_anterior_norm || $estado_pago_anterior_norm) {
@@ -218,35 +216,35 @@ function detectarInconsistenciasEstado($estado_pedido, $estado_pago, $estado_ped
             $transicion_texto = ' (' . implode(', ', $partes_transicion) . ')';
         }
     }
-    
+
     // Mejorar mensaje usando nombres de estados en lugar de valores normalizados
-    $mensaje_base = $warning['message'];
+    $mensaje_base = $validation['mensaje'];
     // Reemplazar valores normalizados por nombres legibles en el mensaje
     $mensaje_base = str_replace("'{$estado_pedido_norm}'", "'{$info_pedido['nombre']}'", $mensaje_base);
     $mensaje_base = str_replace("'{$estado_pago_norm}'", "'{$info_pago['nombre']}'", $mensaje_base);
     $mensaje_mejorado = $mensaje_base . $transicion_texto;
-    
+
     // Determinar grupo según el tipo de warning
     $grupo = null;
-    if ($warning['type'] === 'danger') {
+    if ($validation['tipo'] === 'danger') {
         $grupo = 'inconsistencias_criticas';
-    } elseif (strpos($warning['message'], 'debería tener pago aprobado') !== false) {
+    } elseif (strpos($validation['mensaje'], 'debería tener pago aprobado') !== false) {
         $grupo = 'estados_avanzados_sin_pago_aprobado';
-    } elseif (strpos($warning['message'], 'debería estar cancelado') !== false) {
+    } elseif (strpos($validation['mensaje'], 'debería estar cancelado') !== false) {
         $grupo = 'estados_con_pago_rechazado';
     } elseif ($estado_pedido_norm === 'devolucion') {
         $grupo = 'devolucion_con_pago_rechazado';
     } elseif ($estado_pedido_norm === 'cancelado' && $estado_pago_norm === 'aprobado') {
         $grupo = 'cancelado_con_pago_aprobado';
     }
-    
+
     return [
         'hay_inconsistencia' => true,
-        'tipo' => $warning['type'],
+        'tipo' => $validation['tipo'],
         'mensaje' => $mensaje_mejorado,
-        'severidad' => $warning['severity'],
+        'severidad' => $validation['severidad'],
         'grupo' => $grupo,
-        'accion_sugerida' => $warning['action_suggested']
+        'accion_sugerida' => $validation['accion']
     ];
 }
 
@@ -318,5 +316,82 @@ function formatearMensajeExito($estado_anterior, $estado_actual, $tipo = 'pedido
     }
     
     return $mensaje;
+}
+
+/**
+ * Verifica si un pedido está en recorrido activo (no se puede cancelar directamente)
+ *
+ * Estados de recorrido activo:
+ * - preparacion: Pedido está siendo empaquetado
+ * - en_viaje: Pedido fue despachado y está en tránsito
+ *
+ * Estos estados NO permiten cancelación directa porque:
+ * - Ya se descontó stock
+ * - Ya se aprobó el pago
+ * - Ya se incurrieron en costos de logística
+ *
+ * Para cancelar, se debe usar el flujo de DEVOLUCIÓN.
+ *
+ * @param string $estado_pedido Estado del pedido (sin normalizar)
+ * @return bool true si está en recorrido activo, false en caso contrario
+ */
+function estaEnRecorridoActivoPedido($estado_pedido) {
+    $estado_normalizado = normalizarEstado($estado_pedido);
+    $estados_recorrido_activo = ['preparacion', 'en_viaje'];
+    return in_array($estado_normalizado, $estados_recorrido_activo);
+}
+
+/**
+ * Obtiene los estados desde los cuales se puede cancelar directamente un pedido
+ *
+ * @return array Lista de estados desde los cuales se puede cancelar
+ */
+function obtenerEstadosCancelablesDirectamente() {
+    return ['pendiente', 'pendiente_validado_stock'];
+}
+
+/**
+ * Verifica si un pedido se puede cancelar directamente (sin devolución)
+ *
+ * @param string $estado_pedido Estado actual del pedido
+ * @param string|null $estado_pago Estado actual del pago (opcional)
+ * @return array ['puede_cancelar' => bool, 'razon' => string]
+ */
+function puedeCancelarPedidoDirectamente($estado_pedido, $estado_pago = null) {
+    $estado_normalizado = normalizarEstado($estado_pedido);
+
+    // Validar que NO esté en estado terminal
+    if (in_array($estado_normalizado, ['cancelado', 'completado', 'devolucion'])) {
+        return [
+            'puede_cancelar' => false,
+            'razon' => 'El pedido ya está en estado terminal'
+        ];
+    }
+
+    // Validar que NO esté en recorrido activo
+    if (estaEnRecorridoActivoPedido($estado_pedido)) {
+        return [
+            'puede_cancelar' => false,
+            'razon' => 'El pedido está en recorrido activo. Use el flujo de devolución.'
+        ];
+    }
+
+    // Validar que pago NO esté aprobado (si se provee estado de pago)
+    if ($estado_pago !== null) {
+        $estado_pago_normalizado = normalizarEstado($estado_pago);
+
+        if ($estado_pago_normalizado === 'aprobado') {
+            return [
+                'puede_cancelar' => false,
+                'razon' => 'El pago ya fue aprobado. Use el flujo de devolución.'
+            ];
+        }
+    }
+
+    // Puede cancelar directamente
+    return [
+        'puede_cancelar' => true,
+        'razon' => 'El pedido se puede cancelar directamente'
+    ];
 }
 

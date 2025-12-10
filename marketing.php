@@ -1130,8 +1130,8 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach ($fotos_temporales as $foto): 
-                                        $ruta_completa = 'uploads/temp_csv/' . $foto;
+                                    <?php foreach ($fotos_temporales as $foto):
+                                        $ruta_completa = 'imagenes/' . $foto;
                                         $tamaño = file_exists($ruta_completa) ? filesize($ruta_completa) : 0;
                                     ?>
                                     <tr>

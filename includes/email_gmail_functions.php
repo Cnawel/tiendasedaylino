@@ -676,5 +676,266 @@ function generar_texto_confirmacion_pedido_gmail($pedido, $nombre_completo) {
     return $texto;
 }
 
+/**
+ * Envía email de notificación cuando un pedido es cancelado o un pago es rechazado
+ *
+ * CASOS DE USO:
+ * - Pedido cancelado automáticamente (auto_cleanup_reservas.php)
+ * - Pedido cancelado manualmente por ventas
+ * - Pedido cancelado por el cliente
+ * - Pago rechazado por ventas
+ *
+ * @param int $id_pedido ID del pedido
+ * @param int $id_usuario ID del usuario
+ * @param string $tipo Tipo de notificación: 'cancelado' o 'rechazado'
+ * @param string|null $motivo Motivo del rechazo/cancelación (opcional)
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @return bool True si se envió correctamente, false si hubo error
+ */
+function enviar_email_pedido_cancelado_o_rechazado($id_pedido, $id_usuario, $tipo, $motivo = null, $mysqli = null) {
+    try {
+        // Si no se pasó mysqli, intentar obtener la conexión global
+        if ($mysqli === null) {
+            global $mysqli;
+            if (!$mysqli) {
+                error_log("enviar_email_pedido_cancelado_o_rechazado: No se pudo obtener conexión mysqli");
+                return false;
+            }
+        }
+
+        // Cargar función de usuario si no está cargada
+        if (!function_exists('obtenerUsuarioPorId')) {
+            require_once __DIR__ . '/../queries/usuario_queries.php';
+        }
+
+        // Obtener datos del usuario
+        $usuario = obtenerUsuarioPorId($mysqli, $id_usuario);
+        if (!$usuario || empty($usuario['email'])) {
+            error_log("enviar_email_pedido_cancelado_o_rechazado: Usuario no encontrado o sin email. ID: $id_usuario");
+            return false;
+        }
+
+        // Sanitizar datos
+        $nombre_sanitizado = htmlspecialchars($usuario['nombre'], ENT_QUOTES, 'UTF-8');
+        $apellido_sanitizado = htmlspecialchars($usuario['apellido'], ENT_QUOTES, 'UTF-8');
+        $email_sanitizado = htmlspecialchars($usuario['email'], ENT_QUOTES, 'UTF-8');
+        $nombre_completo = trim($nombre_sanitizado . ' ' . $apellido_sanitizado);
+
+        // Formatear ID de pedido
+        $id_pedido_formateado = str_pad($id_pedido, 6, '0', STR_PAD_LEFT);
+
+        // Determinar asunto y contenido según tipo
+        if ($tipo === 'rechazado') {
+            $asunto = "Pago Rechazado - Pedido #$id_pedido_formateado - Seda y Lino";
+            $cuerpo_html = generar_template_pedido_cancelado_rechazado($id_pedido_formateado, $nombre_sanitizado, 'rechazado', $motivo);
+            $cuerpo_texto = generar_texto_pedido_cancelado_rechazado($id_pedido_formateado, $nombre_sanitizado, 'rechazado', $motivo);
+        } else {
+            $asunto = "Pedido Cancelado - #$id_pedido_formateado - Seda y Lino";
+            $cuerpo_html = generar_template_pedido_cancelado_rechazado($id_pedido_formateado, $nombre_sanitizado, 'cancelado', $motivo);
+            $cuerpo_texto = generar_texto_pedido_cancelado_rechazado($id_pedido_formateado, $nombre_sanitizado, 'cancelado', $motivo);
+        }
+
+        // Enviar email
+        $resultado = enviar_email_gmail($email_sanitizado, $nombre_completo, $asunto, $cuerpo_html, $cuerpo_texto);
+
+        if ($resultado) {
+            error_log("Email enviado exitosamente a $email_sanitizado - Pedido #$id_pedido - Tipo: $tipo");
+        } else {
+            error_log("Error al enviar email a $email_sanitizado - Pedido #$id_pedido - Tipo: $tipo");
+        }
+
+        return $resultado;
+
+    } catch (Exception $e) {
+        error_log("Error en enviar_email_pedido_cancelado_o_rechazado: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Genera el template HTML para email de pedido cancelado o pago rechazado
+ *
+ * @param string $id_pedido_formateado ID del pedido formateado
+ * @param string $nombre Nombre del usuario
+ * @param string $tipo 'cancelado' o 'rechazado'
+ * @param string|null $motivo Motivo del rechazo/cancelación (opcional)
+ * @return string HTML del email
+ */
+function generar_template_pedido_cancelado_rechazado($id_pedido_formateado, $nombre, $tipo, $motivo = null) {
+    $email_contacto = defined('GMAIL_FROM_EMAIL') ? GMAIL_FROM_EMAIL : 'info.sedaylino@gmail.com';
+
+    // Configuración según tipo
+    if ($tipo === 'rechazado') {
+        $titulo = "Pago Rechazado";
+        $estado_badge = "PAGO RECHAZADO";
+        $titulo_razon = "⚠️ ¿Por qué se rechazó tu pago?";
+        $razon_texto = $motivo
+            ? "<p style='color: #6B5D47; margin: 10px 0; line-height: 1.8;'><strong>Motivo:</strong> " . htmlspecialchars($motivo, ENT_QUOTES, 'UTF-8') . "</p>"
+            : "<p style='color: #6B5D47; margin: 10px 0; line-height: 1.8;'>Tu pago no pudo ser verificado. Por favor, contacta con nosotros para más detalles.</p>";
+        $mensaje_inicial = "lamentamos informarte que el pago de tu pedido ha sido rechazado";
+    } else {
+        $titulo = "Pedido Cancelado";
+        $estado_badge = "PEDIDO CANCELADO";
+        $titulo_razon = "⚠️ ¿Por qué se canceló tu pedido?";
+        $razon_texto = $motivo
+            ? "<p style='color: #6B5D47; margin: 10px 0; line-height: 1.8;'><strong>Motivo:</strong> " . htmlspecialchars($motivo, ENT_QUOTES, 'UTF-8') . "</p>"
+            : "<p style='color: #6B5D47; margin: 10px 0; line-height: 1.8;'>Tu pedido fue cancelado automáticamente porque <strong>han transcurrido más de 24 horas sin recibir confirmación del pago</strong>.</p>";
+    }
+
+    $html = "
+    <!DOCTYPE html>
+    <html lang='es'>
+    <head>
+        <meta charset='UTF-8'>
+        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+        <title>$titulo</title>
+    </head>
+    <body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #F5E6D3;'>
+
+        <!-- Header -->
+        <div style='background: #B8A082; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;'>
+            <h1 style='margin: 0; font-size: 28px; font-weight: 700;'>SEDA Y LINO</h1>
+            <p style='margin: 10px 0 0 0; font-size: 14px; opacity: 0.95;'>Elegancia atemporal en cada prenda</p>
+        </div>
+
+        <!-- Notificación -->
+        <div style='background: white; padding: 40px 30px; text-align: center;'>
+            <div style='background: #FFE5E5; display: inline-block; padding: 20px 30px; border-radius: 50px; margin-bottom: 20px;'>
+                <span style='color: #D32F2F; font-size: 48px;'>✕</span>
+            </div>
+            <h2 style='color: #8B7355; margin: 20px 0 15px 0; font-size: 26px; font-weight: 700;'>$titulo</h2>
+            <p style='color: #6B5D47; margin: 0; font-size: 16px; line-height: 1.8;'>
+                Hola <strong>$nombre</strong>, $mensaje_inicial.
+            </p>
+        </div>
+
+        <!-- Detalles del Pedido -->
+        <div style='background: white; padding: 30px; border-left: 4px solid #D32F2F; margin-top: 20px;'>
+            <h3 style='color: #8B7355; margin-top: 0; border-bottom: 2px solid #E8DDD0; padding-bottom: 10px; font-size: 20px;'>
+                📋 Información del Pedido
+            </h3>
+
+            <table style='width: 100%; margin-top: 20px;'>
+                <tr>
+                    <td style='padding: 12px 0; color: #6B5D47;'><strong>Número de Pedido:</strong></td>
+                    <td style='padding: 12px 0; text-align: right; color: #8B7355; font-size: 20px; font-weight: 700; letter-spacing: 2px;'>#$id_pedido_formateado</td>
+                </tr>
+                <tr>
+                    <td style='padding: 12px 0; color: #6B5D47;'><strong>Estado:</strong></td>
+                    <td style='padding: 12px 0; text-align: right;'><span style='background: #FFE5E5; color: #D32F2F; padding: 5px 15px; border-radius: 15px; font-weight: 700;'>$estado_badge</span></td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Razón -->
+        <div style='background: #FFF9E6; border-left: 4px solid #FFA726; padding: 25px; margin-top: 20px; border-radius: 5px;'>
+            <h3 style='color: #E65100; margin-top: 0; font-size: 18px;'>$titulo_razon</h3>
+            $razon_texto
+            <p style='color: #6B5D47; margin: 10px 0; line-height: 1.8;'>
+                El stock reservado ha sido liberado y está nuevamente disponible para otros clientes.
+            </p>
+        </div>
+
+        <!-- Próximos Pasos -->
+        <div style='background: #E8DDD0; padding: 30px; border-radius: 5px; margin-top: 20px;'>
+            <h3 style='color: #8B7355; margin-top: 0; font-size: 18px;'>💡 ¿Qué puedes hacer ahora?</h3>
+            <ul style='color: #6B5D47; padding-left: 20px; line-height: 2;'>
+                <li style='margin-bottom: 10px;'><strong>Realizar un nuevo pedido</strong> si aún te interesan los productos.</li>
+                <li style='margin-bottom: 10px;'><strong>Verificar disponibilidad</strong> de los productos en nuestro catálogo.</li>
+                <li><strong>Contactarnos</strong> si crees que esto es un error o necesitas ayuda.</li>
+            </ul>
+        </div>
+
+        <!-- Información de Contacto -->
+        <div style='background: white; padding: 25px; text-align: center; margin-top: 20px; border-top: 3px solid #B8A082; border-radius: 5px;'>
+            <h4 style='color: #8B7355; margin-top: 0;'>¿Necesitas ayuda?</h4>
+            <p style='color: #6B5D47; margin: 10px 0;'>
+                Para más información o si tienes alguna consulta, contáctanos:
+            </p>
+            <p style='margin: 15px 0;'>
+                <a href='mailto:$email_contacto' style='background: #B8A082; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: 600;'>
+                    📧 $email_contacto
+                </a>
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div style='background: #8B7355; color: white; padding: 20px; text-align: center; border-radius: 0 0 10px 10px; margin-top: 20px;'>
+            <p style='margin: 0; font-size: 14px;'>Sentimos las molestias ocasionadas</p>
+            <p style='margin: 10px 0 0 0; font-size: 12px; opacity: 0.9;'>© 2025 Seda y Lino. Todos los derechos reservados.</p>
+        </div>
+
+    </body>
+    </html>
+    ";
+
+    return $html;
+}
+
+/**
+ * Genera versión en texto plano del email de pedido cancelado o pago rechazado
+ *
+ * @param string $id_pedido_formateado ID del pedido formateado
+ * @param string $nombre Nombre del usuario
+ * @param string $tipo 'cancelado' o 'rechazado'
+ * @param string|null $motivo Motivo del rechazo/cancelación (opcional)
+ * @return string Texto plano del email
+ */
+function generar_texto_pedido_cancelado_rechazado($id_pedido_formateado, $nombre, $tipo, $motivo = null) {
+    $email_contacto = defined('GMAIL_FROM_EMAIL') ? GMAIL_FROM_EMAIL : 'info.sedaylino@gmail.com';
+
+    // Configuración según tipo
+    if ($tipo === 'rechazado') {
+        $titulo = "Pago Rechazado";
+        $estado = "PAGO RECHAZADO";
+        $titulo_razon = "¿POR QUÉ SE RECHAZÓ TU PAGO?";
+        $razon_texto = $motivo
+            ? "Motivo: $motivo\n\n"
+            : "Tu pago no pudo ser verificado. Por favor, contacta con nosotros para más detalles.\n\n";
+        $mensaje_inicial = "lamentamos informarte que el pago de tu pedido ha sido rechazado.";
+    } else {
+        $titulo = "Pedido Cancelado";
+        $estado = "CANCELADO";
+        $titulo_razon = "¿POR QUÉ SE CANCELÓ TU PEDIDO?";
+        $razon_texto = $motivo
+            ? "Motivo: $motivo\n\n"
+            : "Tu pedido fue cancelado automáticamente porque han transcurrido\nmás de 24 horas sin recibir confirmación del pago.\n\n";
+        $mensaje_inicial = "lamentamos informarte que tu pedido ha sido cancelado.";
+    }
+
+    $texto = "========================================\n";
+    $texto .= "SEDA Y LINO - $titulo\n";
+    $texto .= "========================================\n\n";
+
+    $texto .= "Hola $nombre,\n\n";
+    $texto .= ucfirst($mensaje_inicial) . "\n\n";
+
+    $texto .= "INFORMACIÓN DEL PEDIDO\n";
+    $texto .= "----------------------\n";
+    $texto .= "Número de Pedido: #$id_pedido_formateado\n";
+    $texto .= "Estado: $estado\n\n";
+
+    $texto .= "$titulo_razon\n";
+    $texto .= "------------------------------\n";
+    $texto .= $razon_texto;
+    $texto .= "El stock reservado ha sido liberado y está nuevamente disponible\n";
+    $texto .= "para otros clientes.\n\n";
+
+    $texto .= "¿QUÉ PUEDES HACER AHORA?\n";
+    $texto .= "------------------------\n";
+    $texto .= "- Realizar un nuevo pedido si aún te interesan los productos\n";
+    $texto .= "- Verificar disponibilidad de los productos en nuestro catálogo\n";
+    $texto .= "- Contactarnos si crees que esto es un error o necesitas ayuda\n\n";
+
+    $texto .= "¿NECESITAS AYUDA?\n";
+    $texto .= "----------------\n";
+    $texto .= "Para más información, contáctanos: $email_contacto\n\n";
+
+    $texto .= "Sentimos las molestias ocasionadas.\n";
+    $texto .= "© 2025 Seda y Lino\n";
+
+    return $texto;
+}
+
 ?>
 

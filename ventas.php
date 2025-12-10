@@ -107,6 +107,9 @@ require_once __DIR__ . '/includes/perfil_functions.php';
 // Cargar helpers de estados (mapeos y normalización)
 require_once __DIR__ . '/includes/estado_helpers.php';
 
+// Cargar funciones de validación de estados (transiciones)
+require_once __DIR__ . '/includes/state_functions.php';
+
 // Cargar componentes de ventas (modales y secciones)
 require_once __DIR__ . '/includes/ventas_components.php';
 
@@ -139,7 +142,7 @@ require_once __DIR__ . '/includes/queries/cliente_queries.php';
 // ============================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $resultado = false;
-    
+
     // Determinar acción basada en parámetros POST
     if (isset($_POST['actualizar_estado_pedido'])) {
         $resultado = procesarActualizacionPedidoPago($mysqli, $_POST, $id_usuario);
@@ -161,17 +164,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($resultado !== false) {
         $_SESSION['mensaje'] = $resultado['mensaje'];
         $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
-        
+
         // Preservar tab desde POST si está presente (para acciones de métodos de pago)
         $params_adicionales = null;
         if (isset($_POST['tab']) && !empty($_POST['tab'])) {
             $params_adicionales = ['tab' => $_POST['tab']];
         }
-        
+
         $redirect_url = construirRedirectUrl('ventas.php', $params_adicionales);
         header('Location: ' . $redirect_url);
         exit;
     } else {
+        // Si la acción fue reconocida pero retornó false, mostrar error genérico
+        $accion = '';
+        if (isset($_POST['aprobar_pago'])) $accion = 'aprobar el pago';
+        elseif (isset($_POST['rechazar_pago'])) $accion = 'rechazar el pago';
+        elseif (isset($_POST['actualizar_estado_pedido'])) $accion = 'actualizar el pedido';
+        elseif (isset($_POST['agregar_metodo_pago'])) $accion = 'agregar el método de pago';
+        elseif (isset($_POST['actualizar_metodo_pago'])) $accion = 'actualizar el método de pago';
+        elseif (isset($_POST['eliminar_metodo_pago'])) $accion = 'eliminar el método de pago';
+        elseif (isset($_POST['toggle_activo_metodo_pago'])) $accion = 'cambiar el estado del método de pago';
+
+        if ($accion) {
+            $_SESSION['mensaje'] = "No se pudo $accion. Por favor, intenta nuevamente o contacta al administrador si el problema persiste.";
+            $_SESSION['mensaje_tipo'] = 'danger';
+
+            // Preservar tab si existe
+            $params_adicionales = null;
+            if (isset($_POST['tab']) && !empty($_POST['tab'])) {
+                $params_adicionales = ['tab' => $_POST['tab']];
+            }
+
+            $redirect_url = construirRedirectUrl('ventas.php', $params_adicionales);
+            header('Location: ' . $redirect_url);
+            exit;
+        }
     }
 }
 
@@ -462,15 +489,15 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <button type="button" 
-                                                    class="btn btn-sm btn-outline-primary me-1" 
-                                                    data-bs-toggle="modal" 
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-primary me-1"
+                                                    data-bs-toggle="modal"
                                                     data-bs-target="#verPedidoModal<?= $pedido['id_pedido'] ?>">
                                                 <i class="fas fa-eye me-1"></i>Ver Pedido
                                             </button>
-                                            <button type="button" 
-                                                    class="btn btn-sm btn-outline-primary" 
-                                                    data-bs-toggle="modal" 
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-primary"
+                                                    data-bs-toggle="modal"
                                                     data-bs-target="#editarEstadoModal<?= $pedido['id_pedido'] ?>">
                                                 <i class="fas fa-edit me-1"></i>Editar Estado
                                             </button>

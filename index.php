@@ -210,6 +210,7 @@ include 'includes/header.php';
         </script>
         <script src="js/index.js"></script>
         <?php endif; ?>
+        
     </main>
 
 <?php include 'includes/footer.php'; render_footer(); ?>

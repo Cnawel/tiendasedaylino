@@ -12,6 +12,7 @@
 $titulo_pagina = 'Catálogo de Productos';
 
 // Incluir header completo (head + navigation)
+// Incluir header completo (head + navigation)
 include 'includes/header.php';
 
 // Conectar a la base de datos y helpers
@@ -20,131 +21,23 @@ require_once __DIR__ . '/includes/image_helper.php';
 require_once __DIR__ . '/includes/talles_config.php';
 require_once __DIR__ . '/includes/queries/producto_queries.php';
 require_once __DIR__ . '/includes/queries/categoria_queries.php';
+require_once __DIR__ . '/includes/catalogo_helper.php';
 
-// Obtener categorías activas desde la base de datos y eliminar duplicados
-$categorias_activas_temp = obtenerCategorias($mysqli);
-// Eliminar duplicados por nombre de categoría (mantener solo la primera ocurrencia)
-// Verificación adicional: solo incluir categorías con activo = 1
-$categorias_activas = [];
-$nombres_vistos = [];
-foreach ($categorias_activas_temp as $cat) {
-    // Verificar que la categoría esté activa (doble verificación)
-    if (isset($cat['activo']) && $cat['activo'] != 1) {
-        continue; // Saltar categorías inactivas
-    }
-    $nombre_normalizado = strtolower(trim($cat['nombre_categoria']));
-    if (!in_array($nombre_normalizado, $nombres_vistos)) {
-        $categorias_activas[] = $cat;
-        $nombres_vistos[] = $nombre_normalizado;
-    }
-}
+// Obtener categorías activas y filtrar las que tienen productos
+$categorias_activas = obtenerCategoriasActivasConProductos($mysqli);
 
-// Filtrar categorías: mostrar las que tienen productos activos (incluyendo stock 0)
-if (!empty($categorias_activas)) {
-    // Obtener IDs de categorías que tienen productos activos (incluyendo stock 0)
-    $categorias_con_productos_ids = obtenerCategoriasConProductosStock($mysqli);
-    
-    // Filtrar categorías activas: mantener las que tienen productos activos (stock >= 0)
-    $categorias_activas = array_filter($categorias_activas, function($cat) use ($categorias_con_productos_ids) {
-        return in_array((int)$cat['id_categoria'], $categorias_con_productos_ids);
-    });
-    
-    // Re-indexar el array después de filtrar
-    $categorias_activas = array_values($categorias_activas);
-}
-
-// Obtener categoría seleccionada desde URL, por defecto 'todos'
-// Limpiar y normalizar el nombre de la categoría
-// Decodificar URL y normalizar para consistencia con la base de datos
-$categoria_nombre_raw = isset($_GET['categoria']) ? $_GET['categoria'] : 'todos';
-$categoria_nombre = ($categoria_nombre_raw !== 'todos') 
-    ? trim(urldecode($categoria_nombre_raw)) 
-    : 'todos';
-// ID de categoría para filtrado en BD (se obtiene más abajo si es necesario)
-$categoria_id = null;
+// Procesar parámetros de filtros (GET)
+$filtros_procesados = procesarParametrosFiltros($_GET);
+$categoria_nombre = $filtros_procesados['categoria_nombre'];
+$talles_seleccionados = $filtros_procesados['talles'];
+$generos_seleccionados = $filtros_procesados['generos'];
+$colores_seleccionados = $filtros_procesados['colores'];
 
 // Descripciones personalizadas por categoría para SEO y UX
-// Construir dinámicamente desde las categorías activas
-$descripciones = [
-    'todos' => 'Descubre nuestra colección completa de productos elegantes'
-];
-foreach ($categorias_activas as $cat) {
-    $descripciones[$cat['nombre_categoria']] = !empty($cat['descripcion_categoria']) 
-        ? $cat['descripcion_categoria'] 
-        : 'Productos de ' . $cat['nombre_categoria'];
-}
+$descripciones = generarDescripcionesCategorias($categorias_activas);
 
-// Obtener talles seleccionados desde filtros GET - Solo talles estándar (S, M, L, XL)
-$talles_seleccionados = [];
-if (isset($_GET['talle'])) {
-    $talles_temp = is_array($_GET['talle']) ? $_GET['talle'] : [$_GET['talle']];
-    $talles_validos = obtenerTallesEstandar();
-    // Filtrar solo talles estándar válidos
-    foreach ($talles_temp as $talle) {
-        if (in_array($talle, $talles_validos)) {
-            $talles_seleccionados[] = $talle;
-        }
-    }
-}
-
-// Obtener géneros seleccionados desde filtros GET - Solo géneros válidos
-$generos_seleccionados = [];
-if (isset($_GET['genero'])) {
-    $generos_temp = is_array($_GET['genero']) ? $_GET['genero'] : [$_GET['genero']];
-    $generos_validos = ['hombre', 'mujer', 'unisex'];
-    // Filtrar solo géneros válidos
-    foreach ($generos_temp as $genero) {
-        $genero_normalizado = strtolower(trim($genero));
-        if (in_array($genero_normalizado, $generos_validos) && !in_array($genero_normalizado, $generos_seleccionados)) {
-            $generos_seleccionados[] = $genero_normalizado;
-        }
-    }
-}
-
-// Obtener colores seleccionados desde filtros GET - Normalizar para consistencia
-$colores_seleccionados = [];
-if (isset($_GET['color'])) {
-    $colores_temp = is_array($_GET['color']) ? $_GET['color'] : [$_GET['color']];
-    // Normalizar colores (primera letra mayúscula, resto minúscula)
-    foreach ($colores_temp as $color) {
-        $color_normalizado = ucfirst(strtolower(trim($color)));
-        if (!in_array($color_normalizado, $colores_seleccionados)) {
-            $colores_seleccionados[] = $color_normalizado;
-        }
-    }
-}
-
-// Si la categoría no es 'todos', obtener su ID desde la base de datos usando función centralizada
-$categoria_id = null;
-if ($categoria_nombre !== 'todos') {
-    $categoria_id = obtenerCategoriaIdPorNombre($mysqli, $categoria_nombre);
-    // Validar que se encontró la categoría correcta
-    if (!$categoria_id) {
-        // Log error para debugging
-        error_log("WARNING catalogo.php - No se encontró categoría con nombre: '" . $categoria_nombre . "'");
-        $categoria_id = null;
-    } else {
-        // Verificar que el ID encontrado corresponde a la categoría esperada
-        // Obtener el nombre de la categoría desde el ID para validación
-        $sql_verificacion = "SELECT nombre_categoria FROM Categorias WHERE id_categoria = ? AND activo = 1 LIMIT 1";
-        $stmt_verificacion = $mysqli->prepare($sql_verificacion);
-        if ($stmt_verificacion) {
-            $stmt_verificacion->bind_param('i', $categoria_id);
-            if ($stmt_verificacion->execute()) {
-                $result_verificacion = $stmt_verificacion->get_result();
-                $row_verificacion = $result_verificacion->fetch_assoc();
-                if ($row_verificacion) {
-                    $nombre_categoria_encontrada = trim($row_verificacion['nombre_categoria']);
-                    // Comparación case-insensitive para validar
-                    if (strtolower($nombre_categoria_encontrada) !== strtolower($categoria_nombre)) {
-                        error_log("WARNING catalogo.php - Mismatch de categoría. Buscada: '" . $categoria_nombre . "', Encontrada: '" . $nombre_categoria_encontrada . "' (ID: " . $categoria_id . ")");
-                    }
-                }
-            }
-            $stmt_verificacion->close();
-        }
-    }
-}
+// Validar categoría solicitada y obtener ID
+$categoria_id = validarCategoriaSolicitada($mysqli, $categoria_nombre);
 
 // Obtener talles, géneros y colores disponibles usando funciones centralizadas
 // IMPORTANTE: Si se busca una categoría específica y no existe, los filtros deben mostrar (0)

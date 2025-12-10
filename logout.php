@@ -20,34 +20,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Limpiar todas las variables de sesión
-$_SESSION = array();
+// Incluir funciones de seguridad
+require_once(__DIR__ . '/includes/security_functions.php');
 
-// Destruir la sesión (debe hacerse mientras la sesión está abierta)
-session_destroy();
-
-// Cerrar sesión después de destruir
-session_write_close();
-
-// Destruir la cookie de sesión si existe
-if (ini_get("session.use_cookies")) {
-    $params = session_get_cookie_params();
-    setcookie(
-        session_name(), 
-        '', 
-        time() - 42000,
-        $params["path"], 
-        $params["domain"],
-        $params["secure"], 
-        $params["httponly"]
-    );
-}
-
-// Limpiar cualquier buffer de salida para asegurar redirección limpia
-if (ob_get_level() > 0) {
-    ob_end_clean();
-}
-
-// Redireccionar al login con mensaje de logout exitoso (redirección 302)
-header('Location: login.php?logout=1', true, 302);
-exit;
+// Usar función centralizada para destruir sesión de manera segura
+destruirSesionSegura('login.php?logout=1');

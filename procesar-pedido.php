@@ -170,7 +170,18 @@ $errores_stock = [];
 $checkout_errores = [];
 $checkout_productos_problema = [];
 
-// Iniciar transacción para validar stock (sin FOR UPDATE, más simple y confiable)
+// FIX: Limpiar reservas expiradas ANTES de iniciar transacción
+// Esto libera stock de pedidos viejos (>24h sin pago) para que esté disponible
+// Se ejecuta FUERA de transacción para evitar bloqueos
+try {
+    require_once __DIR__ . '/includes/auto_cleanup_reservas.php';
+    limpiarReservasExpiradas($mysqli);
+} catch (Exception $e) {
+    error_log("Error al limpiar reservas expiradas: " . $e->getMessage());
+    // Continuar - no es crítico
+}
+
+// Iniciar transacción ÚNICA para todo el flujo
 $mysqli->begin_transaction();
 
 try {
@@ -288,7 +299,7 @@ try {
     exit;
 }
 
-// Continuar con la misma transacción iniciada en la línea 174
+// Continuar con la misma transacción iniciada en la línea 185
 // NO iniciar nueva transacción aquí - ya estamos dentro de una
 // Esta transacción única garantiza atomicidad entre validación de stock, creación de pedido y reserva de stock
 

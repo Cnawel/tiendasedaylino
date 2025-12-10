@@ -235,24 +235,58 @@ function subirFotoTemporal($archivo) {
 
 /**
  * Obtiene lista de fotos temporales disponibles
+ * Solo retorna archivos que realmente existen y tienen contenido válido
  * @return array Array con nombres de archivos temporales
  */
 function obtenerFotosTemporales() {
     $directorio_temporal = 'imagenes/';
     $fotos = [];
-    
-    if (is_dir($directorio_temporal)) {
-        $archivos = scandir($directorio_temporal);
-        foreach ($archivos as $archivo) {
-            if ($archivo !== '.' && $archivo !== '..' && is_file($directorio_temporal . $archivo)) {
-                $extension = strtolower(pathinfo($archivo, PATHINFO_EXTENSION));
-                if (in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
-                    $fotos[] = $archivo;
-                }
-            }
+
+    // Verificar que el directorio existe
+    if (!is_dir($directorio_temporal)) {
+        return $fotos; // Retornar array vacío si directorio no existe
+    }
+
+    $archivos = scandir($directorio_temporal);
+    if ($archivos === false) {
+        return $fotos; // Error al leer directorio
+    }
+
+    foreach ($archivos as $archivo) {
+        // Saltar . y ..
+        if ($archivo === '.' || $archivo === '..') {
+            continue;
+        }
+
+        $ruta_completa = $directorio_temporal . $archivo;
+
+        // VALIDACIONES CRÍTICAS:
+        // 1. Debe ser un archivo (no directorio)
+        // 2. Debe existir físicamente
+        // 3. Debe ser legible
+        // 4. Debe tener tamaño mayor a 0 bytes
+        if (!is_file($ruta_completa) || !file_exists($ruta_completa)) {
+            continue;
+        }
+
+        // Verificar que el archivo sea legible
+        if (!is_readable($ruta_completa)) {
+            continue;
+        }
+
+        // Verificar que tenga contenido (tamaño > 0)
+        $tamaño = @filesize($ruta_completa);
+        if ($tamaño === false || $tamaño === 0) {
+            continue;
+        }
+
+        // Validar extensión de imagen
+        $extension = strtolower(pathinfo($archivo, PATHINFO_EXTENSION));
+        if (in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+            $fotos[] = $archivo;
         }
     }
-    
+
     return $fotos;
 }
 

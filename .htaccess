@@ -1,23 +1,16 @@
 # ========================================================================
-# .htaccess - Tienda Seda y Lino (Versión Mínima)
+# .htaccess - Tienda Seda y Lino (Modo Depuración)
 # ========================================================================
+# VERSIÓN MÍNIMA PARA DEBUGGING - Solo funcionalidad esencial
 
-RewriteEngine On
-RewriteBase /
-
-# Agregar .php si el archivo existe
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{REQUEST_FILENAME}.php -f
-RewriteRule ^(.*)$ $1.php [L]
-
-# Protección de archivos sensibles
-<FilesMatch "^(config|includes|sql|test)">
-    Require all denied
-</FilesMatch>
-
-<FilesMatch "\.(sql|md|log|htaccess|htpasswd)$">
-    Require all denied
-</FilesMatch>
-
+# Deshabilitar listado de directorios
 Options -Indexes
+
+# Agregar .php automáticamente si el archivo existe
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME}.php -f
+    RewriteRule ^(.*)$ $1.php [L,QSA]
+</IfModule>

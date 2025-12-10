@@ -575,103 +575,122 @@ function validarRespuestaRecupero($respuesta_recupero) {
 }
 
 /**
- * Valida todos los datos de recuperación de contraseña en una sola llamada
- * Consolidación de validaciones para reducir nesting en recuperar-contrasena.php
+ * Valida que el usuario exista
+ *
+ * @param array|null $usuario Datos del usuario obtenidos de BD
+ * @return array ['valido' => bool, 'error' => string]
+ */
+function validarUsuarioExiste($usuario) {
+    if (!$usuario || !isset($usuario['id_usuario'])) {
+        return ['valido' => false, 'error' => 'Usuario no encontrado.'];
+    }
+    return ['valido' => true, 'error' => ''];
+}
+
+/**
+ * Valida fecha de nacimiento del usuario para recuperación
+ *
+ * @param array $usuario Datos del usuario obtenidos de BD
+ * @param string $fecha_nacimiento Fecha proporcionada en formato DD/MM/YYYY
+ * @return array ['valido' => bool, 'error' => string]
+ */
+function validarFechaNacimientoRecupero($usuario, $fecha_nacimiento) {
+    // Verificar que el usuario tenga fecha de nacimiento
+    $fecha_nac_bd = $usuario['fecha_nacimiento'] ?? null;
+    if (empty($fecha_nac_bd)) {
+        return ['valido' => false, 'error' => 'No se encontró fecha de nacimiento para este usuario.'];
+    }
+
+    // Comparar fechas
+    $fecha_nac_formateada = date('d/m/Y', strtotime($fecha_nac_bd));
+    if ($fecha_nac_formateada !== $fecha_nacimiento) {
+        return ['valido' => false, 'error' => 'La fecha de nacimiento no coincide con nuestros registros.'];
+    }
+
+    return ['valido' => true, 'error' => ''];
+}
+
+/**
+ * Valida pregunta y respuesta de recuperación
+ *
+ * @param array $usuario Datos del usuario obtenidos de BD
+ * @param int $pregunta_id ID de la pregunta proporcionada
+ * @param string $respuesta Respuesta proporcionada
+ * @return array ['valido' => bool, 'error' => string]
+ */
+function validarPreguntaRespuestaRecupero($usuario, $pregunta_id, $respuesta) {
+    // Validar que haya pregunta y respuesta
+    if (empty($pregunta_id) || $pregunta_id <= 0) {
+        return ['valido' => false, 'error' => 'Debes seleccionar una pregunta de seguridad.'];
+    }
+
+    if (empty($respuesta)) {
+        return ['valido' => false, 'error' => 'Debes proporcionar una respuesta.'];
+    }
+
+    // Obtener datos guardados en BD
+    $pregunta_bd = $usuario['pregunta_recupero'] ?? null;
+    $respuesta_bd = $usuario['respuesta_recupero'] ?? null;
+
+    if (empty($pregunta_bd) || empty($respuesta_bd)) {
+        return ['valido' => false, 'error' => 'No se encontraron los datos de seguridad para este usuario.'];
+    }
+
+    // Comparar pregunta
+    if ((int)$pregunta_id !== (int)$pregunta_bd) {
+        return ['valido' => false, 'error' => 'La pregunta de seguridad no coincide con nuestros registros.'];
+    }
+
+    // Comparar respuesta (normalizada)
+    $respuesta_usuario = strtolower(trim($respuesta));
+    $respuesta_guardada = strtolower(trim($respuesta_bd));
+
+    if ($respuesta_usuario !== $respuesta_guardada) {
+        return ['valido' => false, 'error' => 'La respuesta de seguridad es incorrecta.'];
+    }
+
+    return ['valido' => true, 'error' => ''];
+}
+
+/**
+ * Valida todos los datos de recuperación de contraseña
+ * Orquestador simple que llama a validaciones individuales
  *
  * @param array $usuario Datos del usuario obtenidos de BD
  * @param string $fecha_nacimiento Fecha de nacimiento proporcionada en formato DD/MM/YYYY
  * @param int $pregunta_id ID de la pregunta de recupero
  * @param string $respuesta Respuesta de la pregunta de recupero
- * @return array Array con: ['valido' => bool, 'error' => string, 'usuario_id' => int]
+ * @return array Array con: ['valido' => bool, 'error' => string, 'usuario_id' => int|null]
+ */
+function validarDatosRecuperacion($usuario, $fecha_nacimiento, $pregunta_id, $respuesta) {
+    // Validar usuario existe
+    $val_usuario = validarUsuarioExiste($usuario);
+    if (!$val_usuario['valido']) {
+        return ['valido' => false, 'error' => $val_usuario['error'], 'usuario_id' => null];
+    }
+
+    // Validar fecha de nacimiento
+    $val_fecha = validarFechaNacimientoRecupero($usuario, $fecha_nacimiento);
+    if (!$val_fecha['valido']) {
+        return ['valido' => false, 'error' => $val_fecha['error'], 'usuario_id' => null];
+    }
+
+    // Validar pregunta y respuesta
+    $val_pregunta = validarPreguntaRespuestaRecupero($usuario, $pregunta_id, $respuesta);
+    if (!$val_pregunta['valido']) {
+        return ['valido' => false, 'error' => $val_pregunta['error'], 'usuario_id' => null];
+    }
+
+    // Todas las validaciones pasaron
+    return ['valido' => true, 'error' => '', 'usuario_id' => $usuario['id_usuario']];
+}
+
+/**
+ * ALIAS: Mantener compatibilidad con código existente
+ * @deprecated Usar validarDatosRecuperacion() en su lugar
  */
 function validarDatosRecuperacionAvanzada($usuario, $fecha_nacimiento, $pregunta_id, $respuesta) {
-    // Validación 1: Verificar que el usuario exista
-    if (!$usuario || !isset($usuario['id_usuario'])) {
-        return [
-            'valido' => false,
-            'error' => 'Usuario no encontrado.',
-            'usuario_id' => null
-        ];
-    }
-
-    $usuario_id = $usuario['id_usuario'];
-
-    // Validación 2: Verificar fecha de nacimiento en BD
-    $fecha_nac_bd = $usuario['fecha_nacimiento'] ?? null;
-    if (empty($fecha_nac_bd)) {
-        return [
-            'valido' => false,
-            'error' => 'No se encontró fecha de nacimiento para este usuario.',
-            'usuario_id' => null
-        ];
-    }
-
-    // Validación 3: Formatear y comparar fechas
-    $fecha_nac_formateada = date('d/m/Y', strtotime($fecha_nac_bd));
-    if ($fecha_nac_formateada !== $fecha_nacimiento) {
-        return [
-            'valido' => false,
-            'error' => 'La fecha de nacimiento no coincide con nuestros registros.',
-            'usuario_id' => null
-        ];
-    }
-
-    // Validación 4: Verificar pregunta de recupero
-    if (empty($pregunta_id) || $pregunta_id <= 0) {
-        return [
-            'valido' => false,
-            'error' => 'Debes seleccionar una pregunta de seguridad.',
-            'usuario_id' => null
-        ];
-    }
-
-    // Validación 5: Verificar respuesta
-    if (empty($respuesta)) {
-        return [
-            'valido' => false,
-            'error' => 'Debes proporcionar una respuesta.',
-            'usuario_id' => null
-        ];
-    }
-
-    // Validación 6: Comparar pregunta y respuesta guardadas en BD
-    $pregunta_bd = $usuario['pregunta_recupero'] ?? null;
-    $respuesta_bd = $usuario['respuesta_recupero'] ?? null;
-
-    if (empty($pregunta_bd) || empty($respuesta_bd)) {
-        return [
-            'valido' => false,
-            'error' => 'No se encontraron los datos de seguridad para este usuario.',
-            'usuario_id' => null
-        ];
-    }
-
-    if ((int)$pregunta_id !== (int)$pregunta_bd) {
-        return [
-            'valido' => false,
-            'error' => 'La pregunta de seguridad no coincide con nuestros registros.',
-            'usuario_id' => null
-        ];
-    }
-
-    // Normalizar y comparar respuestas (case-insensitive, trim)
-    $respuesta_usuario = strtolower(trim($respuesta));
-    $respuesta_guardada = strtolower(trim($respuesta_bd));
-
-    if ($respuesta_usuario !== $respuesta_guardada) {
-        return [
-            'valido' => false,
-            'error' => 'La respuesta de seguridad es incorrecta.',
-            'usuario_id' => null
-        ];
-    }
-
-    // Todas las validaciones pasaron exitosamente
-    return [
-        'valido' => true,
-        'error' => '',
-        'usuario_id' => $usuario_id
-    ];
+    return validarDatosRecuperacion($usuario, $fecha_nacimiento, $pregunta_id, $respuesta);
 }
 
 /**

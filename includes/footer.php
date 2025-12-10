@@ -187,7 +187,7 @@ if (!function_exists('render_footer')) {
             'login.php' => ['js/login.js'],
             'register.php' => ['js/register.js'],
             'admin.php' => ['js/admin_validation.js', 'js/table-sort.js'],
-            'ventas.php' => ['js/ventas.js', 'js/table-sort.js']
+            'ventas.php' => ['js/ventas.js?v=' . time(), 'js/table-sort.js']
         ];
         
         if (isset($page_scripts[$current_page])) {

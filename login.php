@@ -34,6 +34,7 @@ require_once __DIR__ . '/includes/password_functions.php';
 require_once __DIR__ . '/includes/queries/perfil_queries.php';
 require_once __DIR__ . '/includes/security_functions.php';
 require_once __DIR__ . '/includes/admin_functions.php'; // Incluye usuario_queries.php
+require_once __DIR__ . '/includes/validation_functions.php';
 require_once __DIR__ . '/includes/auth_check.php';
 
 // Configurar título de la página
@@ -125,18 +126,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['reactivar_cuenta']))
     if (!$validacion_email['valido']) {
         $errores['email'] = $validacion_email['error'];
     } else {
-        // La función validarEmail() ya sanitiza, pero necesitamos el valor original para búsqueda
-        // Normalizar email para búsqueda: convertir a minúsculas
-        $email = strtolower(trim($email_raw));
-        $email = preg_replace('/[\x00-\x1F\x7F]/u', '', $email);
+        // Normalizar email usando función centralizada (una sola vez)
+        // Este email normalizado se usará en todas las funciones siguientes
+        $email = normalizarEmail($email_raw);
     }
     
     // Validación HTML básica de CONTRASEÑA
     // IMPORTANTE: NO usar trim() en password - puede cambiar la contraseña
-    $password = $_POST['password'] ?? '';
-    
-    // Guardar password en variable local para evitar que se pierda
-    $password_original = $password;
+    // Preservar password original inmediatamente para verificación
+    $password_original = $_POST['password'] ?? '';
+    $password = $password_original;
     
     if (empty($password) || strlen($password) === 0) {
         $errores['password'] = 'La contraseña es obligatoria.';
@@ -149,11 +148,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['reactivar_cuenta']))
     // Si no hay errores de validación HTML, verificar bloqueo y consultar DB
     if (empty($errores)) {
         
-        // Usar email ya normalizado para búsqueda
-        $email_busqueda = $email;
-        
+        // Email ya está normalizado desde arriba, usar directamente
         // Verificar bloqueo de intentos fallidos (10 intentos para login, bloqueo por email)
-        $verificacion_bloqueo = verificarIntentosFormulario($email_busqueda, 'login');
+        $verificacion_bloqueo = verificarIntentosFormulario($email, 'login');
         if (!$verificacion_bloqueo['permitido']) {
             $errores['general'] = $verificacion_bloqueo['mensaje'];
         } else {
@@ -164,7 +161,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['reactivar_cuenta']))
             configurarConexionBD($mysqli);
             
             // Buscar usuario por email incluyendo usuarios inactivos (para detectar cuentas desactivadas)
-            $usuario = buscarUsuarioPorEmailIncluyendoInactivos($mysqli, $email_busqueda);
+            // El email ya está normalizado, pasarlo directamente
+            $usuario = buscarUsuarioPorEmailIncluyendoInactivos($mysqli, $email);
             
             if ($usuario) {
                 // Verificar que el hash no esté vacío
@@ -174,12 +172,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['reactivar_cuenta']))
                     // Hash vacío - error de seguridad
                     $errores['general'] = 'Error de seguridad: cuenta sin contraseña válida. Contacta al administrador.';
                     // Incrementar intentos fallidos
-                    incrementarIntentosFormulario($email_busqueda, 'login');
+                    incrementarIntentosFormulario($email, 'login');
                 } else {
-                    // Usar password_original para verificación (password puede haberse perdido)
-                    $password_para_verificar = $password_original;
-                    
-                    $verificacion_resultado = verificarPassword($password_para_verificar, $hash_password);
+                    // Usar password_original para verificación (preservado desde $_POST)
+                    $verificacion_resultado = verificarPassword($password_original, $hash_password);
                     
                     if ($verificacion_resultado) {
                         // Verificar si la cuenta está inactiva
@@ -197,12 +193,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['reactivar_cuenta']))
                             ];
                             
                             // Limpiar intentos fallidos del email actual (credenciales válidas)
-                            limpiarIntentosFormulario($email_busqueda, 'login');
+                            limpiarIntentosFormulario($email, 'login');
                             
                             // Limpiar contraseña de memoria
                             $password = null;
                             $password_original = null;
-                            $password_para_verificar = null;
                             
                             // Establecer flag para mostrar modal de reactivación en esta misma carga
                             $mostrar_modal_reactivacion = true;
@@ -213,11 +208,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['reactivar_cuenta']))
                             // Cuenta activa - proceder con login normal
                             // PRESERVAR intentos de otras cuentas antes de limpiar y regenerar sesión
                             // Esto previene que se pierdan los bloqueos de otras cuentas cuando se regenera el ID de sesión
-                            $email_normalizado = strtolower(trim($email_busqueda));
                             $intentos_backup = isset($_SESSION['intentos_login']) ? $_SESSION['intentos_login'] : [];
                             
                             // Login exitoso - limpiar intentos fallidos solo del email actual
-                            limpiarIntentosFormulario($email_busqueda, 'login');
+                            limpiarIntentosFormulario($email, 'login');
                             
                             // Login exitoso - establecer variables de sesión
                             $_SESSION['id_usuario'] = $usuario['id_usuario'];
@@ -236,8 +230,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['reactivar_cuenta']))
                                 $_SESSION['intentos_login'] = [];
                             }
                             // Restaurar solo los intentos de otras cuentas (excluir el email que se logueó exitosamente)
+                            // El email ya está normalizado, usarlo directamente como clave
                             foreach ($intentos_backup as $email_key => $datos_intentos) {
-                                if ($email_key !== $email_normalizado) {
+                                if ($email_key !== $email) {
                                     $_SESSION['intentos_login'][$email_key] = $datos_intentos;
                                 }
                             }
@@ -248,7 +243,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['reactivar_cuenta']))
                             // Limpiar contraseña de memoria
                             $password = null;
                             $password_original = null;
-                            $password_para_verificar = null;
                             
                             // Redirigir según rol usando función centralizada
                             $rol = $usuario['rol'];
@@ -256,7 +250,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['reactivar_cuenta']))
                         }
                     } else {
                         // Contraseña incorrecta - incrementar intentos fallidos
-                        $resultado_intentos = incrementarIntentosFormulario($email_busqueda, 'login');
+                        $resultado_intentos = incrementarIntentosFormulario($email, 'login');
                         if ($resultado_intentos['bloqueado']) {
                             $errores['general'] = $resultado_intentos['mensaje'];
                         } else {
@@ -273,7 +267,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['reactivar_cuenta']))
             } else {
                 // Usuario no encontrado - por seguridad, no revelar si el email existe o no
                 // Incrementar intentos fallidos (por seguridad)
-                $resultado_intentos = incrementarIntentosFormulario($email_busqueda, 'login');
+                $resultado_intentos = incrementarIntentosFormulario($email, 'login');
                 if ($resultado_intentos['bloqueado']) {
                     $errores['general'] = $resultado_intentos['mensaje'];
                 } else {
@@ -456,15 +450,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['reactivar_cuenta']))
                 }
             });
         }
-        
-        // Limpiar datos de sesión si el usuario cierra el modal sin reactivar
-        modalElement.addEventListener('hidden.bs.modal', function() {
-            // Si el modal se cierra sin reactivar, limpiar datos temporales
-            // Esto se hace mediante una petición AJAX o simplemente dejando que el usuario
-            // intente iniciar sesión nuevamente (los datos se limpiarán en el próximo intento)
-            // Por ahora, no hacemos nada ya que los datos se limpiarán automáticamente
-            // cuando el usuario intente iniciar sesión nuevamente
-        });
     });
 </script>
 <?php endif; ?>

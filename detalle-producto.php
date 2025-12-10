@@ -35,6 +35,7 @@ require_once __DIR__ . '/includes/image_helper.php';
 require_once __DIR__ . '/includes/talles_config.php';
 require_once __DIR__ . '/includes/queries/producto_queries.php';
 require_once __DIR__ . '/includes/producto_functions.php';
+require_once __DIR__ . '/includes/queries/stock_queries.php';
 
 // Configurar título de la página
 $titulo_pagina = 'Detalle de Producto';
@@ -91,7 +92,7 @@ $variantes = obtenerTodasVariantesProducto($mysqli, $id_producto);
 // Normalizar colores de las variantes del producto actual para consistencia
 foreach ($variantes as &$variante) {
     if (!empty($variante['color'])) {
-        $variante['color'] = ucfirst(strtolower(trim($variante['color'])));
+        $variante['color'] = normalizeColor($variante['color']);
     }
 }
 unset($variante); // Liberar referencia
@@ -151,12 +152,7 @@ $fotos_por_color = $fotos_grupo['por_color'];
 $variantes_para_colores = !empty($todas_variantes_completas) ? $todas_variantes_completas : $variantes;
 $colores_disponibles = array_unique(array_column($variantes_para_colores, 'color'));
 // Normalizar todos los colores al mismo formato
-$colores_disponibles_normalizados = [];
-foreach ($colores_disponibles as $color) {
-    $color_normalizado = ucfirst(strtolower(trim($color)));
-    $colores_disponibles_normalizados[] = $color_normalizado;
-}
-$colores_disponibles = array_unique($colores_disponibles_normalizados);
+$colores_disponibles = array_unique(array_map('normalizeColor', $colores_disponibles));
 sort($colores_disponibles);
 $primer_color = !empty($colores_disponibles) ? $colores_disponibles[0] : null;
 
@@ -221,66 +217,9 @@ $orden_tallas_estandar = obtenerTallesEstandar();
 // Extraer TODAS las tallas que existen en las variantes (incluso sin stock)
 $tallas_en_variantes = array_unique(array_column($variantes, 'talle'));
 
-// Crear array de tallas con información de disponibilidad
-// Mostrar TODAS las talles que existen en las variantes, no solo las que tienen stock
-$tallas_info = [];
-foreach ($orden_tallas_estandar as $talla_estandar) {
-    // Verificar si esta talle existe en alguna variante
-    $existe_talle = in_array($talla_estandar, $tallas_en_variantes);
-    
-    // Verificar stock total (sumar todos los colores para este talle)
-    $stock_total_talle = 0;
-    if ($existe_talle) {
-        foreach ($variantes as $variante) {
-            if ($variante['talle'] === $talla_estandar) {
-                $stock_total_talle += (int)$variante['stock'];
-            }
-        }
-    }
-    
-    // Solo mostrar talles que existen en las variantes (pueden tener stock 0)
-    if ($existe_talle) {
-        $tallas_info[] = [
-            'talle' => $talla_estandar,
-            'tiene_stock' => $stock_total_talle > 0,
-            'stock_total' => $stock_total_talle
-        ];
-    }
-}
-
-// Si no hay talles estándar en las variantes, mostrar todos los talles que existen
-if (empty($tallas_info)) {
-    foreach ($tallas_en_variantes as $talla) {
-        $stock_total_talle = 0;
-        foreach ($variantes as $variante) {
-            if ($variante['talle'] === $talla) {
-                $stock_total_talle += (int)$variante['stock'];
-            }
-        }
-        
-        $tallas_info[] = [
-            'talle' => $talla,
-            'tiene_stock' => $stock_total_talle > 0,
-            'stock_total' => $stock_total_talle
-        ];
-    }
-}
-
-// Ordenar talles según orden estándar
-usort($tallas_info, function($a, $b) use ($orden_tallas_estandar) {
-    $pos_a = array_search($a['talle'], $orden_tallas_estandar);
-    $pos_b = array_search($b['talle'], $orden_tallas_estandar);
-    
-    // Si ambos están en el orden estándar, usar ese orden
-    if ($pos_a !== false && $pos_b !== false) {
-        return $pos_a - $pos_b;
-    }
-    // Si solo uno está en el orden estándar, priorizarlo
-    if ($pos_a !== false) return -1;
-    if ($pos_b !== false) return 1;
-    // Si ninguno está, orden alfabético
-    return strcmp($a['talle'], $b['talle']);
-});
+// Calcular información de tallas disponibles con stock
+// Utiliza función refactorizada que elimina complejidad O(n*m)
+$tallas_info = prepareTallesInfo($variantes, $orden_tallas_estandar);
 
 // Para compatibilidad, mantener array simple de talles disponibles
 $tallas = array_column($tallas_info, 'talle');
@@ -290,13 +229,7 @@ $tallas = array_column($tallas_info, 'talle');
 // Normalizar colores para formato consistente
 $variantes_para_colores_ui = !empty($todas_variantes_completas) ? $todas_variantes_completas : $variantes;
 $colores_raw = array_unique(array_column($variantes_para_colores_ui, 'color'));
-$colores = [];
-foreach ($colores_raw as $color) {
-    $color_normalizado = ucfirst(strtolower(trim($color)));
-    if (!in_array($color_normalizado, $colores)) {
-        $colores[] = $color_normalizado;
-    }
-}
+$colores = array_unique(array_map('normalizeColor', $colores_raw));
 // Ordenar colores alfabéticamente
 sort($colores);
 
@@ -325,11 +258,30 @@ if ($producto) {
     $productos_relacionados = obtenerProductosRelacionados($mysqli, $producto['id_categoria'], $id_producto, 3);
 }
 
-// Generar array de stock para uso en JavaScript
-$stockVariantes = generarArrayStock($variantes);
+// Procesar variantes para calcular stock disponible (restando reservas)
+// Esto asegura que el frontend muestre el mismo stock que valida el backend
+$variantes_con_stock_disponible = [];
+foreach ($variantes as $variante) {
+    $stock_bruto = (int)$variante['stock'];
+    $id_variante = (int)$variante['id_variante'];
+    
+    // Calcular stock reservado para esta variante
+    $stock_reservado = obtenerStockReservado($mysqli, $id_variante);
+    
+    // Calcular stock disponible (bruto - reservas, mínimo 0)
+    $stock_disponible = max(0, $stock_bruto - $stock_reservado);
+    
+    // Crear nueva variante con stock disponible
+    $variante_con_stock_disponible = $variante;
+    $variante_con_stock_disponible['stock'] = $stock_disponible;
+    $variantes_con_stock_disponible[] = $variante_con_stock_disponible;
+}
 
-// Generar información de stock por talle y color
-$stockPorTalleColor = generarStockPorTalleYColor($variantes);
+// Generar array de stock para uso en JavaScript (usando stock disponible, no bruto)
+$stockVariantes = generarArrayStock($variantes_con_stock_disponible);
+
+// Generar información de stock por talle y color (usando stock disponible, no bruto)
+$stockPorTalleColor = generarStockPorTalleYColor($variantes_con_stock_disponible);
 ?>
 
 <?php include 'includes/header.php'; ?>
@@ -337,7 +289,7 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
 <!-- Contenido del detalle de producto -->
 <main class="detalle-producto">
         <div class="container mt-2">
-            <nav aria-label="breadcrumb" class="mb-3" style="font-size: 0.85rem;">
+            <nav aria-label="breadcrumb" class="mb-3 font-size-085">
                 <ol class="breadcrumb mb-0">
                     <li class="breadcrumb-item"><a href="index.php">Inicio</a></li>
                     <?php if (!empty($producto['nombre_categoria'])): ?>
@@ -395,37 +347,12 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
                             <div class="col-auto">
                                 <label class="form-label-compacto fw-bold mb-1">TALLE:</label>
                                 <div class="tallas-selector-compacto">
-                                    <?php 
-                                    // Preseleccionar primer talle con stock, o M si existe y tiene stock
-                                    // Si no hay talle con stock, preseleccionar el primer talle disponible (aunque no tenga stock)
-                                    $talle_predeterminado = null;
-                                    foreach ($tallas_info as $info) {
-                                        if ($info['tiene_stock']) {
-                                            if ($info['talle'] === 'M') {
-                                                $talle_predeterminado = 'M';
-                                                break;
-                                            }
-                                            if ($talle_predeterminado === null) {
-                                                $talle_predeterminado = $info['talle'];
-                                            }
-                                        }
-                                    }
-                                    
-                                    // Si no hay talle con stock, preseleccionar el primer talle disponible (puede no tener stock)
-                                    if ($talle_predeterminado === null && !empty($tallas_info)) {
-                                        // Priorizar M si existe
-                                        foreach ($tallas_info as $info) {
-                                            if ($info['talle'] === 'M') {
-                                                $talle_predeterminado = 'M';
-                                                break;
-                                            }
-                                        }
-                                        // Si M no existe, usar el primero
-                                        if ($talle_predeterminado === null) {
-                                            $talle_predeterminado = $tallas_info[0]['talle'];
-                                        }
-                                    }
-                                    
+                                    <?php
+                                    // Preseleccionar talle: con stock si hay, sin stock si no hay opción
+                                    // Utiliza función refactorizada que implementa la lógica de prioridad
+                                    $talle_predeterminado = selectDefaultTalle($tallas_info, true)
+                                        ?? selectDefaultTalle($tallas_info, false);
+
                                     foreach ($tallas_info as $index => $info_talla): 
                                         $talla = $info_talla['talle'];
                                         $tiene_stock = $info_talla['tiene_stock'];
@@ -458,9 +385,9 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
                                 <label class="form-label-compacto fw-bold mb-1">COLOR:</label>
                                 <div class="colores-selector-compacto">
                                     <?php foreach ($colores as $index => $color): ?>
-                                    <?php 
+                                    <?php
                                     // Asegurar que el color esté normalizado (primera letra mayúscula, resto minúscula)
-                                    $color_normalizado_input = ucfirst(strtolower(trim($color)));
+                                    $color_normalizado_input = normalizeColor($color);
                                     ?>
                                     <input type="radio" 
                                            class="btn-check color-radio" 
@@ -478,6 +405,7 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
                                 </div>
                             </div>
                             <?php endif; ?>
+                            
                         </div>
                         
                         <!-- Indicador de stock - debajo de ambos selectores -->
@@ -591,7 +519,7 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
                                 <div id="collapseEnvio" class="accordion-collapse collapse" data-bs-parent="#accordionProducto">
                                     <div class="accordion-body">
                                         <!-- Información de envío gratis -->
-                                        <div class="alert alert-info mb-3" style="background-color: #E3F2F8; border-left: 4px solid #4A9FD6;">
+                                        <div class="alert alert-info alert-info-custom mb-3">
                                             <div class="d-flex align-items-center">
                                                 <i class="fas fa-truck fa-2x text-primary me-3"></i>
                                                 <div>
@@ -647,19 +575,18 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
                         <div class="col-md-6 col-lg-4 col-xl-3">
                             <div class="card tarjeta h-100 shadow-sm">
                                 <a href="detalle-producto.php?id=<?= $variante['id_producto'] ?>" class="text-decoration-none">
-                                    <div class="card-img-container position-relative" style="height: 280px; overflow: hidden; background-color: #f8f9fa;">
+                                    <div class="card-img-container card-img-container-variante position-relative">
                                         <img src="<?= htmlspecialchars($imagen_variante) ?>" 
                                              class="card-img-top w-100 h-100 img-hover" 
-                                             alt="<?= htmlspecialchars($variante['nombre_producto']) ?> - <?= htmlspecialchars($variante['color']) ?>" 
-                                             style="object-fit: contain; padding: 10px; transition: transform 0.3s ease;">
+                                             alt="<?= htmlspecialchars($variante['nombre_producto']) ?> - <?= htmlspecialchars($variante['color']) ?>">
                                     </div>
-                                    <div class="card-body text-center p-2" style="background-color: #ffffff;">
+                                    <div class="card-body card-body-white text-center p-2">
                                         <div class="precio-catalogo mb-1">
-                                            <span class="fw-bold" style="font-size: 1.05rem; color: #212529;">$<?= number_format($variante['precio_actual'], 2) ?></span>
+                                            <span class="fw-bold font-size-105 text-very-dark">$<?= number_format($variante['precio_actual'], 2) ?></span>
                                         </div>
                                         <div class="nombre-producto-catalogo">
-                                            <strong class="text-dark d-block" style="font-size: 0.95rem;"><?= htmlspecialchars($variante['nombre_producto']) ?></strong>
-                                            <small class="text-muted" style="font-size: 0.8rem;"><?= strtoupper(htmlspecialchars($variante['color'])) ?></small>
+                                            <strong class="text-dark d-block font-size-095"><?= htmlspecialchars($variante['nombre_producto']) ?></strong>
+                                            <small class="text-muted font-size-08"><?= strtoupper(htmlspecialchars($variante['color'])) ?></small>
                                         </div>
                                         <?php if ($variante['total_stock'] > 0): ?>
                                             <small class="text-success d-block mt-1">
@@ -678,6 +605,7 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
                 </div>
             </div>
             <?php endif; ?>
+            
 
         </div>
     </main>
@@ -743,6 +671,7 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes);
     </div>
 
 <?php include 'includes/detalle_producto_data.php'; ?>
+<script src="js/detalle-producto-utils.js"></script>
 <script src="js/detalle-producto.js"></script>
 
 <?php include 'includes/footer.php'; render_footer(); ?>

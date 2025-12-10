@@ -140,77 +140,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
             
         case 'marcar_pago_pagado':
+            // Usar función centralizada para marcar pago como pagado por cliente
             $id_pago = intval($_POST['id_pago'] ?? 0);
-            $numero_transaccion_raw = trim($_POST['numero_transaccion'] ?? '');
-            
-            // Validar número de transacción (campo requerido)
-            if (empty($numero_transaccion_raw)) {
-                $_SESSION['mensaje'] = 'El código de pago es requerido.';
-                $_SESSION['mensaje_tipo'] = 'danger';
-                header('Location: perfil.php?tab=pedidos');
-                exit;
-            }
-            
-            require_once __DIR__ . '/includes/validation_functions.php';
-            $validacion_numero = validarNumeroTransaccion($numero_transaccion_raw, 0, 100);
-            if (!$validacion_numero['valido']) {
-                $_SESSION['mensaje'] = $validacion_numero['error'];
-                $_SESSION['mensaje_tipo'] = 'danger';
-                header('Location: perfil.php?tab=pedidos');
-                exit;
-            }
-            $numero_transaccion = $validacion_numero['valor'];
-            
-            // Validar pago usando función helper
-            $validacion = validarPagoParaMarcarPagado($mysqli, $id_pago, $id_usuario);
-            if (!$validacion['valido']) {
-                $_SESSION['mensaje'] = $validacion['mensaje'];
-                $_SESSION['mensaje_tipo'] = $validacion['mensaje_tipo'];
-                header('Location: perfil.php?tab=pedidos');
-                exit;
-            }
-            
-            $pago = $validacion['pago'];
-            $monto = floatval($pago['monto']);
-            
-            // Obtener estado anterior antes de actualizar
-            $estado_pago_anterior = normalizarEstado($pago['estado_pago'] ?? 'pendiente');
-            
-            // Actualizar pago completo con numero_transaccion y marcar como pendiente_aprobacion
-            // NO se descuenta stock aquí, solo cuando ventas apruebe el pago
-            try {
-                // Verificar que la función esté disponible
-                if (!function_exists('actualizarPagoCompleto')) {
-                    throw new Exception('Función actualizarPagoCompleto no está disponible. Error de carga de archivos.');
-                }
-                
-                $numero_transaccion_normalizado = (!empty($numero_transaccion)) ? $numero_transaccion : null;
-                actualizarPagoCompleto($mysqli, $id_pago, 'pendiente_aprobacion', $monto, $numero_transaccion_normalizado);
-                
-                // Obtener ID del pedido para el mensaje
-                $id_pedido = intval($pago['id_pedido']);
-                
-                // Mensaje simple para clientes (sin transición de estado)
-                $mensaje_exito = "Pedido #{$id_pedido} con pago confirmado. Está pendiente de aprobación por el equipo de ventas.";
-                
-                $_SESSION['mensaje'] = $mensaje_exito;
-                $_SESSION['mensaje_tipo'] = 'success';
-                header('Location: perfil.php?tab=pedidos');
-                exit;
-            } catch (Exception $e) {
-                // Loggear error MySQL si existe
-                if ($mysqli && $mysqli->error) {
-                    error_log("MySQL Error: {$mysqli->error} (Errno: {$mysqli->errno})");
-                }
-                
-                // Construir mensaje de error usando función helper
-                $error_info = construirMensajeErrorPago($e->getMessage(), $id_pago, $id_usuario);
-                $_SESSION['mensaje'] = $error_info['mensaje'];
-                $_SESSION['mensaje_tipo'] = $error_info['mensaje_tipo'];
-                header('Location: perfil.php?tab=pedidos');
-                exit;
-            }
-            break;
+            $numero_transaccion = trim($_POST['numero_transaccion'] ?? '');
+
+            $resultado = marcarPagoPagadoPorCliente($mysqli, $id_pago, $id_usuario, $numero_transaccion);
+
+            $_SESSION['mensaje'] = $resultado['mensaje'];
+            $_SESSION['mensaje_tipo'] = $resultado['mensaje_tipo'];
+            header('Location: perfil.php?tab=pedidos');
+            exit;
             
         case 'cancelar_pedido_cliente':
             $id_pedido = intval($_POST['id_pedido'] ?? 0);

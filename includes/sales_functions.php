@@ -145,13 +145,23 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
     $estado_pedido_actual = normalizarEstado($pedido_actual['estado_pedido'] ?? '');
     $nuevo_estado_norm = normalizarEstado($nuevo_estado);
     
-    // Si no hay cambios reales en ningún estado, no hacer nada
+    // Si no hay cambios reales en ningún estado, informar al usuario
     // Solo verificar si realmente se está intentando cambiar el estado del pago
     $cambio_pedido = $estado_pedido_actual !== $nuevo_estado_norm;
     $cambio_pago = $cambiar_estado_pago && !empty($estado_pago_final) && $estado_pago_anterior_real !== normalizarEstado($estado_pago_final);
-    
+
+    // Si hay un pago y se recibió un valor vacío para nuevo_estado_pago, verificar si hay transiciones disponibles
+    if ($pago_actual && isset($_POST['nuevo_estado_pago']) && $_POST['nuevo_estado_pago'] === '') {
+        // Solo mostrar error si hay transiciones válidas disponibles
+        require_once __DIR__ . '/ventas_components.php';
+        $transiciones_disponibles = obtenerTransicionesValidasPago($estado_pago_anterior_real);
+        if (!empty($transiciones_disponibles)) {
+            return ['mensaje' => '⚠️ ERROR: Debe seleccionar un nuevo estado de pago en el desplegable. Estado actual del pago: ' . strtoupper($estado_pago_anterior_real) . '. Transiciones disponibles: ' . implode(', ', $transiciones_disponibles), 'mensaje_tipo' => 'danger'];
+        }
+    }
+
     if (!$cambio_pedido && !$cambio_pago) {
-        return false;
+        return ['mensaje' => 'No se realizaron cambios. El pedido y el pago ya están en los estados seleccionados.', 'mensaje_tipo' => 'info'];
     }
     
     // Validar que no se intente cambiar un pedido cancelado a otro estado (excepto mantener cancelado)
@@ -169,15 +179,11 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
     if ($estado_pedido_actual === 'completado' && $nuevo_estado !== 'completado') {
         return ['mensaje' => 'No se puede cambiar desde "Completado". Es un estado terminal y no admite cambios.', 'mensaje_tipo' => 'danger'];
     }
-    
-    // Validar que no se retroceda desde pago APROBADO
-    if ($cambiar_estado_pago && $estado_pago_anterior_real === 'aprobado') {
-        // Pago aprobado solo puede ir a rechazado (NO puede retroceder a pendiente o pendiente_aprobacion)
-        if (!in_array($estado_pago_final, ['aprobado', 'rechazado'])) {
-            return ['mensaje' => 'No se puede retroceder desde "Aprobado". Solo se permite mantener "Aprobado" o cambiar a "Rechazado".', 'mensaje_tipo' => 'danger'];
-        }
-    }
-    
+
+    // NOTA: No validar manualmente transiciones de pago aquí
+    // validarTransicionPago() ya maneja todas las reglas (línea 196)
+    // Eliminada validación inline duplicada que verificaba aprobado→rechazado
+
     // Logging de transición de estado
     error_log("procesarActualizacionPedidoPago: Pedido #{$pedido_id} - Estado actual: {$estado_pedido_actual} -> Nuevo estado: {$nuevo_estado}");
     if ($cambiar_estado_pago) {
@@ -193,14 +199,17 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
     if ($cambiar_estado_pago && $pago_actual) {
         try {
             // Validar transición de pago antes de ejecutar
+            error_log("APROBACION: Validando transición de pago: '{$estado_pago_anterior_real}' -> '{$estado_pago_final}'");
             validarTransicionPago($estado_pago_anterior_real, $estado_pago_final);
-            
+
+            error_log("APROBACION: Llamando actualizarEstadoPagoConPedido para pago #{$pago_actual['id_pago']}");
             $resultado_actualizacion = actualizarEstadoPagoConPedido($mysqli, $pago_actual['id_pago'], $estado_pago_final, $motivo_rechazo_final, $id_usuario);
             if (!$resultado_actualizacion) {
                 throw new Exception('Error al actualizar el estado del pago: la función retornó false');
             }
+            error_log("APROBACION: Pago actualizado exitosamente");
         } catch (Exception $e) {
-            error_log("procesarActualizacionPedidoPago: Excepción en actualizarEstadoPagoConPedido - " . $e->getMessage());
+            error_log("APROBACION ERROR: " . $e->getMessage());
             // Procesar error y retornar mensaje amigable
             return _procesarErroresActualizacionPedidoPago($e->getMessage(), $pedido_id);
         }
@@ -387,7 +396,7 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
 function procesarAprobacionPago($mysqli, $post, $id_usuario) {
     // Verificar que se está procesando la acción correcta
     if (!isset($post['aprobar_pago'])) {
-        return false;
+        return ['mensaje' => 'La solicitud no es válida. Por favor, intenta nuevamente.', 'mensaje_tipo' => 'danger'];
     }
     
     // Cargar funciones necesarias
@@ -400,32 +409,41 @@ function procesarAprobacionPago($mysqli, $post, $id_usuario) {
     }
     
     $pago_id = intval($post['pago_id'] ?? 0);
-    
+
     if ($pago_id <= 0) {
         return ['mensaje' => 'ID de pago inválido', 'mensaje_tipo' => 'danger'];
     }
-    
+
     try {
-        if (aprobarPago($mysqli, $pago_id, $id_usuario)) {
+        $resultado = aprobarPago($mysqli, $pago_id, $id_usuario);
+
+        if ($resultado) {
             return ['mensaje' => 'Pago aprobado correctamente. Stock descontado automáticamente.', 'mensaje_tipo' => 'success'];
         } else {
             return ['mensaje' => 'Error al aprobar el pago. Verifique el stock disponible.', 'mensaje_tipo' => 'danger'];
         }
     } catch (Exception $e) {
+        $mensaje_error = $e->getMessage();
+
         // Verificar si el error es por stock insuficiente
-        if (strpos($e->getMessage(), 'STOCK_INSUFICIENTE') !== false) {
-            // Extraer información de variantes si está disponible
-            $mensaje_error = $e->getMessage();
-            if (preg_match('/Variante #(\d+): Tiene (\d+) unidades disponibles pero se necesitan (\d+) unidades/', $mensaje_error, $matches)) {
-                $id_variante = $matches[1];
-                $stock_disponible = $matches[2];
-                $intento_venta = $matches[3];
-                return ['mensaje' => "No hay suficiente stock para aprobar este pago. La variante #{$id_variante} tiene {$stock_disponible} unidades disponibles pero se necesitan {$intento_venta} unidades. Sugerencia: Revisa el stock disponible en el panel de productos o contacta al cliente para ajustar la cantidad.", 'mensaje_tipo' => 'warning'];
+        if (strpos($mensaje_error, 'STOCK_INSUFICIENTE') !== false) {
+            // Remover prefijo técnico para mensaje más limpio
+            $mensaje_limpio = str_replace('STOCK_INSUFICIENTE: ', '', $mensaje_error);
+
+            // Detectar tipo específico de error y personalizar mensaje
+            if (strpos($mensaje_limpio, 'está inactiva') !== false || strpos($mensaje_limpio, 'está inactivo') !== false) {
+                // Producto o variante inactiva
+                return ['mensaje' => "No se puede aprobar el pago: $mensaje_limpio Los productos deben estar activos para procesar pagos. Reactiva el producto desde el panel de Marketing.", 'mensaje_tipo' => 'warning'];
+            } elseif (strpos($mensaje_limpio, 'Stock insuficiente') !== false) {
+                // Stock insuficiente
+                return ['mensaje' => "No se puede aprobar el pago: $mensaje_limpio Verifica el stock disponible en el panel de Marketing o contacta al cliente para ajustar la cantidad.", 'mensaje_tipo' => 'warning'];
             } else {
-                return ['mensaje' => 'No hay suficiente stock disponible para aprobar este pago. Sugerencia: Verifica el stock de los productos del pedido en el panel de productos y ajusta las cantidades si es necesario, o contacta al cliente para informarle sobre la disponibilidad.', 'mensaje_tipo' => 'warning'];
+                // Otro error de stock
+                return ['mensaje' => "No se puede aprobar el pago: $mensaje_limpio", 'mensaje_tipo' => 'warning'];
             }
         } else {
-            return ['mensaje' => 'Error al aprobar el pago: ' . $e->getMessage(), 'mensaje_tipo' => 'danger'];
+            // Error que no es de stock
+            return ['mensaje' => 'Error al aprobar el pago: ' . $mensaje_error, 'mensaje_tipo' => 'danger'];
         }
     }
 }

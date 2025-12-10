@@ -5,11 +5,14 @@
  * ========================================================================
  * Funciones helper para renderizar componentes complejos del panel de ventas
  * Reduce anidación y mejora mantenibilidad del código
- * 
+ *
  * @package TiendaSedaYLino
  * @version 1.0
  * ========================================================================
  */
+
+// Cargar funciones de estado
+require_once __DIR__ . '/state_functions.php';
 
 /**
  * Renderiza el modal de visualización de detalles del pedido
@@ -262,7 +265,7 @@ function renderModalEditarEstado($pedido, $pedido_completo_modal, $pago_modal, $
                     <h5 class="modal-title">Editar Estado - Pedido #<?= $id_pedido ?></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST" action="" id="formEditarEstado<?= $id_pedido ?>">
+                <form method="POST" action="" id="formEditarEstado<?= $id_pedido ?>" onsubmit="return validarFormularioEstado(<?= $id_pedido ?>)">
                     <div class="modal-body">
                         <?php 
                         renderFormularioHiddenFields($id_pedido, $estado_actual_modal);
@@ -290,7 +293,7 @@ function renderModalEditarEstado($pedido, $pedido_completo_modal, $pago_modal, $
                     </div>
                 </form>
                 
-                <?php if ($pago_modal && $pago_modal['estado_pago'] === 'pendiente'): ?>
+                <?php if ($pago_modal && ($pago_modal['estado_pago'] === 'pendiente' || $pago_modal['estado_pago'] === 'pendiente_aprobacion')): ?>
                     <?php renderFormulariosAdicionales($id_pedido, $pago_modal); ?>
                 <?php endif; ?>
             </div>
@@ -351,7 +354,6 @@ function renderInfoClienteCompacta($pedido) {
  */
 function obtenerTransicionesValidasPedido($estado_pedido_actual, $estado_pago = null) {
     // Cargar StateValidator si no está disponible
-    require_once __DIR__ . '/state_validator.php';
     
     // Normalizar estados
     $estado_pedido_norm = normalizarEstado($estado_pedido_actual);
@@ -361,7 +363,7 @@ function obtenerTransicionesValidasPedido($estado_pedido_actual, $estado_pago = 
     // VALIDACIÓN 1: Estados Terminales
     // ========================================================================
     // Verificar si el estado actual es terminal
-    if (StateValidator::isTerminal($estado_pedido_norm, 'pedido')) {
+    if (esEstadoTerminal($estado_pedido_norm, 'pedido')) {
         // Estados terminales solo pueden mantenerse
         // completado es completamente terminal (no puede cambiar a devolucion - no implementado en MVP)
         // Para cancelado: solo mantener estado actual (no puede cambiar)
@@ -374,7 +376,7 @@ function obtenerTransicionesValidasPedido($estado_pedido_actual, $estado_pago = 
     // en_viaje y completado son estados finales del ciclo, NO pueden retroceder
     if ($estado_pedido_norm === 'en_viaje') {
         // en_viaje solo puede ir a completado (NO retrocesos, NO devolucion - no implementado en MVP)
-        $transiciones_base = StateValidator::getTransitionMatrix('pedido');
+        $transiciones_base = obtenerTransicionesPedidoValidas();
         $transiciones_permitidas = $transiciones_base[$estado_pedido_norm] ?? [];
         
         // Solo permitir transiciones hacia adelante (completado)
@@ -418,7 +420,7 @@ function obtenerTransicionesValidasPedido($estado_pedido_actual, $estado_pago = 
             }
             
             // Obtener matriz de transiciones base
-            $transiciones_base = StateValidator::getTransitionMatrix('pedido');
+            $transiciones_base = obtenerTransicionesPedidoValidas();
             $transiciones_permitidas = $transiciones_base[$estado_pedido_norm] ?? [];
             
             // Solo permitir cancelado si está en las transiciones permitidas
@@ -434,7 +436,7 @@ function obtenerTransicionesValidasPedido($estado_pedido_actual, $estado_pago = 
     // VALIDACIÓN 3: Obtener Transiciones Base
     // ========================================================================
     // Obtener matriz de transiciones base desde StateValidator
-    $transiciones_base = StateValidator::getTransitionMatrix('pedido');
+    $transiciones_base = obtenerTransicionesPedidoValidas();
     
     // Obtener transiciones permitidas desde el estado actual del pedido
     $transiciones_permitidas = [];
@@ -538,10 +540,9 @@ function renderFormularioEstadoPedido($estado_actual_modal, $estado_pago = null)
     $tipo_restriccion = 'info'; // info, warning, danger
     
     // Cargar StateValidator para verificar estados terminales
-    require_once __DIR__ . '/state_validator.php';
     
     // Verificar si es estado terminal para deshabilitar el SELECT
-    $select_pedido_disabled = StateValidator::isTerminal($estado_actual_modal, 'pedido');
+    $select_pedido_disabled = esEstadoTerminal($estado_actual_modal, 'pedido');
     
     // Verificar si es estado terminal
     if ($select_pedido_disabled) {
@@ -583,13 +584,10 @@ function renderFormularioEstadoPedido($estado_actual_modal, $estado_pago = null)
         </div>
         
         <?php if ($hay_inconsistencia): ?>
-        <div class="alert alert-<?= $inconsistencias['tipo'] === 'danger' ? 'danger' : 'warning' ?> mb-2">
-            <i class="fas fa-exclamation-triangle me-2"></i>
-            <strong><?= $inconsistencias['severidad'] === 'CRÍTICA' ? 'INCONSISTENCIA CRÍTICA' : 'Advertencia' ?>:</strong>
+        <div class="alert alert-<?= $inconsistencias['tipo'] === 'danger' ? 'danger' : 'warning' ?> alert-sm mb-2 py-2">
+            <i class="fas fa-exclamation-triangle me-1"></i>
+            <strong><?= $inconsistencias['severidad'] === 'CRÍTICA' ? 'Inconsistencia Crítica' : 'Advertencia' ?>:</strong>
             <?= htmlspecialchars($inconsistencias['mensaje']) ?>
-            <?php if (!empty($inconsistencias['accion_sugerida'])): ?>
-            <br><small><i class="fas fa-lightbulb me-1"></i><?= htmlspecialchars($inconsistencias['accion_sugerida']) ?></small>
-            <?php endif; ?>
         </div>
         <?php endif; ?>
         
@@ -638,13 +636,6 @@ function renderFormularioEstadoPedido($estado_actual_modal, $estado_pago = null)
             <?= htmlspecialchars($mensaje_restriccion) ?>
         </small>
         <?php endif; ?>
-        
-        <?php if ($estado_actual_modal !== 'cancelado' && in_array('cancelado', $transiciones_validas)): ?>
-        <small class="text-muted d-block mt-1">
-            <i class="fas fa-info-circle me-1"></i>
-            Si cancela el pedido, el stock será restaurado automáticamente.
-        </small>
-        <?php endif; ?>
     </div>
     <?php
 }
@@ -684,13 +675,12 @@ function renderFormularioPago($id_pedido, $pago_modal, $estado_pedido_actual = n
  */
 function obtenerTransicionesValidasPago($estado_pago_actual) {
     // Cargar StateValidator si no está disponible
-    require_once __DIR__ . '/state_validator.php';
     
     // Normalizar estado
     $estado_pago_norm = normalizarEstado($estado_pago_actual);
     
     // Obtener matriz de transiciones base desde StateValidator
-    $transiciones_base = StateValidator::getTransitionMatrix('pago');
+    $transiciones_base = obtenerTransicionesPagoValidas();
     
     // Obtener transiciones permitidas desde el estado actual
     $transiciones_permitidas = [];
@@ -728,13 +718,12 @@ function renderFormularioEstadoPago($id_pedido, $estado_pago_actual_modal, $info
     $mapeo_estados = obtenerMapeoEstadosPago();
     
     // Cargar StateValidator para verificar estados terminales
-    require_once __DIR__ . '/state_validator.php';
     
     // Determinar si el SELECT debe estar deshabilitado
     // Deshabilitar si: pago es terminal, pedido es terminal, pago está aprobado, o pedido está completado
     $estado_pedido_norm = $estado_pedido_actual ? normalizarEstado($estado_pedido_actual) : null;
-    $pago_es_terminal = StateValidator::isTerminal($estado_pago_actual_modal, 'pago');
-    $pedido_es_terminal = $estado_pedido_norm ? StateValidator::isTerminal($estado_pedido_norm, 'pedido') : false;
+    $pago_es_terminal = esEstadoTerminal($estado_pago_actual_modal, 'pago');
+    $pedido_es_terminal = $estado_pedido_norm ? esEstadoTerminal($estado_pedido_norm, 'pedido') : false;
     $select_disabled = $pago_es_terminal || $pedido_es_terminal || ($estado_pago_actual_modal === 'aprobado') || ($estado_pedido_norm === 'completado');
     
     ?>
@@ -745,37 +734,76 @@ function renderFormularioEstadoPago($id_pedido, $estado_pago_actual_modal, $info
                 <i class="fas fa-info-circle me-1"></i>Estado Actual: <?= htmlspecialchars($info_estado_pago_actual['nombre']) ?>
             </span>
         </div>
-        <select class="form-select" name="nuevo_estado_pago" id="nuevo_estado_pago_<?= $id_pedido ?>" <?= $select_disabled ? 'disabled' : '' ?>>
-            <option value="">-- Mantener estado actual --</option>
-            <?php
-            // Ordenar opciones de forma lógica
-            $orden_estados = ['pendiente', 'pendiente_aprobacion', 'aprobado', 'rechazado', 'cancelado'];
-            $estados_ordenados = [];
-            
-            // Primero: estado actual
-            if (in_array($estado_pago_actual_modal, $transiciones_validas)) {
-                $estados_ordenados[] = $estado_pago_actual_modal;
+        <!-- DEBUG: select_disabled=<?= $select_disabled ? 'TRUE' : 'FALSE' ?>, estado_pago=<?= $estado_pago_actual_modal ?>, transiciones_validas=[<?= implode(',', $transiciones_validas) ?>] -->
+        <?php
+        // VALIDACIÓN DE STOCK: Verificar ANTES de generar el SELECT
+        $puede_aprobar_stock = true;
+        $errores_stock = [];
+
+        if (in_array('aprobado', $transiciones_validas)) {
+            global $mysqli;
+            require_once __DIR__ . '/queries_helper.php';
+            try {
+                cargarArchivoQueries('pedido_queries', __DIR__ . '/queries');
+                cargarArchivoQueries('stock_queries', __DIR__ . '/queries');
+
+                $detalles_pedido = obtenerDetallesPedido($mysqli, $id_pedido);
+                foreach ($detalles_pedido as $det) {
+                    $variante = obtenerVariantePorId($mysqli, $det['id_variante']);
+                    if (!$variante || $variante['stock'] < $det['cantidad']) {
+                        $puede_aprobar_stock = false;
+                        $stock_disponible = $variante ? $variante['stock'] : 0;
+                        $errores_stock[] = "Variante #{$det['id_variante']}: necesita {$det['cantidad']}, disponible $stock_disponible";
+                    }
+                }
+            } catch (Exception $e) {
+                error_log("Error validando stock en modal: " . $e->getMessage());
             }
-            
-            // Segundo: siguientes estados naturales (en orden lógico)
+        }
+
+        // Definir orden de estados
+        $orden_estados = ['pendiente', 'pendiente_aprobacion', 'aprobado', 'rechazado', 'cancelado'];
+
+        // Contar transiciones disponibles
+        $transiciones_disponibles_count = 0;
+        foreach ($orden_estados as $est) {
+            if (in_array($est, $transiciones_validas) && $est !== $estado_pago_actual_modal) {
+                $transiciones_disponibles_count++;
+            }
+        }
+        $tiene_transiciones = $transiciones_disponibles_count > 0;
+        ?>
+        <select class="form-select" name="nuevo_estado_pago" id="nuevo_estado_pago_<?= $id_pedido ?>" <?= $select_disabled ? 'disabled' : '' ?>>
+            <?php if ($tiene_transiciones): ?>
+            <option value="" selected disabled>⚠️ DEBE SELECCIONAR un nuevo estado de pago</option>
+            <?php else: ?>
+            <option value="">Sin transiciones disponibles</option>
+            <?php endif; ?>
+            <?php
+            // Renderizar opciones
+
             foreach ($orden_estados as $estado_orden) {
-                if (in_array($estado_orden, $transiciones_validas) && 
-                    $estado_orden !== $estado_pago_actual_modal) {
-                    $estados_ordenados[] = $estado_orden;
+                // Solo mostrar estados que son transiciones válidas Y diferentes al estado actual
+                if (in_array($estado_orden, $transiciones_validas) && $estado_orden !== $estado_pago_actual_modal) {
+                    $info_estado = isset($mapeo_estados[$estado_orden])
+                        ? $mapeo_estados[$estado_orden]
+                        : ['nombre' => ucfirst(str_replace('_', ' ', $estado_orden))];
+
+                    // Deshabilitar "aprobado" si no hay stock suficiente
+                    $disabled = false;
+                    $texto_disabled = '';
+                    if ($estado_orden === 'aprobado' && isset($puede_aprobar_stock) && !$puede_aprobar_stock) {
+                        $disabled = true;
+                        $texto_disabled = ' (BLOQUEADO - Stock insuficiente)';
+                    }
+            ?>
+                <option value="<?= htmlspecialchars($estado_orden) ?>" <?= $disabled ? 'disabled' : '' ?>>
+                    <?= htmlspecialchars($info_estado['nombre'] . $texto_disabled) ?>
+                </option>
+            <?php
                 }
             }
-            
-            // Renderizar opciones ordenadas
-            foreach ($estados_ordenados as $estado_valido): 
-                $info_estado = isset($mapeo_estados[$estado_valido]) 
-                    ? $mapeo_estados[$estado_valido] 
-                    : ['nombre' => ucfirst(str_replace('_', ' ', $estado_valido))];
             ?>
-                <option value="<?= htmlspecialchars($estado_valido) ?>" 
-                        <?= $estado_pago_actual_modal === $estado_valido ? 'selected' : '' ?>>
-                    <?= htmlspecialchars($info_estado['nombre']) ?>
-                </option>
-            <?php endforeach; ?>
         </select>
         <?php if ($select_disabled): ?>
         <small class="text-warning d-block mt-1">
@@ -791,14 +819,19 @@ function renderFormularioEstadoPago($id_pedido, $estado_pago_actual_modal, $info
             <?php endif; ?>
         </small>
         <?php else: ?>
-        <small class="text-muted d-block mt-1">
-            <i class="fas fa-info-circle me-1"></i>
-            Al aprobar el pago, el stock se descontará automáticamente. Al rechazar/cancelar, se restaurará si había sido descontado.
-            <?php if ($estado_pago_actual_modal !== 'pendiente'): ?>
-            <br><i class="fas fa-exclamation-triangle me-1 text-warning"></i>
-            <strong>Importante:</strong> Un pago que sale de "Pendiente" NO puede cancelarse bajo ningún motivo. Solo puede avanzar o ser rechazado.
-            <?php endif; ?>
-        </small>
+        <?php if (!$puede_aprobar_stock && !empty($errores_stock)): ?>
+        <div class="alert alert-danger mt-2 mb-0" role="alert">
+            <i class="fas fa-exclamation-circle me-1"></i>
+            <strong>⚠️ Stock insuficiente</strong>
+            <br>
+            No se puede aprobar este pago:
+            <ul class="mb-0 mt-1">
+                <?php foreach ($errores_stock as $error): ?>
+                <li><small><?= htmlspecialchars($error) ?></small></li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+        <?php endif; ?>
         <?php endif; ?>
     </div>
     <?php
@@ -899,7 +932,7 @@ function renderFormulariosAdicionales($id_pedido, $pago_modal) {
         <input type="hidden" name="pago_id" value="<?= $pago_modal['id_pago'] ?>">
         <input type="hidden" name="aprobar_pago" value="1">
     </form>
-    
+
     <!-- Modal para rechazar pago -->
     <div class="modal fade" id="rechazarPagoModal<?= $id_pedido ?>" tabindex="-1">
         <div class="modal-dialog">

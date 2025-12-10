@@ -97,11 +97,24 @@ function procesarItemCarrito($mysqli, $item, $clave, $modo = 'preliminar') {
     if (!validarEstructuraItemCarrito($item)) {
         return false;
     }
-    
+
     // Incluir función de validación de stock si no está incluida
     require_once __DIR__ . '/queries/stock_queries.php';
-    
-    $cantidad_solicitada = max(1, intval($item['cantidad']));
+
+    // FIX: Validar cantidad explícitamente - NO forzar a 1
+    $cantidad_raw = intval($item['cantidad']);
+
+    if ($cantidad_raw <= 0) {
+        error_log("procesarItemCarrito: Cantidad inválida ($cantidad_raw) para producto");
+        return false;
+    }
+
+    if ($cantidad_raw > 100) {
+        error_log("procesarItemCarrito: Cantidad excesiva ($cantidad_raw) - máximo 100");
+        return false;
+    }
+
+    $cantidad_solicitada = $cantidad_raw;
     
     // Usar función unificada de validación en ambos modos
     try {

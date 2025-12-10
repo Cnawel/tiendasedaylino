@@ -199,3 +199,4 @@ $titulo_pagina = 'Política de Devoluciones';
 
 <?php include 'includes/footer.php'; render_footer(); ?>
 
+
