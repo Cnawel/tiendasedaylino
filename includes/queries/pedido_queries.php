@@ -18,52 +18,149 @@
 
 /**
  * Obtiene estadísticas de pedidos para el panel de ventas
- * 
+ *
+ * REFACTORIZACIÓN: Esta función usa el patrón de múltiples queries simples
+ * en lugar de JOINs complejos. Divide la lógica en:
+ * - Query 1: Total de pedidos (simple COUNT - ya era simple)
+ * - Query 2-3: Obtener pedidos por estado + verificar pagos en PHP
+ * - PHP: Contar según condiciones de negocio
+ *
  * @param mysqli $mysqli Conexión a la base de datos
  * @return array Array con estadísticas: total_pedidos, pedidos_pendientes, pedidos_preparacion
- * 
+ *
  * DEFINICIONES:
  * - pedidos_pendientes: Estado pedido = 'pendiente' PERO el pago NO está aprobado
  * - pedidos_preparacion: Pago aprobado pero falta entregar (no completado/cancelado)
  */
 function obtenerEstadisticasPedidos($mysqli) {
-    $stats = [];
-    
-    // Total de pedidos
-    $stmt = $mysqli->prepare("SELECT COUNT(*) as total_pedidos FROM Pedidos");
+    $stats = [
+        'total_pedidos' => 0,
+        'pedidos_pendientes' => 0,
+        'pedidos_preparacion' => 0
+    ];
+
+    // Query 1: Total de pedidos (ya es simple, se mantiene)
+    $sql_total = "SELECT COUNT(*) as total FROM Pedidos";
+    $stmt = $mysqli->prepare($sql_total);
+    if (!$stmt) {
+        error_log("ERROR obtenerEstadisticasPedidos - prepare total falló: " . $mysqli->error);
+        return $stats;
+    }
     $stmt->execute();
     $result = $stmt->get_result()->fetch_assoc();
-    $stats['total_pedidos'] = intval($result['total_pedidos'] ?? 0);
+    $stats['total_pedidos'] = intval($result['total'] ?? 0);
     $stmt->close();
-    
-    // Pedidos pendientes: estado_pedido = 'pendiente' Y (pago no existe O pago NO está aprobado)
-    $sql_pendientes = "
-        SELECT COUNT(DISTINCT p.id_pedido) as pedidos_pendientes
-        FROM Pedidos p
-        LEFT JOIN Pagos pag ON p.id_pedido = pag.id_pedido
-        WHERE LOWER(TRIM(p.estado_pedido)) = 'pendiente'
-          AND (pag.id_pago IS NULL OR LOWER(TRIM(IFNULL(pag.estado_pago, ''))) != 'aprobado')
+
+    // Query 2: Obtener pedidos pendientes (sin JOIN)
+    $sql_pedidos_pendientes = "
+        SELECT id_pedido
+        FROM Pedidos
+        WHERE LOWER(TRIM(estado_pedido)) = 'pendiente'
     ";
-    $stmt = $mysqli->prepare($sql_pendientes);
-    $stmt->execute();
-    $result = $stmt->get_result()->fetch_assoc();
-    $stats['pedidos_pendientes'] = intval($result['pedidos_pendientes'] ?? 0);
-    $stmt->close();
-    
-    // Pedidos en preparación: pago aprobado pero falta entregar (no completado/cancelado)
-    $sql_preparacion = "
-        SELECT COUNT(DISTINCT p.id_pedido) as pedidos_preparacion
-        FROM Pedidos p
-        INNER JOIN Pagos pag ON p.id_pedido = pag.id_pedido
-        WHERE LOWER(TRIM(IFNULL(pag.estado_pago, ''))) = 'aprobado'
-          AND LOWER(TRIM(IFNULL(p.estado_pedido, ''))) NOT IN ('completado', 'cancelado')
+
+    $stmt_pendientes = $mysqli->prepare($sql_pedidos_pendientes);
+    if (!$stmt_pendientes) {
+        error_log("ERROR obtenerEstadisticasPedidos - prepare pendientes falló: " . $mysqli->error);
+        return $stats;
+    }
+
+    $stmt_pendientes->execute();
+    $result_pendientes = $stmt_pendientes->get_result();
+
+    $pedidos_pendientes_ids = [];
+    while ($row = $result_pendientes->fetch_assoc()) {
+        $pedidos_pendientes_ids[] = intval($row['id_pedido']);
+    }
+    $stmt_pendientes->close();
+
+    // Query 3: Para cada pedido pendiente, verificar si NO tiene pago aprobado
+    if (!empty($pedidos_pendientes_ids)) {
+        $sql_verificar_pago = "
+            SELECT estado_pago
+            FROM Pagos
+            WHERE id_pedido = ?
+            LIMIT 1
+        ";
+
+        $stmt_verificar = $mysqli->prepare($sql_verificar_pago);
+        if ($stmt_verificar) {
+            foreach ($pedidos_pendientes_ids as $id_pedido) {
+                $stmt_verificar->bind_param('i', $id_pedido);
+
+                if (!$stmt_verificar->execute()) {
+                    error_log("ERROR obtenerEstadisticasPedidos - execute verificar pago falló para pedido #{$id_pedido}: " . $stmt_verificar->error);
+                    continue;
+                }
+
+                $result_pago = $stmt_verificar->get_result();
+                $row_pago = $result_pago->fetch_assoc();
+
+                // PHP: Contar si NO existe pago O si pago NO está aprobado
+                if (!$row_pago || strtolower(trim($row_pago['estado_pago'] ?? '')) !== 'aprobado') {
+                    $stats['pedidos_pendientes']++;
+                }
+            }
+            $stmt_verificar->close();
+        } else {
+            error_log("ERROR obtenerEstadisticasPedidos - prepare verificar pago falló: " . $mysqli->error);
+        }
+    }
+
+    // Query 4: Obtener pedidos no completados/cancelados (sin JOIN)
+    $sql_pedidos_activos = "
+        SELECT id_pedido
+        FROM Pedidos
+        WHERE LOWER(TRIM(estado_pedido)) NOT IN ('completado', 'cancelado')
     ";
-    $stmt = $mysqli->prepare($sql_preparacion);
-    $stmt->execute();
-    $result = $stmt->get_result()->fetch_assoc();
-    $stats['pedidos_preparacion'] = intval($result['pedidos_preparacion'] ?? 0);
-    $stmt->close();
-    
+
+    $stmt_activos = $mysqli->prepare($sql_pedidos_activos);
+    if (!$stmt_activos) {
+        error_log("ERROR obtenerEstadisticasPedidos - prepare activos falló: " . $mysqli->error);
+        return $stats;
+    }
+
+    $stmt_activos->execute();
+    $result_activos = $stmt_activos->get_result();
+
+    $pedidos_activos_ids = [];
+    while ($row = $result_activos->fetch_assoc()) {
+        $pedidos_activos_ids[] = intval($row['id_pedido']);
+    }
+    $stmt_activos->close();
+
+    // Query 5: Para cada pedido activo, verificar si tiene pago aprobado
+    if (!empty($pedidos_activos_ids)) {
+        $sql_verificar_pago_aprobado = "
+            SELECT estado_pago
+            FROM Pagos
+            WHERE id_pedido = ?
+            LIMIT 1
+        ";
+
+        $stmt_verificar_aprobado = $mysqli->prepare($sql_verificar_pago_aprobado);
+        if ($stmt_verificar_aprobado) {
+            foreach ($pedidos_activos_ids as $id_pedido) {
+                $stmt_verificar_aprobado->bind_param('i', $id_pedido);
+
+                if (!$stmt_verificar_aprobado->execute()) {
+                    error_log("ERROR obtenerEstadisticasPedidos - execute verificar pago aprobado falló para pedido #{$id_pedido}: " . $stmt_verificar_aprobado->error);
+                    continue;
+                }
+
+                $result_pago_aprobado = $stmt_verificar_aprobado->get_result();
+                $row_pago_aprobado = $result_pago_aprobado->fetch_assoc();
+
+                // PHP: Contar solo si el pago está aprobado
+                if ($row_pago_aprobado && strtolower(trim($row_pago_aprobado['estado_pago'] ?? '')) === 'aprobado') {
+                    $stats['pedidos_preparacion']++;
+                }
+            }
+            $stmt_verificar_aprobado->close();
+        } else {
+            error_log("ERROR obtenerEstadisticasPedidos - prepare verificar pago aprobado falló: " . $mysqli->error);
+        }
+    }
+
     return $stats;
 }
 
@@ -128,6 +225,8 @@ function obtenerPedidos($mysqli, $limite = 0, $mostrar_inactivos = false) {
     }
     
     // Query 1: Obtener pedidos básicos con datos de usuario
+    // Usar placeholder para LIMIT
+    // Si la versión no soporta placeholder en LIMIT, usar concatenación validada como fallback
     $sql = "
         SELECT p.id_pedido, p.fecha_pedido, p.estado_pedido, p.direccion_entrega, 
                p.telefono_contacto, p.observaciones, p.total, p.fecha_actualizacion,
@@ -430,29 +529,55 @@ function agregarDetallePedido($mysqli, $id_pedido, $id_variante, $cantidad, $pre
 
 /**
  * Actualiza el estado de un pedido
- * 
+ *
+ * IMPORTANTE: Cuando el nuevo estado es 'cancelado', se envía automáticamente
+ * un email de notificación al cliente.
+ *
  * @param mysqli $mysqli Conexión a la base de datos
  * @param int $id_pedido ID del pedido
  * @param string $nuevo_estado Nuevo estado del pedido
  * @return bool True si se actualizó correctamente
  */
 function actualizarEstadoPedido($mysqli, $id_pedido, $nuevo_estado) {
+    // Obtener estado anterior e id_usuario ANTES de actualizar
+    $pedido_actual = obtenerPedidoPorId($mysqli, $id_pedido);
+    $estado_anterior = $pedido_actual ? trim(strtolower($pedido_actual['estado_pedido'])) : null;
+    $id_usuario = $pedido_actual ? intval($pedido_actual['id_usuario']) : null;
+
     $sql = "
-        UPDATE Pedidos 
+        UPDATE Pedidos
         SET estado_pedido = ?,
             fecha_actualizacion = NOW()
         WHERE id_pedido = ?
     ";
-    
+
     $stmt = $mysqli->prepare($sql);
     if (!$stmt) {
         return false;
     }
-    
+
     $stmt->bind_param('si', $nuevo_estado, $id_pedido);
     $resultado = $stmt->execute();
     $stmt->close();
-    
+
+    // Si la actualización fue exitosa y el nuevo estado es 'cancelado', enviar email
+    if ($resultado && trim(strtolower($nuevo_estado)) === 'cancelado' && $id_usuario) {
+        // Solo enviar si realmente cambió a cancelado (no estaba cancelado antes)
+        if ($estado_anterior !== 'cancelado') {
+            // Cargar función de email si no está cargada
+            if (!function_exists('enviar_email_pedido_cancelado_o_rechazado')) {
+                require_once __DIR__ . '/../email_gmail_functions.php';
+            }
+
+            // Enviar email de notificación (no bloquear si falla el email)
+            try {
+                enviar_email_pedido_cancelado_o_rechazado($id_pedido, $id_usuario, 'cancelado', null, $mysqli);
+            } catch (Exception $e) {
+                error_log("Error al enviar email de cancelación para pedido #$id_pedido: " . $e->getMessage());
+            }
+        }
+    }
+
     return $resultado;
 }
 
@@ -484,8 +609,11 @@ function actualizarEstadoPedidoConValidacion($mysqli, $id_pedido, $nuevo_estado,
             return false; // Pedido no existe
         }
         
-        $estado_actual = trim(strtolower($pedido_actual['estado_pedido']));
-        $estados_permitidos_lower = array_map('strtolower', array_map('trim', $estados_permitidos));
+        $estado_actual = trim(strtolower($pedido_actual['estado_pedido'] ?? ''));
+        // Filtrar nulls antes de trim para evitar warnings en PHP 8.2+
+        $estados_permitidos_lower = array_map('strtolower', array_map(function($val) {
+            return trim($val ?? '');
+        }, $estados_permitidos));
         
         if (!in_array($estado_actual, $estados_permitidos_lower)) {
             return false; // Estado actual no está permitido
@@ -899,11 +1027,22 @@ function cancelarPedidosPendientesAntiguos($mysqli, $dias_limite = 60) {
  * @throws Exception Si la transición no está permitida
  */
 function validarTransicionPedido($estado_actual, $nuevo_estado) {
-    // Cargar StateValidator si no está cargado
-    require_once __DIR__ . '/../state_validator.php';
-    
-    // Delegar validación a StateValidator
-    return StateValidator::canTransition($estado_actual, $nuevo_estado, 'pedido');
+    // Cargar funciones de estado si no están cargadas
+    require_once __DIR__ . '/../state_functions.php';
+
+    // Validar transición de pedido
+    $puede_transicionar = puedeTransicionarPedido($estado_actual, $nuevo_estado);
+
+    // Si no puede transicionar, lanzar excepción
+    if (!$puede_transicionar) {
+        $transiciones = obtenerTransicionesPedidoValidas();
+        $estados_permitidos = $transiciones[$estado_actual] ?? [];
+        $estados_permitidos_str = empty($estados_permitidos) ? 'ninguno (estado terminal)' : implode(', ', $estados_permitidos);
+
+        throw new Exception("Transición no permitida: No se puede cambiar de '$estado_actual' a '$nuevo_estado'. Transiciones permitidas desde '$estado_actual': $estados_permitidos_str");
+    }
+
+    return true;
 }
 
 /**
@@ -1314,8 +1453,8 @@ function actualizarEstadoPedidoConValidaciones($mysqli, $id_pedido, $nuevo_estad
     
     try {
         // Verificar que el estado no haya cambiado desde que lo leímos (race condition check)
-        // Re-leer el estado dentro de la transacción para detectar cambios concurrentes
-        $sql_verificar_estado = "SELECT estado_pedido FROM Pedidos WHERE id_pedido = ? FOR UPDATE";
+        // Sin FOR UPDATE - el UPDATE final validará el estado con WHERE
+        $sql_verificar_estado = "SELECT estado_pedido FROM Pedidos WHERE id_pedido = ?";
         $stmt_verificar_estado = $mysqli->prepare($sql_verificar_estado);
         if (!$stmt_verificar_estado) {
             $mysqli->rollback();

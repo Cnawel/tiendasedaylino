@@ -97,41 +97,84 @@ function obtenerCategorias($mysqli) {
 
 /**
  * Obtiene IDs de categorías que tienen productos activos (incluyendo stock 0)
- * 
+ *
+ * REFACTORIZACIÓN: Esta función usa el patrón de múltiples queries simples
+ * en lugar de DISTINCT + JOINs complejos. Divide la lógica en:
+ * - Query 1: Obtener todas las categorías activas
+ * - Query 2: Para cada categoría, verificar si tiene productos con stock
+ * - PHP: Filtrar solo categorías que tienen productos válidos
+ *
  * Esta función retorna un array con los IDs de categorías que tienen al menos
  * un producto activo con variantes que tengan stock >= 0, sin importar si las
  * variantes están activas o inactivas. Útil para mostrar categorías en la barra
  * de navegación aunque tengan productos sin stock o con variantes inactivas.
- * 
+ *
  * @param mysqli $mysqli Conexión a la base de datos
  * @return array Array con IDs de categorías que tienen productos activos con stock >= 0
  */
 function obtenerCategoriasConProductosStock($mysqli) {
-    $sql = "
-        SELECT DISTINCT c.id_categoria
-        FROM Categorias c
-        INNER JOIN Productos p ON c.id_categoria = p.id_categoria
-        INNER JOIN Stock_Variantes sv ON p.id_producto = sv.id_producto
-        WHERE c.activo = 1
-        AND p.activo = 1
-        AND sv.stock >= 0
-    ";
-    
-    $stmt = $mysqli->prepare($sql);
-    if (!$stmt) {
+    // Query 1: Obtener todas las categorías activas (simple, sin JOINs)
+    $sql_categorias = "SELECT id_categoria FROM Categorias WHERE activo = 1";
+
+    $stmt_categorias = $mysqli->prepare($sql_categorias);
+    if (!$stmt_categorias) {
+        error_log("ERROR obtenerCategoriasConProductosStock - prepare categorías falló: " . $mysqli->error);
         return [];
     }
-    
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    $categorias_ids = [];
-    while ($row = $result->fetch_assoc()) {
-        $categorias_ids[] = (int)$row['id_categoria'];
+
+    $stmt_categorias->execute();
+    $result_categorias = $stmt_categorias->get_result();
+
+    $categorias = [];
+    while ($row = $result_categorias->fetch_assoc()) {
+        $categorias[] = intval($row['id_categoria']);
     }
-    
-    $stmt->close();
-    return $categorias_ids;
+    $stmt_categorias->close();
+
+    // Si no hay categorías activas, retornar array vacío
+    if (empty($categorias)) {
+        return [];
+    }
+
+    // Query 2: Para cada categoría, verificar si tiene productos con stock >= 0
+    // Usar INNER JOIN simple (sin DISTINCT, más eficiente)
+    $sql_verificar = "
+        SELECT COUNT(*) as total
+        FROM Productos p
+        INNER JOIN Stock_Variantes sv ON p.id_producto = sv.id_producto
+        WHERE p.id_categoria = ?
+          AND p.activo = 1
+          AND sv.stock >= 0
+    ";
+
+    $stmt_verificar = $mysqli->prepare($sql_verificar);
+    if (!$stmt_verificar) {
+        error_log("ERROR obtenerCategoriasConProductosStock - prepare verificación falló: " . $mysqli->error);
+        return [];
+    }
+
+    // PHP: Filtrar categorías que tienen al menos un producto con stock
+    $categorias_validas = [];
+    foreach ($categorias as $id_categoria) {
+        $stmt_verificar->bind_param('i', $id_categoria);
+
+        if (!$stmt_verificar->execute()) {
+            error_log("ERROR obtenerCategoriasConProductosStock - execute falló para categoría #{$id_categoria}: " . $stmt_verificar->error);
+            continue; // Saltar esta categoría y continuar con la siguiente
+        }
+
+        $result_verificar = $stmt_verificar->get_result();
+        $row = $result_verificar->fetch_assoc();
+
+        // Si tiene al menos un producto con stock, agregar a categorías válidas
+        if ($row && intval($row['total']) > 0) {
+            $categorias_validas[] = $id_categoria;
+        }
+    }
+
+    $stmt_verificar->close();
+
+    return $categorias_validas;
 }
 
 /**
@@ -259,5 +302,50 @@ function eliminarCategoriaPermanentemente($mysqli, $id_categoria) {
     $stmt->close();
     
     return $resultado;
+}
+
+/**
+ * Obtiene categorías activas, únicas y con productos disponibles
+ * 
+ * Combina la lógica de obtenerCategorias() y obtenerCategoriasConProductosStock()
+ * para devolver una lista limpia y lista para usar en el frontend.
+ * 
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @return array Array de categorías filtradas
+ */
+function obtenerCategoriasActivasConProductos($mysqli) {
+    // 1. Obtener todas las categorías activas
+    $categorias_activas_temp = obtenerCategorias($mysqli);
+    
+    // 2. Eliminar duplicados por nombre (mantener primera ocurrencia)
+    $categorias_unicas = [];
+    $nombres_vistos = [];
+    
+    foreach ($categorias_activas_temp as $cat) {
+        // Doble verificación de activo
+        if (isset($cat['activo']) && $cat['activo'] != 1) {
+            continue;
+        }
+        
+        $nombre_normalizado = strtolower(trim($cat['nombre_categoria']));
+        if (!in_array($nombre_normalizado, $nombres_vistos)) {
+            $categorias_unicas[] = $cat;
+            $nombres_vistos[] = $nombre_normalizado;
+        }
+    }
+    
+    // 3. Si hay categorías, filtrar las que tienen productos con stock
+    if (empty($categorias_unicas)) {
+        return [];
+    }
+    
+    $categorias_con_productos_ids = obtenerCategoriasConProductosStock($mysqli);
+    
+    $categorias_finales = array_filter($categorias_unicas, function($cat) use ($categorias_con_productos_ids) {
+        return in_array((int)$cat['id_categoria'], $categorias_con_productos_ids);
+    });
+    
+    // Re-indexar array
+    return array_values($categorias_finales);
 }
 

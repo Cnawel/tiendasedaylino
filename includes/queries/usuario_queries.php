@@ -11,6 +11,8 @@
  * ========================================================================
  */
 
+
+
 // Cargar funciones de contraseñas (incluye configurarConexionBD)
 // Usar ruta relativa desde includes/queries/ hacia includes/
 $password_functions_path = __DIR__ . '/../password_functions.php';
@@ -390,50 +392,102 @@ function verificarUsuarioTienePedidos($mysqli, $id_usuario) {
 
 /**
  * Verifica si un usuario tiene pedidos activos con pago aprobado
- * 
+ *
+ * REFACTORIZACIÓN: Esta función usa el patrón de múltiples queries simples
+ * en lugar de subconsulta EXISTS. Divide la lógica en:
+ * - Query 1: Obtener pedidos activos del usuario (preparacion, en_viaje)
+ * - Query 2: Para cada pedido, verificar si tiene pago aprobado
+ * - PHP: Retornar true si al menos un pedido tiene pago aprobado
+ *
  * Esta función verifica si un usuario tiene pedidos en estados activos (preparacion, en_viaje)
  * que además tienen un pago aprobado. Solo estos pedidos bloquean la eliminación del usuario.
- * 
+ *
  * Estados que bloquean eliminación:
  * - preparacion O en_viaje
  * - Y estado_pago = 'aprobado'
- * 
+ *
  * NO bloquean eliminación:
  * - Pedidos en estados finales: completado, cancelado, devolucion
  * - Pedidos en pendiente sin pago aprobado
- * 
+ *
  * @param mysqli $mysqli Conexión a la base de datos
  * @param int $id_usuario ID del usuario
  * @return bool True si el usuario tiene pedidos activos con pago aprobado, false en caso contrario
  */
 function verificarUsuarioTienePedidosActivos($mysqli, $id_usuario) {
-    // Usar EXISTS para mejor rendimiento (solo verifica existencia, no necesita JOIN completo)
-    $sql = "
-        SELECT 1 
-        FROM Pedidos p
-        WHERE p.id_usuario = ?
-          AND LOWER(TRIM(p.estado_pedido)) IN ('preparacion', 'en_viaje')
-          AND EXISTS (
-              SELECT 1 
-              FROM Pagos pag 
-              WHERE pag.id_pedido = p.id_pedido 
-                AND LOWER(TRIM(IFNULL(pag.estado_pago, ''))) = 'aprobado'
-          )
-        LIMIT 1
+    // Query 1: Obtener pedidos activos del usuario (simple, sin subconsultas)
+    $sql_pedidos = "
+        SELECT id_pedido
+        FROM Pedidos
+        WHERE id_usuario = ?
+          AND LOWER(TRIM(estado_pedido)) IN ('preparacion', 'en_viaje')
     ";
-    
-    $stmt = $mysqli->prepare($sql);
-    if (!$stmt) {
+
+    $stmt_pedidos = $mysqli->prepare($sql_pedidos);
+    if (!$stmt_pedidos) {
+        error_log("ERROR verificarUsuarioTienePedidosActivos - prepare pedidos falló: " . $mysqli->error);
         return false;
     }
-    
-    $stmt->bind_param('i', $id_usuario);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $tiene_pedidos_activos = $result->num_rows > 0;
-    $stmt->close();
-    
-    return $tiene_pedidos_activos;
+
+    $stmt_pedidos->bind_param('i', $id_usuario);
+
+    if (!$stmt_pedidos->execute()) {
+        error_log("ERROR verificarUsuarioTienePedidosActivos - execute pedidos falló: " . $stmt_pedidos->error);
+        $stmt_pedidos->close();
+        return false;
+    }
+
+    $result_pedidos = $stmt_pedidos->get_result();
+
+    // Obtener IDs de pedidos activos
+    $pedidos_activos = [];
+    while ($row = $result_pedidos->fetch_assoc()) {
+        $pedidos_activos[] = intval($row['id_pedido']);
+    }
+    $stmt_pedidos->close();
+
+    // Si no tiene pedidos activos, retornar false inmediatamente
+    if (empty($pedidos_activos)) {
+        return false;
+    }
+
+    // Query 2: Para cada pedido, verificar si tiene pago aprobado
+    $sql_pago = "
+        SELECT estado_pago
+        FROM Pagos
+        WHERE id_pedido = ?
+        LIMIT 1
+    ";
+
+    $stmt_pago = $mysqli->prepare($sql_pago);
+    if (!$stmt_pago) {
+        error_log("ERROR verificarUsuarioTienePedidosActivos - prepare pago falló: " . $mysqli->error);
+        return false;
+    }
+
+    // PHP: Verificar si algún pedido tiene pago aprobado
+    foreach ($pedidos_activos as $id_pedido) {
+        $stmt_pago->bind_param('i', $id_pedido);
+
+        if (!$stmt_pago->execute()) {
+            error_log("ERROR verificarUsuarioTienePedidosActivos - execute pago falló para pedido #{$id_pedido}: " . $stmt_pago->error);
+            continue; // Saltar este pedido y continuar con el siguiente
+        }
+
+        $result_pago = $stmt_pago->get_result();
+        $row_pago = $result_pago->fetch_assoc();
+
+        // Si el pago está aprobado, el usuario tiene pedidos activos
+        if ($row_pago && strtolower(trim($row_pago['estado_pago'])) === 'aprobado') {
+            $stmt_pago->close();
+            return true; // Encontramos un pedido activo con pago aprobado
+        }
+    }
+
+    $stmt_pago->close();
+
+    // No se encontró ningún pedido activo con pago aprobado
+    return false;
 }
 
 /**
