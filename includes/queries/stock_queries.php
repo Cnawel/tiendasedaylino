@@ -391,18 +391,19 @@ function obtenerStockReservado($mysqli, $id_variante, $id_pedido_excluir = null)
         return 0;
     }
 
-    // Query con LEFT JOIN para incluir pedidos sin pago y filtrar pagos no aprobados
+    // ✅ NIVEL 5: Calcular fecha límite en PHP (sin DATE_SUB)
+    $fecha_limite = date('Y-m-d H:i:s', strtotime('-24 hours'));
+
+    // ✅ NIVEL 5: Query simple sin DATE_SUB
     $sql = "
-        SELECT COALESCE(SUM(ms.cantidad), 0) as stock_reservado
+        SELECT ms.cantidad, ms.id_pedido
         FROM Movimientos_Stock ms
         INNER JOIN Pedidos p ON ms.id_pedido = p.id_pedido
-        LEFT JOIN Pagos pg ON p.id_pedido = pg.id_pedido
         WHERE ms.id_variante = ?
           AND ms.tipo_movimiento = 'venta'
           AND ms.observaciones LIKE 'RESERVA: %'
           AND p.estado_pedido IN ('pendiente', 'pendiente_validado_stock')
-          AND p.fecha_pedido > DATE_SUB(NOW(), INTERVAL 24 HOUR)
-          AND (pg.id_pago IS NULL OR pg.estado_pago IN ('pendiente', 'pendiente_aprobacion'))
+          AND p.fecha_pedido > ?
     ";
 
     if ($id_pedido_excluir !== null) {
@@ -417,10 +418,10 @@ function obtenerStockReservado($mysqli, $id_variante, $id_pedido_excluir = null)
 
     if ($id_pedido_excluir !== null) {
         $id_pedido_excluir_int = intval($id_pedido_excluir);
-        $stmt->bind_param('ii', $id_variante, $id_pedido_excluir_int);
+        $stmt->bind_param('isi', $id_variante, $fecha_limite, $id_pedido_excluir_int);
         error_log("obtenerStockReservado: Variante #{$id_variante} - Excluyendo reserva del pedido #{$id_pedido_excluir_int}");
     } else {
-        $stmt->bind_param('i', $id_variante);
+        $stmt->bind_param('is', $id_variante, $fecha_limite);
     }
 
     if (!$stmt->execute()) {
@@ -430,10 +431,43 @@ function obtenerStockReservado($mysqli, $id_variante, $id_pedido_excluir = null)
     }
 
     $result = $stmt->get_result();
-    $row = $result->fetch_assoc();
-    $stmt->close();
 
-    $stock_reservado = intval($row['stock_reservado'] ?? 0);
+    // Calcular suma en PHP y filtrar por estado de pago (más simple que LEFT JOIN complejo)
+    $stock_reservado = 0;
+    $pedidos_procesados = [];
+
+    while ($row = $result->fetch_assoc()) {
+        $id_ped = intval($row['id_pedido']);
+
+        // Evitar contar mismo pedido múltiples veces
+        if (in_array($id_ped, $pedidos_procesados)) {
+            continue;
+        }
+
+        // Verificar estado de pago del pedido en query separada simple
+        $sql_pago = "SELECT estado_pago FROM Pagos WHERE id_pedido = ? LIMIT 1";
+        $stmt_pago = $mysqli->prepare($sql_pago);
+
+        if ($stmt_pago) {
+            $stmt_pago->bind_param('i', $id_ped);
+            $stmt_pago->execute();
+            $res_pago = $stmt_pago->get_result();
+            $pago = $res_pago->fetch_assoc();
+            $stmt_pago->close();
+
+            // Contar reserva solo si no tiene pago O pago está pendiente
+            if (!$pago || in_array($pago['estado_pago'], ['pendiente', 'pendiente_aprobacion'])) {
+                $stock_reservado += intval($row['cantidad']);
+            }
+        } else {
+            // Si no hay pago, contar la reserva
+            $stock_reservado += intval($row['cantidad']);
+        }
+
+        $pedidos_procesados[] = $id_ped;
+    }
+
+    $stmt->close();
 
     if ($id_pedido_excluir !== null) {
         error_log("obtenerStockReservado: Variante #{$id_variante} - Stock reservado (excluyendo pedido #{$id_pedido_excluir}): {$stock_reservado}");
@@ -1138,7 +1172,10 @@ function liberarReservasExpiradas($mysqli) {
         'pedidos_liberados' => []
     ];
     
-    // Buscar pedidos con reservas expiradas (>24 horas sin pago aprobado)
+    // ✅ NIVEL 5: Calcular fecha límite en PHP (sin DATE_SUB)
+    $fecha_limite = date('Y-m-d H:i:s', strtotime('-24 hours'));
+
+    // ✅ NIVEL 5: Query simple sin DATE_SUB
     $sql = "
         SELECT DISTINCT p.id_pedido, p.fecha_pedido, p.id_usuario
         FROM Pedidos p
@@ -1147,16 +1184,17 @@ function liberarReservasExpiradas($mysqli) {
         WHERE p.estado_pedido IN ('pendiente', 'pendiente_validado_stock')
           AND ms.tipo_movimiento = 'venta'
           AND ms.observaciones LIKE 'RESERVA: %'
-          AND p.fecha_pedido <= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+          AND p.fecha_pedido <= ?
           AND (pag.id_pago IS NULL OR pag.estado_pago NOT IN ('aprobado'))
     ";
-    
+
     $stmt = $mysqli->prepare($sql);
     if (!$stmt) {
         error_log("Error al preparar consulta de reservas expiradas: " . $mysqli->error);
         return $resultado;
     }
-    
+
+    $stmt->bind_param('s', $fecha_limite);
     $stmt->execute();
     $result = $stmt->get_result();
     $pedidos_expirados = [];

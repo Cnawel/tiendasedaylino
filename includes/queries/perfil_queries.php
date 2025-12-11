@@ -297,34 +297,38 @@ function obtenerPedidosUsuario($mysqli, $id_usuario) {
         return [];
     }
     
-    // Query 2: Calcular totales desde Detalle_Pedido (por lote)
+    // Query 2 SIMPLIFICADA: Obtener detalles sin agregación
     $placeholders = str_repeat('?,', count($pedidos_ids) - 1) . '?';
-    $sql_totales = "
-        SELECT id_pedido, COALESCE(SUM(cantidad * precio_unitario), 0) as total
+    $sql_detalles = "
+        SELECT id_pedido, cantidad, precio_unitario
         FROM Detalle_Pedido
         WHERE id_pedido IN ($placeholders)
-        GROUP BY id_pedido
     ";
-    
-    $stmt_totales = $mysqli->prepare($sql_totales);
-    if ($stmt_totales) {
+
+    $stmt_detalles = $mysqli->prepare($sql_detalles);
+    $totales = [];
+
+    if ($stmt_detalles) {
         $types = str_repeat('i', count($pedidos_ids));
-        $stmt_totales->bind_param($types, ...$pedidos_ids);
-        if (!$stmt_totales->execute()) {
-            error_log("ERROR obtenerPedidosUsuario: No se pudo ejecutar consulta de totales - " . $stmt_totales->error);
-            $stmt_totales->close();
-            $totales = [];
+        $stmt_detalles->bind_param($types, ...$pedidos_ids);
+
+        if (!$stmt_detalles->execute()) {
+            error_log("ERROR obtenerPedidosUsuario: No se pudo ejecutar consulta de detalles - " . $stmt_detalles->error);
         } else {
-            $result_totales = $stmt_totales->get_result();
-            
-            $totales = [];
-            while ($row = $result_totales->fetch_assoc()) {
-                $totales[$row['id_pedido']] = floatval($row['total']);
+            $result_detalles = $stmt_detalles->get_result();
+
+            // Calcular totales en PHP (más simple que COALESCE + SUM + GROUP BY)
+            while ($row = $result_detalles->fetch_assoc()) {
+                $id_ped = intval($row['id_pedido']);
+                if (!isset($totales[$id_ped])) {
+                    $totales[$id_ped] = 0.0;
+                }
+                $cantidad = floatval($row['cantidad'] ?? 0);
+                $precio = floatval($row['precio_unitario'] ?? 0);
+                $totales[$id_ped] += ($cantidad * $precio);
             }
-            $stmt_totales->close();
         }
-    } else {
-        $totales = [];
+        $stmt_detalles->close();
     }
     
     // Combinar resultados en PHP

@@ -174,24 +174,32 @@ function obtenerEstadisticasPedidos($mysqli) {
  * @return float Total del pedido desde Detalle_Pedido (0 si no hay detalles)
  */
 function _calcularTotalPedido($mysqli, $id_pedido) {
+    // Query simplificada: obtener items del pedido
     $sql = "
-        SELECT COALESCE(SUM(cantidad * precio_unitario), 0) as total
+        SELECT cantidad, precio_unitario
         FROM Detalle_Pedido
         WHERE id_pedido = ?
     ";
-    
+
     $stmt = $mysqli->prepare($sql);
     if (!$stmt) {
         return 0.0;
     }
-    
+
     $stmt->bind_param('i', $id_pedido);
     $stmt->execute();
     $result = $stmt->get_result();
-    $row = $result->fetch_assoc();
+
+    // Calcular total en PHP (más simple que COALESCE + SUM en SQL)
+    $total = 0.0;
+    while ($row = $result->fetch_assoc()) {
+        $cantidad = floatval($row['cantidad'] ?? 0);
+        $precio = floatval($row['precio_unitario'] ?? 0);
+        $total += ($cantidad * $precio);
+    }
+
     $stmt->close();
-    
-    return floatval($row['total'] ?? 0);
+    return $total;
 }
 
 /**
@@ -258,29 +266,34 @@ function obtenerPedidos($mysqli, $limite = 0, $mostrar_inactivos = false) {
         return [];
     }
     
-    // Query 2: Calcular totales desde Detalle_Pedido (por lote)
+    // Query 2 SIMPLIFICADA: Obtener items sin agregación compleja
     $placeholders = str_repeat('?,', count($pedidos_ids) - 1) . '?';
-    $sql_totales = "
-        SELECT id_pedido, COALESCE(SUM(cantidad * precio_unitario), 0) as total
+    $sql_detalles = "
+        SELECT id_pedido, cantidad, precio_unitario
         FROM Detalle_Pedido
         WHERE id_pedido IN ($placeholders)
-        GROUP BY id_pedido
     ";
-    
-    $stmt_totales = $mysqli->prepare($sql_totales);
-    if ($stmt_totales) {
+
+    $stmt_detalles = $mysqli->prepare($sql_detalles);
+    $totales = [];
+
+    if ($stmt_detalles) {
         $types = str_repeat('i', count($pedidos_ids));
-        $stmt_totales->bind_param($types, ...$pedidos_ids);
-        $stmt_totales->execute();
-        $result_totales = $stmt_totales->get_result();
-        
-        $totales = [];
-        while ($row = $result_totales->fetch_assoc()) {
-            $totales[$row['id_pedido']] = floatval($row['total']);
+        $stmt_detalles->bind_param($types, ...$pedidos_ids);
+        $stmt_detalles->execute();
+        $result_detalles = $stmt_detalles->get_result();
+
+        // Calcular totales en PHP (más simple que COALESCE + SUM + GROUP BY)
+        while ($row = $result_detalles->fetch_assoc()) {
+            $id_ped = intval($row['id_pedido']);
+            if (!isset($totales[$id_ped])) {
+                $totales[$id_ped] = 0.0;
+            }
+            $cantidad = floatval($row['cantidad'] ?? 0);
+            $precio = floatval($row['precio_unitario'] ?? 0);
+            $totales[$id_ped] += ($cantidad * $precio);
         }
-        $stmt_totales->close();
-    } else {
-        $totales = [];
+        $stmt_detalles->close();
     }
     
     // Combinar resultados en PHP
@@ -922,24 +935,27 @@ function cancelarPedidosPendientesAntiguos($mysqli, $dias_limite = 60) {
         'total' => 0,
         'pedidos' => []
     ];
-    
-    // Buscar pedidos pendientes sin pago aprobado con más de X días
+
+    // ✅ NIVEL 5: Calcular fecha límite en PHP (sin DATEDIFF)
+    $fecha_limite = date('Y-m-d H:i:s', strtotime("-{$dias_limite} days"));
+
+    // ✅ NIVEL 5: Query simple sin IFNULL ni DATEDIFF
     $sql = "
         SELECT DISTINCT p.id_pedido, p.fecha_pedido, p.id_usuario, p.estado_pedido
         FROM Pedidos p
         LEFT JOIN Pagos pag ON p.id_pedido = pag.id_pedido
         WHERE LOWER(TRIM(p.estado_pedido)) = 'pendiente'
-          AND (pag.id_pago IS NULL OR LOWER(TRIM(IFNULL(pag.estado_pago, ''))) != 'aprobado')
-          AND DATEDIFF(NOW(), p.fecha_pedido) > ?
+          AND (pag.id_pago IS NULL OR LOWER(TRIM(pag.estado_pago)) != 'aprobado')
+          AND p.fecha_pedido < ?
     ";
-    
+
     $stmt = $mysqli->prepare($sql);
     if (!$stmt) {
         error_log("cancelarPedidosPendientesAntiguos: Error al preparar consulta: " . $mysqli->error);
         return $resultado;
     }
-    
-    $stmt->bind_param('i', $dias_limite);
+
+    $stmt->bind_param('s', $fecha_limite);
     if (!$stmt->execute()) {
         error_log("cancelarPedidosPendientesAntiguos: Error al ejecutar consulta: " . $stmt->error);
         $stmt->close();

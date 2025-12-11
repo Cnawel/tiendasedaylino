@@ -751,14 +751,9 @@ function obtenerTodosUsuarios($mysqli, $rol_filtro = null) {
  * @return array Array asociativo con: total, admins, ventas, marketing, clientes
  */
 function obtenerEstadisticasUsuarios($mysqli) {
-    $sql = "SELECT 
-                COUNT(*) as total,
-                SUM(CASE WHEN rol = 'admin' THEN 1 ELSE 0 END) as admins,
-                SUM(CASE WHEN rol = 'ventas' THEN 1 ELSE 0 END) as ventas,
-                SUM(CASE WHEN rol = 'marketing' THEN 1 ELSE 0 END) as marketing,
-                SUM(CASE WHEN rol = 'cliente' THEN 1 ELSE 0 END) as clientes
-            FROM Usuarios";
-    
+    // ✅ NIVEL 5: Query simple sin CASE WHEN
+    $sql = "SELECT rol FROM Usuarios WHERE activo = 1";
+
     $stmt = $mysqli->prepare($sql);
     if (!$stmt) {
         return [
@@ -769,19 +764,37 @@ function obtenerEstadisticasUsuarios($mysqli) {
             'clientes' => 0
         ];
     }
-    
+
     $stmt->execute();
     $result = $stmt->get_result();
-    $stats = $result->fetch_assoc();
-    $stmt->close();
-    
-    return [
-        'total' => intval($stats['total'] ?? 0),
-        'admins' => intval($stats['admins'] ?? 0),
-        'ventas' => intval($stats['ventas'] ?? 0),
-        'marketing' => intval($stats['marketing'] ?? 0),
-        'clientes' => intval($stats['clientes'] ?? 0)
+
+    // ✅ NIVEL 5: Contar en PHP (sin CASE WHEN)
+    $stats = [
+        'total' => 0,
+        'admins' => 0,
+        'ventas' => 0,
+        'marketing' => 0,
+        'clientes' => 0
     ];
+
+    while ($row = $result->fetch_assoc()) {
+        $rol = $row['rol'] ?? '';
+        $stats['total']++;
+
+        if ($rol === 'admin') {
+            $stats['admins']++;
+        } elseif ($rol === 'ventas') {
+            $stats['ventas']++;
+        } elseif ($rol === 'marketing') {
+            $stats['marketing']++;
+        } elseif ($rol === 'cliente') {
+            $stats['clientes']++;
+        }
+    }
+
+    $stmt->close();
+
+    return $stats;
 }
 
 /**
@@ -795,45 +808,55 @@ function obtenerEstadisticasUsuarios($mysqli) {
  * @return array Array asociativo de usuarios con información de historial ordenado por fecha descendente
  */
 function obtenerHistorialUsuarios($mysqli) {
-    // Consultar usuarios con fechas de registro y actualización
-    // Usar COALESCE para ordenar por la fecha más reciente (actualización o registro)
-    // Determinar tipo de acción: Creación si fecha_actualizacion IS NULL o igual a fecha_registro,
-    // Modificación si fecha_actualizacion es diferente y no NULL
-    $sql = "SELECT 
-                id_usuario, 
-                nombre, 
-                apellido, 
-                email, 
-                rol, 
+    // ✅ NIVEL 5: Query simple sin COALESCE ni CASE WHEN
+    $sql = "SELECT
+                id_usuario,
+                nombre,
+                apellido,
+                email,
+                rol,
                 activo,
                 fecha_registro,
-                fecha_actualizacion,
-                COALESCE(fecha_actualizacion, fecha_registro) as fecha_orden,
-                CASE 
-                    WHEN fecha_actualizacion IS NULL OR fecha_actualizacion = fecha_registro THEN 'Creación'
-                    ELSE 'Modificación'
-                END as tipo_accion
+                fecha_actualizacion
             FROM Usuarios
-            ORDER BY fecha_orden DESC, id_usuario DESC";
-    
+            ORDER BY fecha_actualizacion DESC, fecha_registro DESC, id_usuario DESC";
+
     $stmt = $mysqli->prepare($sql);
     if (!$stmt) {
         return [];
     }
-    
+
     if (!$stmt->execute()) {
         error_log("ERROR obtenerHistorialUsuarios: No se pudo ejecutar consulta - " . $stmt->error);
         $stmt->close();
         return [];
     }
     $result = $stmt->get_result();
-    
+
     $historial = [];
     while ($row = $result->fetch_assoc()) {
+        // ✅ NIVEL 5: Calcular fecha_orden y tipo_accion en PHP (sin COALESCE ni CASE WHEN)
+        $fecha_registro = $row['fecha_registro'];
+        $fecha_actualizacion = $row['fecha_actualizacion'];
+
+        $row['fecha_orden'] = $fecha_actualizacion ?? $fecha_registro;
+
+        if ($fecha_actualizacion === null || $fecha_actualizacion === $fecha_registro) {
+            $row['tipo_accion'] = 'Creación';
+        } else {
+            $row['tipo_accion'] = 'Modificación';
+        }
+
         $historial[] = $row;
     }
-    
+
     $stmt->close();
+
+    // Ordenar en PHP por fecha_orden DESC
+    usort($historial, function($a, $b) {
+        return strtotime($b['fecha_orden']) - strtotime($a['fecha_orden']);
+    });
+
     return $historial;
 }
 

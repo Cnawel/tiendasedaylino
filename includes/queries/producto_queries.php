@@ -2417,15 +2417,16 @@ function obtenerEstadisticasProductos($mysqli) {
     $stats['total_productos'] = $result['total_productos'];
     $stmt->close();
     
-    // Stock total (suma de todo el stock de variantes activas)
+    // ✅ NIVEL 5: Query simple sin IFNULL
     $stmt = $mysqli->prepare("
-        SELECT IFNULL(SUM(stock), 0) as stock_total
+        SELECT SUM(stock) as stock_total
         FROM Stock_Variantes
         WHERE activo = 1
     ");
     $stmt->execute();
     $result = $stmt->get_result()->fetch_assoc();
-    $stats['stock_total'] = $result['stock_total'];
+    // ✅ NIVEL 5: Manejar NULL en PHP (sin IFNULL)
+    $stats['stock_total'] = intval($result['stock_total'] ?? 0);
     $stmt->close();
     
     // Productos sin stock (solo productos activos)
@@ -2742,21 +2743,25 @@ function obtenerProductosSinMovimiento($mysqli, $dias_sin_ventas = 30) {
     // ===================================================================
     // QUERY 1: Obtener IDs de productos con ventas recientes
     // ===================================================================
-    // Esta query identifica productos que han tenido ventas en el período especificado
+
+    // ✅ NIVEL 5: Calcular fecha límite en PHP (sin DATE_SUB)
+    $fecha_desde = date('Y-m-d H:i:s', strtotime("-{$dias_sin_ventas} days"));
+
+    // ✅ NIVEL 5: Query simple sin DATE_SUB
     $sql_ventas = "
         SELECT DISTINCT sv.id_producto
         FROM Movimientos_Stock ms
         INNER JOIN Stock_Variantes sv ON ms.id_variante = sv.id_variante
         WHERE ms.tipo_movimiento = 'venta'
-        AND ms.fecha_movimiento >= DATE_SUB(NOW(), INTERVAL ? DAY)
+        AND ms.fecha_movimiento >= ?
     ";
-    
+
     $stmt_ventas = $mysqli->prepare($sql_ventas);
     if (!$stmt_ventas) {
         return [];
     }
-    
-    $stmt_ventas->bind_param('i', $dias_sin_ventas);
+
+    $stmt_ventas->bind_param('s', $fecha_desde);
     if (!$stmt_ventas->execute()) {
         $stmt_ventas->close();
         return [];
