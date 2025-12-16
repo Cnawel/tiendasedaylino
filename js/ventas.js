@@ -379,6 +379,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (selectEstadoPago && estadoNuevo && estadoNuevo !== '') {
                         // Forzar que el select tenga el valor correcto
                         selectEstadoPago.value = estadoNuevo;
+                        // Quitar temporalmente el disabled para que el valor se envie
+                        selectEstadoPago.disabled = false;
                         
                         // Verificar que el valor se estableció correctamente
                         const valorVerificado = selectEstadoPago.value;
@@ -481,34 +483,3 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-
-
-
-// Validación del formulario de edición de estado
-function validarFormularioEstado(pedidoId) {
-    const form = document.getElementById('formEditarEstado' + pedidoId);
-    const selectEstadoPago = document.getElementById('nuevo_estado_pago_' + pedidoId);
-
-    console.log('=== VALIDACIÓN FORMULARIO PEDIDO #' + pedidoId + ' ===');
-    console.log('Valor del SELECT nuevo_estado_pago:', selectEstadoPago ? selectEstadoPago.value : 'NO ENCONTRADO');
-    console.log('SELECT disabled:', selectEstadoPago ? selectEstadoPago.disabled : 'N/A');
-    console.log('SELECT name:', selectEstadoPago ? selectEstadoPago.name : 'N/A');
-
-    // Mostrar todos los campos del formulario
-    const formData = new FormData(form);
-    console.log('Campos del formulario que se enviarán:');
-    for (let [key, value] of formData.entries()) {
-        console.log('  ' + key + ':', value === '' ? '(VACÍO)' : value);
-    }
-
-    // Validar: si el estado de pago está vacío, advertir
-    if (selectEstadoPago && selectEstadoPago.value === '') {
-        const confirmar = confirm('ADVERTENCIA: No has seleccionado un nuevo estado para el pago.\n\nEl estado del pago NO se modificará.\n\n¿Deseas continuar de todas formas?');
-        if (!confirmar) {
-            return false; // Cancelar envío
-        }
-    }
-
-    // Permitir envío
-    return true;
-}

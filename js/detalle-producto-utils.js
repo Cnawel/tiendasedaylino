@@ -134,7 +134,6 @@ const STOCK_MESSAGES = {
  */
 function updateStockMessage(state, stockEl, stockContainer, stockIcon, extraData = {}) {
     if (!state || !STOCK_MESSAGES[state]) {
-        console.warn('Estado de stock inválido:', state);
         return;
     }
 
@@ -188,8 +187,8 @@ function checkStockForColor(colorValue, tallaActual, stockPorTalleColor) {
 function checkStockForCombination(talle, color, stockPorTalleColor) {
     const colorNormalizado = normalizeColor(color);
     return (stockPorTalleColor[talle] &&
-            stockPorTalleColor[talle][colorNormalizado] &&
-            stockPorTalleColor[talle][colorNormalizado] > 0) || false;
+        stockPorTalleColor[talle][colorNormalizado] &&
+        stockPorTalleColor[talle][colorNormalizado] > 0) || false;
 }
 
 /**
