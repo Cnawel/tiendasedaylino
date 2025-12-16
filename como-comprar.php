@@ -124,3 +124,5 @@ $titulo_pagina = 'Cómo Comprar';
 <?php include 'includes/footer.php'; render_footer(); ?>
 
 
+
+

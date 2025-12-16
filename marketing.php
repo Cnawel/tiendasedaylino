@@ -16,10 +16,10 @@ session_start();
 require_once __DIR__ . '/includes/auth_check.php';
 requireRole('marketing');
 require_once __DIR__ . '/includes/talles_config.php';
+require_once __DIR__ . '/includes/queries/stock_queries.php';  // Debe cargarse PRIMERO
 require_once __DIR__ . '/includes/queries/producto_queries.php';
 require_once __DIR__ . '/includes/queries/categoria_queries.php';
 require_once __DIR__ . '/includes/queries/pedido_queries.php';
-require_once __DIR__ . '/includes/queries/stock_queries.php';
 require_once __DIR__ . '/includes/queries/foto_producto_queries.php';
 require_once __DIR__ . '/includes/image_helper.php';
 require_once __DIR__ . '/includes/marketing_functions.php';
@@ -406,7 +406,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <h1 class="h3 mb-1">Dashboard Marketing</h1>
-                    <p class="text-muted mb-0">Bienvenido, <?= htmlspecialchars($usuario_actual['nombre'] . ' ' . $usuario_actual['apellido']) ?></p>
+                        <p class="text-secondary mb-0">Bienvenido, <?= htmlspecialchars($usuario_actual['nombre'] . ' ' . $usuario_actual['apellido']) ?></p>
                 </div>
                 <div>
                     <a href="perfil.php" class="btn btn-outline-primary me-2">
@@ -522,9 +522,9 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                             <input class="form-check-input" type="checkbox" id="mostrarInactivos" 
                                    <?= $mostrar_inactivos ? 'checked' : '' ?>
                                    onchange="toggleProductosInactivos(this.checked)">
-                            <label class="form-check-label" for="mostrarInactivos">
-                                <small>Mostrar productos inactivos</small>
-                            </label>
+                                <label class="form-check-label" for="mostrarInactivos">
+                                    <small class="text-secondary">Mostrar productos inactivos</small>
+                                </label>
                         </div>
                         <label class="mb-0"><small>Mostrar:</small></label>
                         <select class="form-select form-select-sm" style="width: auto;" onchange="cambiarLimiteProductos(this.value)">
@@ -573,7 +573,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                     <td>
                                         <strong><?= htmlspecialchars($producto['nombre_producto']) ?></strong>
                                         <?php if ($producto['descripcion_producto']): ?>
-                                        <br><small class="text-muted"><?= htmlspecialchars(substr($producto['descripcion_producto'], 0, 50)) ?><?= strlen($producto['descripcion_producto']) > 50 ? '...' : '' ?></small>
+                                        <br><small class="text-secondary"><?= htmlspecialchars(substr($producto['descripcion_producto'], 0, 50)) ?><?= strlen($producto['descripcion_producto']) > 50 ? '...' : '' ?></small>
                                         <?php endif; ?>
                                     </td>
                                     <td><?= htmlspecialchars($producto['nombre_categoria']) ?></td>
@@ -589,20 +589,23 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                 <?php endforeach; ?>
                                             </div>
                                         <?php else: ?>
-                                            <span class="text-muted"><em>Sin talles</em></span>
+                                            <span class="text-secondary"><em>Sin talles</em></span>
                                         <?php endif; ?>
                                     </td>
                                     <td>
                                         <?php if (!empty($producto['colores_array'])): ?>
                                             <div class="d-flex flex-wrap gap-2">
-                                                <?php foreach ($producto['colores_array'] as $color): ?>
-                                                    <span class="badge rounded-pill bg-secondary badge-colores">
+                                                <?php foreach ($producto['colores_array'] as $color): 
+                                                    // Normalizar el nombre del color para la clase CSS
+                                                    $color_clase = strtolower(trim($color));
+                                                ?>
+                                                    <span class="badge rounded-pill bg-secondary badge-colores badge-color-<?= htmlspecialchars($color_clase) ?>">
                                                         <?= htmlspecialchars($color) ?>
                                                     </span>
                                                 <?php endforeach; ?>
                                             </div>
                                         <?php else: ?>
-                                            <span class="text-muted"><em>Sin colores</em></span>
+                                            <span class="text-secondary"><em>Sin colores</em></span>
                                         <?php endif; ?>
                                     </td>
                                     <td>
@@ -755,7 +758,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                         <div class="mb-3">
                             <label class="form-label">Seleccionar archivo CSV</label>
                             <input type="file" class="form-control" name="archivo_csv" accept=".csv" required>
-                            <small class="text-muted">
+                            <small class="text-secondary">
                                 <a href="marketing-descargar-template.php" target="_blank">Descargar plantilla CSV</a>
                             </small>
                         </div>
@@ -783,49 +786,49 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                         <td><strong>Nombre</strong></td>
                                         <td>Nombre del producto</td>
                                         <td>Blusa Mujer Manga Larga</td>
-                                        <td><small class="text-muted">Cualquier texto</small></td>
+                                        <td><small class="text-secondary">Cualquier texto</small></td>
                                     </tr>
                                     <tr>
                                         <td><strong>Descripción</strong></td>
                                         <td>Descripción del producto</td>
                                         <td>Blusa de lino, manga larga</td>
-                                        <td><small class="text-muted">Opcional</small></td>
+                                        <td><small class="text-secondary">Opcional</small></td>
                                     </tr>
                                     <tr>
                                         <td><strong>Precio</strong></td>
                                         <td>Precio en decimales</td>
                                         <td>15000.00</td>
-                                        <td><small class="text-muted">Número > 0</small></td>
+                                        <td><small class="text-secondary">Número > 0</small></td>
                                     </tr>
                                     <tr>
                                         <td><strong>Categoría</strong></td>
                                         <td><strong>Nombre de la categoría</strong> (NO usar ID)</td>
                                         <td><?= !empty($categorias_array) ? htmlspecialchars($categorias_array[0]['nombre_categoria']) : 'Blusas' ?></td>
-                                        <td><small class="text-muted">Ver categorías disponibles abajo</small></td>
+                                        <td><small class="text-secondary">Ver categorías disponibles abajo</small></td>
                                     </tr>
                                     <tr>
                                         <td><strong>Género</strong></td>
                                         <td>Género del producto</td>
                                         <td>mujer</td>
-                                        <td><small class="text-muted">hombre, mujer, unisex</small></td>
+                                        <td><small class="text-secondary">hombre, mujer, unisex</small></td>
                                     </tr>
                                     <tr>
                                         <td><strong>Talle</strong></td>
                                         <td>Talle de la variante</td>
                                         <td>M</td>
-                                        <td><small class="text-muted">S, M, L, XL</small></td>
+                                        <td><small class="text-secondary">S, M, L, XL</small></td>
                                     </tr>
                                     <tr>
                                         <td><strong>Color</strong></td>
                                         <td>Color de la variante</td>
                                         <td>Azul</td>
-                                        <td><small class="text-muted">Cualquier color</small></td>
+                                        <td><small class="text-secondary">Cualquier color</small></td>
                                     </tr>
                                     <tr>
                                         <td><strong>Stock</strong></td>
                                         <td>Cantidad de stock inicial</td>
                                         <td>10</td>
-                                        <td><small class="text-muted">Número entero ≥ 0</small></td>
+                                        <td><small class="text-secondary">Número entero ≥ 0</small></td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -839,7 +842,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                     <span class="badge bg-secondary me-1 mb-1"><?= htmlspecialchars($cat['nombre_categoria']) ?></span>
                                 <?php endforeach; ?>
                             </div>
-                            <small class="text-muted d-block mt-2">
+                            <small class="text-secondary d-block mt-2">
                                 <i class="fas fa-lightbulb me-1"></i>
                                 <strong>Tip:</strong> Si usas una categoría que no existe, se creará automáticamente.
                             </small>
@@ -858,7 +861,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                             </ul>
                         </div>
                         
-                        <p class="mt-3 mb-0"><strong>Nota:</strong> Cada fila representa una variante de producto (talle + color). Los productos con el mismo nombre se agruparán automáticamente.</p>
+                        <p class="mt-3 mb-0 text-secondary"><strong>Nota:</strong> Cada fila representa una variante de producto (talle + color). Los productos con el mismo nombre se agruparán automáticamente.</p>
                     </div>
                 </div>
             </div>
@@ -935,7 +938,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                         <div class="mb-3">
                             <label class="form-label">Imagen Miniatura (opcional)</label>
                             <input type="file" class="form-control" name="imagen_miniatura" accept="image/*">
-                            <small class="text-muted">Las imágenes por color se agregan en la edición del producto</small>
+                            <small class="text-secondary">Las imágenes por color se agregan en la edición del producto</small>
                         </div>
                         
                         <div class="alert alert-info">
@@ -994,7 +997,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                         <?php if (!empty($cat['descripcion_categoria'])): ?>
                                             <?= htmlspecialchars($cat['descripcion_categoria']) ?>
                                         <?php else: ?>
-                                            <span class="text-muted"><em>Sin descripción</em></span>
+                                            <span class="text-secondary"><em>Sin descripción</em></span>
                                         <?php endif; ?>
                                     </td>
                                     <td>
@@ -1049,9 +1052,9 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                     title="No se puede eliminar: <?= htmlspecialchars($verificacion_cat['razon']) ?>">
                                                 <i class="fas fa-trash-alt"></i> Eliminar
                                             </button>
-                                            <small class="text-muted d-block mt-1">
-                                                <?= htmlspecialchars($verificacion_cat['razon']) ?>
-                                            </small>
+                            <small class="text-secondary d-block mt-1">
+                                <?= htmlspecialchars($verificacion_cat['razon']) ?>
+                            </small>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -1093,7 +1096,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                             <div class="col-md-8">
                                 <label class="form-label">Seleccionar foto(s)</label>
                                 <input type="file" class="form-control" name="foto_temporal[]" accept="image/*" multiple required>
-                                <small class="text-muted">Formatos permitidos: JPG, PNG, GIF, WEBP. Tamaño máximo: 5MB por archivo</small>
+                                <small class="text-secondary">Formatos permitidos: JPG, PNG, GIF, WEBP. Tamaño máximo: 5MB por archivo</small>
                             </div>
                             <div class="col-md-4 d-flex align-items-end">
                                 <button type="submit" class="btn btn-primary w-100" data-auto-lock="true" data-lock-time="3000" data-lock-text="Subiendo fotos...">
@@ -1211,8 +1214,8 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                 <tr>
                                                     <td><strong><?= $posicion++ ?></strong></td>
                                                     <td><small><?= htmlspecialchars($producto['nombre_producto']) ?></small></td>
-                                                    <td><span class="badge bg-secondary"><?= htmlspecialchars($producto['talle']) ?></span></td>
-                                                    <td><span class="badge bg-info"><?= htmlspecialchars($producto['color']) ?></span></td>
+                                                    <td><span class="badge bg-dark"><?= htmlspecialchars($producto['talle']) ?></span></td>
+                                                    <td><span class="badge bg-secondary"><?= htmlspecialchars($producto['color']) ?></span></td>
                                                     <td class="text-end"><strong><?= number_format($producto['unidades_vendidas'], 0, ',', '.') ?></strong></td>
                                                 </tr>
                                             <?php endforeach; ?>
@@ -1238,7 +1241,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                         <div class="card-body">
                             <?php if (!empty($productos_sin_movimiento)): ?>
                                 <div class="alert alert-info border-info alert-panel mb-3">
-                                    <i class="fas fa-info-circle me-2 text-primary"></i>
+                                    <i class="fas fa-info-circle me-2 text-dark"></i>
                                     <strong class="text-dark">Productos con stock pero sin ventas recientes.</strong> 
                                     <span class="text-dark">Considera promociones o descuentos para reactivar las ventas.</span>
                                 </div>
@@ -1370,7 +1373,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                     </td>
                                                     <td>
                                                         <?php if (!empty($observaciones_truncadas)): ?>
-                                                            <small><?= $observaciones_truncadas ?></small>
+                                                            <small class="text-dark"><?= $observaciones_truncadas ?></small>
                                                             <?php if (!empty($observaciones_completas)): ?>
                                                                 <button type="button" class="btn btn-sm btn-link p-0 ms-1" 
                                                                         data-bs-toggle="modal" 
@@ -1398,7 +1401,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                                 </div>
                                                             <?php endif; ?>
                                                         <?php else: ?>
-                                                            <span class="text-muted"><small>-</small></span>
+                                                            <span class="text-secondary"><small>-</small></span>
                                                         <?php endif; ?>
                                                     </td>
                                                 </tr>

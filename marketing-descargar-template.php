@@ -34,90 +34,25 @@ header('Expires: 0');
 // Abrir output stream
 $output = fopen('php://output', 'w');
 
-// Agregar BOM para UTF-8 (compatibilidad con Excel)
-fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+// Ruta al archivo de ejemplo
+$archivo_ejemplo = __DIR__ . '/uploads/ejemplo_productos.csv';
 
-// Escribir headers limpios en español
-$headers = [
-    'Nombre',
-    'Descripción',
-    'Precio',
-    'Categoría',
-    'Género',
-    'Talle',
-    'Color',
-    'Stock',
-    'Foto Miniatura',
-    'Foto 1',
-    'Foto 2',
-    'Foto 3 (Grupal)'
-];
-fputcsv($output, $headers);
-
-// Escribir filas de ejemplo
-$ejemplos = [
-    [
-        'Blusa Mujer Manga Larga',
-        'Blusa de lino, manga larga, perfecta para cualquier ocasión',
-        '15000.00',
-        $nombres_categorias[0] ?? 'Blusas',
-        'mujer',
-        'M',
-        'Azul',
-        '10',
-        'blusa_miniatura.webp',
-        'blusa_azul_1.webp',
-        'blusa_azul_2.webp',
-        'blusa_grupal.webp'
-    ],
-    [
-        'Blusa Mujer Manga Larga',
-        'Blusa de lino, manga larga, perfecta para cualquier ocasión',
-        '15000.00',
-        $nombres_categorias[0] ?? 'Blusas',
-        'mujer',
-        'L',
-        'Blanco',
-        '8',
-        '',
-        'blusa_blanco_1.webp',
-        'blusa_blanco_2.webp',
-        ''
-    ],
-    [
-        'Pantalón Hombre Clásico',
-        'Pantalón de lino, corte clásico, cómodo y elegante',
-        '25000.00',
-        $nombres_categorias[1] ?? 'Pantalones',
-        'hombre',
-        'M',
-        'Negro',
-        '15',
-        'pantalon_miniatura.webp',
-        'pantalon_negro_1.webp',
-        'pantalon_negro_2.webp',
-        'pantalon_grupal.webp'
-    ],
-    [
-        'Camisa Unisex Básica',
-        'Camisa de seda, diseño unisex, versátil y moderna',
-        '18000.00',
-        $nombres_categorias[2] ?? 'Camisas',
-        'unisex',
-        'L',
-        'Beige',
-        '12',
-        '',
-        '',
-        '',
-        ''
-    ]
-];
-
-// Escribir ejemplos
-foreach ($ejemplos as $ejemplo) {
-    fputcsv($output, $ejemplo);
+if (file_exists($archivo_ejemplo)) {
+    // Si existe el archivo físico, servirlo directamente
+    readfile($archivo_ejemplo);
+} else {
+    // Si no existe, al menos devolver los headers básicos (fallback)
+    // Agregar BOM para UTF-8 (compatibilidad con Excel)
+    fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+    
+    // Headers esperados (mismos que en ejemplo_productos.csv)
+    $headers = [
+        'nombre_producto','descripcion_producto','precio_actual','categoria','genero','talle','color','stock','foto_prod_miniatura','foto1_prod','foto2_prod','foto3_prod'
+    ];
+    fputcsv($output, $headers);
 }
+
+
 
 // Cerrar stream
 fclose($output);

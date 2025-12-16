@@ -175,30 +175,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: ' . $redirect_url);
         exit;
     } else {
-        // Si la acción fue reconocida pero retornó false, mostrar error genérico
-        $accion = '';
-        if (isset($_POST['aprobar_pago'])) $accion = 'aprobar el pago';
-        elseif (isset($_POST['rechazar_pago'])) $accion = 'rechazar el pago';
-        elseif (isset($_POST['actualizar_estado_pedido'])) $accion = 'actualizar el pedido';
-        elseif (isset($_POST['agregar_metodo_pago'])) $accion = 'agregar el método de pago';
-        elseif (isset($_POST['actualizar_metodo_pago'])) $accion = 'actualizar el método de pago';
-        elseif (isset($_POST['eliminar_metodo_pago'])) $accion = 'eliminar el método de pago';
-        elseif (isset($_POST['toggle_activo_metodo_pago'])) $accion = 'cambiar el estado del método de pago';
+        // Si la acción fue reconocida pero retornó false, NO mostrar ningún mensaje
+        // (significa que no hubo cambios, el usuario simplemente cerró el modal sin modificar nada)
 
-        if ($accion) {
-            $_SESSION['mensaje'] = "No se pudo $accion. Por favor, intenta nuevamente o contacta al administrador si el problema persiste.";
-            $_SESSION['mensaje_tipo'] = 'danger';
-
-            // Preservar tab si existe
-            $params_adicionales = null;
-            if (isset($_POST['tab']) && !empty($_POST['tab'])) {
-                $params_adicionales = ['tab' => $_POST['tab']];
-            }
-
-            $redirect_url = construirRedirectUrl('ventas.php', $params_adicionales);
-            header('Location: ' . $redirect_url);
-            exit;
+        // Preservar tab si existe
+        $params_adicionales = null;
+        if (isset($_POST['tab']) && !empty($_POST['tab'])) {
+            $params_adicionales = ['tab' => $_POST['tab']];
         }
+
+        $redirect_url = construirRedirectUrl('ventas.php', $params_adicionales);
+        header('Location: ' . $redirect_url);
+        exit;
     }
 }
 
@@ -266,7 +254,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h1 class="h3 mb-1">Dashboard Ventas</h1>
-                        <p class="text-muted mb-0">Bienvenido, <?= htmlspecialchars($usuario_actual['nombre'] . ' ' . $usuario_actual['apellido']) ?></p>
+                        <p class="text-secondary mb-0">Bienvenido, <?= htmlspecialchars($usuario_actual['nombre'] . ' ' . $usuario_actual['apellido']) ?></p>
                     </div>
                     <div>
                         <a href="perfil.php" class="btn btn-outline-primary me-2">
@@ -357,7 +345,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                        <?= $mostrar_inactivos ? 'checked' : '' ?>
                                        data-toggle-inactivos>
                                 <label class="form-check-label" for="mostrarInactivos">
-                                    <small>Mostrar pedidos de usuarios inactivos</small>
+                                    <small class="text-secondary">Mostrar pedidos de usuarios inactivos</small>
                                 </label>
                             </div>
                             <label class="mb-0"><small>Mostrar:</small></label>
@@ -446,20 +434,6 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                             <span class="badge bg-<?= htmlspecialchars($info_estado['color']) ?>">
                                                 <?= htmlspecialchars($info_estado['nombre']) ?>
                                             </span>
-                                            <?php if ($hay_inconsistencia): ?>
-                                                <br>
-                                                <div class="mt-1">
-                                                    <small class="text-<?= $tipo_inconsistencia ?> d-block">
-                                                        <i class="fas fa-<?= $tipo_inconsistencia === 'danger' ? 'exclamation-circle' : 'exclamation-triangle' ?>"></i> 
-                                                        <strong><?= htmlspecialchars($mensaje_inconsistencia) ?></strong>
-                                                    </small>
-                                                    <?php if (!empty($accion_sugerida)): ?>
-                                                    <small class="text-muted d-block mt-1 small-hint">
-                                                        <i class="fas fa-lightbulb"></i> <?= htmlspecialchars($accion_sugerida) ?>
-                                                    </small>
-                                                    <?php endif; ?>
-                                                </div>
-                                            <?php endif; ?>
                                         </td>
                                         <td>
                                             <?php if ($pago_pedido): ?>
@@ -470,22 +444,10 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                 <span class="badge bg-<?= htmlspecialchars($info_estado_pago['color']) ?>">
                                                     <?= htmlspecialchars($info_estado_pago['nombre']) ?>
                                                 </span>
-                                                <?php if ($hay_inconsistencia): ?>
-                                                    <br>
-                                                    <div class="mt-1">
-                                                        <small class="text-<?= $tipo_inconsistencia ?> d-block">
-                                                        <i class="fas fa-<?= $tipo_inconsistencia === 'danger' ? 'exclamation-circle' : 'exclamation-triangle' ?>"></i> 
-                                                            <strong><?= htmlspecialchars($mensaje_inconsistencia) ?></strong>
-                                                        </small>
-                                                        <?php if (!empty($accion_sugerida)): ?>
-                                                        <small class="text-muted d-block mt-1 small-hint">
-                                                            <i class="fas fa-lightbulb"></i> <?= htmlspecialchars($accion_sugerida) ?>
-                                                    </small>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                <?php endif; ?>
                                             <?php else: ?>
-                                                <span class="badge bg-secondary">Sin pago</span>
+                                                <span class="badge bg-warning text-dark" title="Pago no registrado - estado esperado: pendiente">
+                                                    <i class="fas fa-exclamation-circle me-1"></i>Sin Pago
+                                                </span>
                                             <?php endif; ?>
                                         </td>
                                         <td>
@@ -579,9 +541,9 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                         <td>
                                             <?php 
                                             if (!empty($cliente['direccion'])) {
-                                                echo '<small>' . htmlspecialchars($cliente['direccion']) . '</small>';
+                                                echo '<small class="text-secondary">' . htmlspecialchars($cliente['direccion']) . '</small>';
                                             } else {
-                                                echo '<small>Sin dirección</small>';
+                                                echo '<small class="text-secondary">Sin dirección</small>';
                                             }
                                             ?>
                                         </td>
@@ -633,7 +595,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                pattern="[A-Za-z0-9\s\-]+"
                                                placeholder="Ej: Tarjeta de Crédito"
                                                title="El nombre debe tener entre 3 y 100 caracteres y solo puede contener letras, números, espacios y guiones">
-                                        <small class="text-muted">Nombre que aparecerá en el checkout (mínimo 3 caracteres)</small>
+                                        <small class="text-secondary">Nombre que aparecerá en el checkout (mínimo 3 caracteres)</small>
                                     </div>
                                     <div class="mb-3">
                                         <label for="descripcion_metodo_nuevo" class="form-label">Descripción</label>
@@ -641,7 +603,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                   name="descripcion_metodo" rows="3" 
                                                   maxlength="255"
                                                   placeholder="Descripción que verán los clientes"></textarea>
-                                        <small class="text-muted">Máximo 255 caracteres.</small>
+                                        <small class="text-secondary">Máximo 255 caracteres.</small>
                                         <div class="invalid-feedback" id="error_descripcion_nuevo" style="display: none;">
                                             La descripción solo puede contener letras (incluyendo tildes y diéresis), números, espacios, puntos, comas, dos puntos, guiones y comillas simples
                                         </div>
@@ -761,7 +723,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                                                    required minlength="3" maxlength="100"
                                                                                    pattern="[A-Za-z0-9\s\-]+"
                                                                                    title="El nombre debe tener entre 3 y 100 caracteres y solo puede contener letras, números, espacios y guiones">
-                                                                            <small class="text-muted">Nombre que aparecerá en el checkout (mínimo 3 caracteres)</small>
+                                                                            <small class="text-secondary">Nombre que aparecerá en el checkout (mínimo 3 caracteres)</small>
                                                                         </div>
                                                                         
                                                                         <div class="mb-3">
@@ -771,7 +733,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                                                       id="descripcion_metodo_edit_<?= $metodo['id_forma_pago'] ?>"
                                                                                       rows="3" 
                                                                                       maxlength="255"><?= htmlspecialchars($metodo['descripcion'] ?? '') ?></textarea>
-                                                                            <small class="text-muted">Máximo 255 caracteres.</small>
+                                                                            <small class="text-secondary">Máximo 255 caracteres.</small>
                                                                             <div class="invalid-feedback" id="error_descripcion_edit_<?= $metodo['id_forma_pago'] ?>" style="display: none;">
                                                                                 La descripción solo puede contener letras (incluyendo tildes y diéresis), números, espacios, puntos, comas, dos puntos, guiones y comillas simples
                                                                             </div>
@@ -812,8 +774,8 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                                             <li><strong>Nombre:</strong> <?= htmlspecialchars($metodo['nombre']) ?></li>
                                                                         </ul>
                                                                         
-                                                                        <p class="text-danger mb-0">
-                                                                            <small>
+                                                                        <p class="text-dark mb-0">
+                                                                            <small class="text-secondary">
                                                                                 <i class="fas fa-info-circle me-1"></i>
                                                                                 No se podrá eliminar si está siendo utilizado en algún pago registrado.
                                                                             </small>
@@ -879,8 +841,8 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                         <td><strong><?= $posicion++ ?></strong></td>
                                                         <td><?= htmlspecialchars($producto['nombre_producto']) ?></td>
                                                         <td><?= htmlspecialchars($producto['nombre_categoria']) ?></td>
-                                                        <td><span class="badge bg-secondary"><?= htmlspecialchars($producto['talle']) ?></span></td>
-                                                        <td><span class="badge bg-info"><?= htmlspecialchars($producto['color']) ?></span></td>
+                                                        <td><span class="badge bg-dark"><?= htmlspecialchars($producto['talle']) ?></span></td>
+                                                        <td><span class="badge bg-secondary"><?= htmlspecialchars($producto['color']) ?></span></td>
                                                         <td class="text-end"><strong><?= number_format($producto['unidades_vendidas'], 0, ',', '.') ?></strong></td>
                                                     </tr>
                                                 <?php endforeach; ?>
@@ -919,13 +881,18 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                     <?php
                                                     // Obtener información del estado usando función centralizada
                                                     $info_estado = obtenerInfoEstadoPedido($pedido_tiempo['estado_pedido'] ?? '');
-                                                    $horas = intval($pedido_tiempo['horas_en_estado'] ?? 0);
+                                                    $horas = floatval($pedido_tiempo['horas_en_estado'] ?? 0);
                                                     $dias = intval($pedido_tiempo['dias_en_estado'] ?? 0);
-                                                    $tiempo_formato = $dias > 0 ? $dias . ' día' . ($dias > 1 ? 's' : '') : $horas . ' hora' . ($horas > 1 ? 's' : '');
+                                                    if ($dias > 0) {
+                                                        $tiempo_formato = $dias . ' día' . ($dias > 1 ? 's' : '');
+                                                    } else {
+                                                        $horas_redondeadas = round($horas, 1);
+                                                        $tiempo_formato = number_format($horas_redondeadas, 1, ',', '.') . ' hora' . ($horas_redondeadas != 1 ? 's' : '');
+                                                    }
                                                     ?>
                                                     <tr>
                                                         <td>#<?= $pedido_tiempo['id_pedido'] ?></td>
-                                                        <td><small><?= htmlspecialchars($pedido_tiempo['nombre'] . ' ' . $pedido_tiempo['apellido']) ?></small></td>
+                                                        <td><small class="text-secondary"><?= htmlspecialchars($pedido_tiempo['nombre'] . ' ' . $pedido_tiempo['apellido']) ?></small></td>
                                                         <td>
                                                             <span class="badge bg-<?= htmlspecialchars($info_estado['color']) ?>">
                                                                 <?= htmlspecialchars($info_estado['nombre']) ?>
@@ -1003,8 +970,8 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                     $observaciones_completas = '';
                                                     if (!empty($observaciones)) {
                                                         $observaciones_escaped = htmlspecialchars($observaciones);
-                                                        if (strlen($observaciones) > 120) {
-                                                            $observaciones_truncadas = substr($observaciones_escaped, 0, 120) . '...';
+                                                        if (strlen($observaciones) > 500) {
+                                                            $observaciones_truncadas = substr($observaciones_escaped, 0, 500) . '...';
                                                             $observaciones_completas = nl2br($observaciones_escaped); // Preservar saltos de línea
                                                         } else {
                                                             $observaciones_truncadas = $observaciones_escaped;
@@ -1046,13 +1013,13 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                             <?php if (!empty($observaciones_truncadas)): ?>
                                                                 <?php if (!empty($observaciones_completas)): ?>
                                                                     <span data-bs-toggle="tooltip" data-bs-placement="top" title="<?= $observaciones_completas ?>">
-                                                                        <small><?= $observaciones_truncadas ?></small>
+                                                                        <small class="text-secondary"><?= $observaciones_truncadas ?></small>
                                                                     </span>
                                                                 <?php else: ?>
-                                                                    <small><?= $observaciones_truncadas ?></small>
+                                                                    <small class="text-secondary"><?= $observaciones_truncadas ?></small>
                                                                 <?php endif; ?>
                                                             <?php else: ?>
-                                                                <span class="text-muted"><small>-</small></span>
+                                                                <span class="text-secondary"><small>-</small></span>
                                                             <?php endif; ?>
                                                         </td>
                                                     </tr>

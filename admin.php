@@ -175,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                 <div class="card-body d-flex justify-content-between align-items-start">
                     <div>
                         <h1><i class="fas fa-shield-alt me-3"></i>Panel de Administración</h1>
-                        <p class="mb-0">Gestión de usuarios, pedidos y productos</p>
+                        <p class="text-secondary mb-0">Gestión de usuarios, pedidos y productos</p>
                     </div>
                     <div>
                         <a href="perfil.php" class="btn btn-outline-primary me-2">
@@ -198,7 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                     <i class="fas fa-users fa-2x"></i>
                                 </div>
                                 <h3><?= $stats['total'] ?></h3>
-                                <p class="text-muted mb-0">Total Usuarios</p>
+                                <p class="text-secondary mb-0">Total Usuarios</p>
                             </div>
                         </div>
                     </a>
@@ -212,7 +212,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                     <i class="fas fa-shield-alt fa-2x"></i>
                                 </div>
                                 <h3><?= $stats['admins'] ?></h3>
-                                <p class="text-muted mb-0">Administradores</p>
+                                <p class="text-secondary mb-0">Administradores</p>
                             </div>
                         </div>
                     </a>
@@ -226,7 +226,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                     <i class="fas fa-briefcase fa-2x"></i>
                                 </div>
                                 <h3><?= $stats['ventas'] + $stats['marketing'] ?></h3>
-                                <p class="text-muted mb-0">Staff (Ventas + Marketing)</p>
+                                <p class="text-secondary mb-0">Staff (Ventas + Marketing)</p>
                             </div>
                         </div>
                     </a>
@@ -240,7 +240,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                     <i class="fas fa-user-check fa-2x"></i>
                                 </div>
                                 <h3><?= $stats['clientes'] ?></h3>
-                                <p class="text-muted mb-0">Clientes</p>
+                                <p class="text-secondary mb-0">Clientes</p>
                             </div>
                         </div>
                     </a>
@@ -318,7 +318,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                     <?php endif; ?>
                                 </div>
                                 <div class="col-md-6 text-end">
-                                    <small class="text-muted">
+                                    <small class="text-secondary">
                                         <?php if ($filtro_rol !== null): ?>
                                             Mostrando: <strong><?= count($usuarios) ?> usuario(s)</strong> con rol <strong><?= strtoupper($filtro_rol) ?></strong>
                                         <?php else: ?>
@@ -339,7 +339,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                        <?= $mostrar_inactivos ? 'checked' : '' ?>
                                        data-toggle-usuarios-inactivos>
                                 <label class="form-check-label" for="mostrarInactivos">
-                                    <small>Mostrar usuarios inactivos</small>
+                                    <small class="text-secondary">Mostrar usuarios inactivos</small>
                                 </label>
                             </div>
                         </div>
@@ -433,7 +433,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                                         
                                                         <div class="row g-2 mb-3">
                                                             <div class="col-md-6">
-                                                                <label class="form-label">Nombre</label>
+                                                                <label class="form-label text-secondary">Nombre</label>
                                                                 <input type="text" 
                                                                        class="form-control edit-field" 
                                                                        name="edit_nombre" 
@@ -447,7 +447,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                                                 <div class="valid-feedback">¡Nombre válido!</div>
                                                             </div>
                                                             <div class="col-md-6">
-                                                                <label class="form-label">Apellido</label>
+                                                                <label class="form-label text-secondary">Apellido</label>
                                                                 <input type="text" 
                                                                        class="form-control edit-field" 
                                                                        name="edit_apellido" 
@@ -462,7 +462,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                                             </div>
                                                         </div>
                                                         <div class="mb-3">
-                                                            <label class="form-label">Email</label>
+                                                            <label class="form-label text-secondary">Email</label>
                                                             <input type="email" 
                                                                    class="form-control edit-field" 
                                                                    name="edit_email" 
@@ -475,7 +475,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                                         </div>
                                                         
                                                         <div class="mb-3">
-                                                            <label class="form-label"><strong>Rol Actual:</strong></label>
+                                                            <label class="form-label text-dark"><strong>Rol Actual:</strong></label>
                                                             <p>
                                                                 <?php 
                                                                 $badge_class_modal = 'bg-secondary';
@@ -488,17 +488,17 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                                         </div>
                                                         
                                                         <div class="mb-3">
-                                                            <label for="nuevo_rol<?= $user['id_usuario'] ?>" class="form-label"><strong>Nuevo Rol:</strong></label>
+                                                            <label for="nuevo_rol<?= $user['id_usuario'] ?>" class="form-label text-dark"><strong>Nuevo Rol:</strong></label>
                                                             <select class="form-select" name="nuevo_rol" id="nuevo_rol<?= $user['id_usuario'] ?>" required>
                                                                 <option value="cliente" <?= $rol_lower == 'cliente' ? 'selected' : '' ?>>CLIENTE</option>
                                                                 <option value="ventas" <?= $rol_lower == 'ventas' ? 'selected' : '' ?>>VENTAS</option>
                                                                 <option value="marketing" <?= $rol_lower == 'marketing' ? 'selected' : '' ?>>MARKETING</option>
                                                                 <option value="admin" <?= $rol_lower == 'admin' ? 'selected' : '' ?>>ADMIN</option>
                                                             </select>
-                                                            <small class="text-muted">
+                                                            <small class="text-secondary">
                                                                 <i class="fas fa-info-circle me-1"></i>
                                                                 <?php if ($user['id_usuario'] == $id_usuario): ?>
-                                                                    <strong class="text-warning">No puedes cambiar tu propio rol de ADMIN</strong>
+                                                                    <strong class="text-dark">No puedes cambiar tu propio rol de ADMIN</strong>
                                                                 <?php else: ?>
                                                                     Selecciona el nuevo rol para este usuario
                                                                 <?php endif; ?>
@@ -506,7 +506,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                                         </div>
                                                         
                                                         <div class="mb-3">
-                                                            <label class="form-label"><strong>Cambiar Contraseña:</strong></label>
+                                                            <label class="form-label text-dark"><strong>Cambiar Contraseña:</strong></label>
                                                             <div class="row g-2">
                                                                 <div class="col-md-6">
                                                                     <input type="password" 
@@ -531,13 +531,13 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                                                     <div class="valid-feedback" id="password-match-success-<?= $user['id_usuario'] ?>" style="display: none;">¡Las contraseñas coinciden!</div>
                                                                 </div>
                                                             </div>
-                                                            <small class="text-muted">
+                                                            <small class="text-secondary">
                                                                 <i class="fas fa-info-circle me-1"></i>
                                                                 Deja en blanco si no quieres cambiar la contraseña. Mínimo 6 caracteres, máximo 32 caracteres.
                                                             </small>
                                                         </div>
                                                         
-                                                        <div class="alert alert-info">
+                                                        <div class="alert alert-info text-dark">
                                                             <small>
                                                                 <strong>Descripción de roles:</strong><br>
                                                                 <strong>CLIENTE:</strong> Usuario estándar con acceso básico<br>
@@ -641,7 +641,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                                             </p>
                                                         </div>
                                                         <?php else: ?>
-                                                        <div class="alert alert-info">
+                                                        <div class="alert alert-info text-dark">
                                                             <i class="fas fa-info-circle me-2"></i>
                                                             Este usuario no tiene pedidos asociados. La eliminación es permanente e irreversible.
                                                         </div>
@@ -748,7 +748,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                         <i class="fas fa-eye"></i>
                                     </button>
                                 </div>
-                                <small class="text-muted">
+                                <small class="text-secondary">
                                     <i class="fas fa-info-circle me-1"></i>
                                     Mínimo 6 caracteres si la escribes manualmente. El usuario deberá cambiarla al iniciar sesión.
                                 </small>
@@ -781,7 +781,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                 <button type="submit" class="btn btn-success" data-auto-lock="true" data-lock-time="2000" data-lock-text="Creando usuario...">
                                     <i class="fas fa-save me-2"></i>Crear usuario
                                 </button>
-                                <small class="text-muted ms-2">La contraseña temporal se mostrará una vez creado el usuario.</small>
+                                <small class="text-secondary ms-2">La contraseña temporal se mostrará una vez creado el usuario.</small>
                             </div>
                         </form>
                         </div>
@@ -793,7 +793,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                     <div class="card">
                         <div class="card-body">
                             <h3 class="mb-4"><i class="fas fa-history me-2"></i>Historial de Usuarios</h3>
-                            <p class="text-muted mb-4">
+                            <p class="text-secondary mb-4">
                                 Historial de creación y modificación de usuarios ordenado por fecha (más reciente primero).
                             </p>
                             

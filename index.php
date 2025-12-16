@@ -35,36 +35,41 @@ include 'includes/header.php';
 ?>
 
     <main class="main-content-spaced">
-        <!-- Carrusel de imágenes destacadas -->
-        <section class="carousel-section-compact section-spaced">
-            <div id="carouselExampleIndicators" class="carousel slide carousel-hero" data-bs-ride="carousel" data-bs-interval="4000">
-                <div class="carousel-indicators">
-                   <button type="button" data-bs-target="#carouselExampleIndicators" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
-                   <button type="button" data-bs-target="#carouselExampleIndicators" data-bs-slide-to="1" aria-label="Slide 2"></button>
-                   <button type="button" data-bs-target="#carouselExampleIndicators" data-bs-slide-to="2" aria-label="Slide 3"></button>
+
+    <!-- Carrusel HERO con imágenes rotativas -->
+    <section class="hero-carousel-section">
+        <div id="heroCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="3000">
+            <div class="carousel-inner">
+                <div class="carousel-item active">
+                    <a href="catalogo.php">
+                        <img src="imagenes/sitio/banner1.webp" alt="Banner 1">
+                    </a>
                 </div>
-                <div class="carousel-inner">
-                    <div class="carousel-item active">
-                      <a href="catalogo.php" class="d-block">
-                        <img src="imagenes/productos/camisas/camisa_grupal.png" class="d-block w-100" alt="Colección de camisas elegantes de seda y lino" loading="lazy">
-                      </a>
-                    </div>
-                    <div class="carousel-item">
-                      <a href="catalogo.php" class="d-block">
-                        <img src="imagenes/productos/pantalones/pantalon_grupal.png" class="d-block w-100" alt="Colección de pantalones de lino premium" loading="lazy">
-                      </a>
-                    </div>
-                    <div class="carousel-item">
-                      <a href="catalogo.php" class="d-block">
-                        <img src="imagenes/productos/blusas/blusa_mujer_modelogrupal_oficina.png" class="d-block w-100" alt="Blusas elegantes de seda y lino" loading="lazy">
-                      </a>
-                    </div>
+                <div class="carousel-item">
+                    <a href="catalogo.php">
+                        <img src="imagenes/sitio/banner2.webp" alt="Banner 2">
+                    </a>
+                </div>
+                <div class="carousel-item">
+                    <a href="catalogo.php">
+                        <img src="imagenes/sitio/banner3.webp" alt="Banner 3">
+                    </a>
                 </div>
             </div>
-        </section>
+            <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev">
+                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Previous</span>
+            </button>
+            <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next">
+                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Next</span>
+            </button>
+        </div>
+    </section>
+
 
         <!-- Sección de presentación -->
-        <section class="seccion-presentacion section-spaced">
+        <section class="seccion-presentacion">
             <div class="container">
                 <div class="row justify-content-center">
                     <div class="col-lg-10 col-md-12">
@@ -77,7 +82,7 @@ include 'includes/header.php';
         </section>
 
         <!-- Sección productos - Compacta y centrada en imágenes -->
-        <section id="productos" class="seccion-productos-compact section-spaced">
+        <section id="productos" class="seccion-productos-compact">
             <div class="container-fluid">
                 <div class="row g-4">
                     <div class="col-lg-3 col-md-6 col-sm-12">
@@ -87,7 +92,7 @@ include 'includes/header.php';
                                     <h5 class="card-title titulo-tarjeta mb-0">Camisas</h5>
                                 </div>
                                 <div class="card-img-wrapper card-img-wrapper-compact">
-                                    <img src="imagenes/productos/camisas/camisa_grupal.png" class="card-img-top" alt="Camisas elegantes de seda y lino" loading="lazy">
+                                    <img src="imagenes/sitio/camisas.webp" class="card-img-top" alt="Camisas elegantes de seda y lino" loading="lazy">
                                     <div class="card-overlay">
                                         <span class="overlay-text">Explorar</span>
                                     </div>
@@ -105,7 +110,7 @@ include 'includes/header.php';
                                     <h5 class="card-title titulo-tarjeta mb-0">Blusas</h5>
                                 </div>
                                 <div class="card-img-wrapper card-img-wrapper-compact">
-                                    <img src="imagenes/productos/blusas/blusa_mujer_modelogrupal_oficina.png" class="card-img-top" alt="Blusas femeninas de calidad" loading="lazy">
+                                    <img src="imagenes/sitio/blusas.webp" class="card-img-top" alt="Blusas femeninas de calidad" loading="lazy">
                                     <div class="card-overlay">
                                         <span class="overlay-text">Explorar</span>
                                     </div>
@@ -123,7 +128,7 @@ include 'includes/header.php';
                                     <h5 class="card-title titulo-tarjeta mb-0">Shorts</h5>
                                 </div>
                                 <div class="card-img-wrapper card-img-wrapper-compact">
-                                    <img src="imagenes/productos/shorts/pantalon_mujer_grupal.png" class="card-img-top" alt="Shorts cómodos y elegantes" loading="lazy">
+                                    <img src="imagenes/sitio/shorts.webp" class="card-img-top" alt="Shorts cómodos y elegantes" loading="lazy">
                                     <div class="card-overlay">
                                         <span class="overlay-text">Explorar</span>
                                     </div>
@@ -141,7 +146,7 @@ include 'includes/header.php';
                                     <h5 class="card-title titulo-tarjeta mb-0">Pantalones</h5>
                                 </div>
                                 <div class="card-img-wrapper card-img-wrapper-compact">
-                                    <img src="imagenes/productos/pantalones/pantalon_grupal.png" class="card-img-top" alt="Pantalón de lino" loading="lazy">
+                                    <img src="imagenes/sitio/pantalones.webp" class="card-img-top" alt="Pantalón de lino" loading="lazy">
                                     <div class="card-overlay">
                                         <span class="overlay-text">Explorar</span>
                                     </div>

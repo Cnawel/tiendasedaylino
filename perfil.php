@@ -48,13 +48,16 @@ require_once 'includes/perfil_components.php';
 require_once __DIR__ . '/config/database.php';
 
 // Cargar queries de perfil
+require_once __DIR__ . '/includes/queries_helper.php'; // Necesario para cargarArchivoQueries()
 require_once __DIR__ . '/includes/queries/usuario_queries.php'; // Necesario para verificarHashContrasena()
 require_once __DIR__ . '/includes/queries/perfil_queries.php';
 require_once __DIR__ . '/includes/queries/pedido_queries.php';
 require_once __DIR__ . '/includes/queries/stock_queries.php';
 require_once __DIR__ . '/includes/queries/pago_queries.php'; // Necesario para actualizarPagoCompleto()
+require_once __DIR__ . '/includes/queries/detalle_pedido_queries.php'; // Necesario para obtenerDetallesPedido() en operaciones de stock
 require_once __DIR__ . '/includes/sales_functions.php';
 require_once __DIR__ . '/includes/estado_helpers.php';
+require_once __DIR__ . '/includes/state_functions.php'; // Necesario para validarTransicionPedido() y estaEnRecorridoActivoPedido()
 require_once __DIR__ . '/includes/envio_functions.php'; // Necesario para parsearDireccion()
 
 // Configurar título de la página
@@ -153,57 +156,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
         case 'cancelar_pedido_cliente':
             $id_pedido = intval($_POST['id_pedido'] ?? 0);
-            
-            // Validar ID de pedido
+
             if ($id_pedido <= 0) {
                 $_SESSION['mensaje'] = 'ID de pedido inválido';
                 $_SESSION['mensaje_tipo'] = 'danger';
                 header('Location: perfil.php?tab=pedidos');
                 exit;
             }
-            
+
             try {
-                // Verificar que el pedido pertenece al usuario actual
                 $pedido = obtenerPedidoPorId($mysqli, $id_pedido);
-                
+
                 if (!$pedido || intval($pedido['id_usuario']) !== $id_usuario) {
                     $_SESSION['mensaje'] = 'No tienes permiso para cancelar este pedido';
                     $_SESSION['mensaje_tipo'] = 'danger';
                     header('Location: perfil.php?tab=pedidos');
                     exit;
                 }
-                
-                // Validar estados: pedido y pago deben estar en "Pendiente"
+
                 $estado_pedido_actual = normalizarEstado($pedido['estado_pedido'] ?? '');
                 $pago_pedido = obtenerPagoPorPedido($mysqli, $id_pedido);
                 $estado_pago_actual = $pago_pedido ? normalizarEstado($pago_pedido['estado_pago'] ?? '') : '';
-                
-                // Lógica de negocio: Cliente puede cancelar un Pedido sólo en estado Pendiente
-                // Tanto el pedido como el pago deben estar en estado "Pendiente"
+
                 if ($estado_pedido_actual !== 'pendiente') {
                     $_SESSION['mensaje'] = 'Solo se pueden cancelar pedidos en estado Pendiente';
                     $_SESSION['mensaje_tipo'] = 'warning';
                     header('Location: perfil.php?tab=pedidos');
                     exit;
                 }
-                
+
                 if ($pago_pedido && $estado_pago_actual !== 'pendiente') {
                     $_SESSION['mensaje'] = 'Solo se pueden cancelar pedidos cuando el pago está en estado Pendiente';
                     $_SESSION['mensaje_tipo'] = 'warning';
                     header('Location: perfil.php?tab=pedidos');
                     exit;
                 }
-                
-                // Cancelar pedido usando función centralizada con validaciones
-                if (!function_exists('actualizarEstadoPedidoConValidaciones')) {
-                    throw new Exception('Función actualizarEstadoPedidoConValidaciones no está disponible. Error de carga de archivos.');
-                }
-                
+
                 if (!actualizarEstadoPedidoConValidaciones($mysqli, $id_pedido, 'cancelado', $id_usuario)) {
                     throw new Exception('Error al cancelar el pedido');
                 }
-                
-                $_SESSION['mensaje'] = 'Pedido cancelado correctamente. El stock ha sido restaurado si era necesario.';
+
+                $_SESSION['mensaje'] = 'Pedido cancelado correctamente.';
                 $_SESSION['mensaje_tipo'] = 'success';
                 header('Location: perfil.php?tab=pedidos');
                 exit;
@@ -370,7 +363,7 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                                class="form-control" 
                                                id="fecha_nacimiento" 
                                                name="fecha_nacimiento" 
-                                               max="2012-12-31"
+                                               max="<?= date('Y-m-d', strtotime('-13 years')) ?>"
                                                min="1925-01-01"
                                                value="<?php 
                                                     if (!empty($usuario['fecha_nacimiento']) && $usuario['fecha_nacimiento'] !== null) {

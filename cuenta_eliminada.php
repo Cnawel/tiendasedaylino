@@ -141,28 +141,6 @@ include 'includes/header.php';
         margin-bottom: 0.5rem;
     }
     
-    .countdown-box {
-        background: var(--color-bg-light);
-        border: 2px dashed var(--color-primary);
-        border-radius: 10px;
-        padding: 1rem;
-        margin-bottom: 2rem;
-        text-align: center;
-    }
-    
-    .countdown-text {
-        font-size: 1rem;
-        color: var(--color-text-secondary);
-        margin-bottom: 0.5rem;
-    }
-    
-    .countdown-number {
-        font-size: 2rem;
-        font-weight: 700;
-        color: var(--color-primary);
-        font-family: "Quicksand", sans-serif;
-    }
-    
     .action-buttons {
         display: flex;
         gap: 1rem;
@@ -258,12 +236,6 @@ include 'includes/header.php';
                 Te esperamos nuevamente cuando quieras volver. Fue un placer tenerte con nosotros.
             </p>
             
-            <div class="countdown-box">
-                <div class="countdown-text">Serás redirigido al inicio en:</div>
-                <div class="countdown-number" id="countdown">10</div>
-                <div class="countdown-text">segundos</div>
-            </div>
-            
             <div class="info-box">
                 <h5>
                     <i class="fas fa-info-circle"></i>
@@ -284,8 +256,8 @@ include 'includes/header.php';
             </div>
             
             <div class="action-buttons">
-                <a href="index.php" class="btn btn-farewell" id="btnRedirect">
-                    <i class="fas fa-home me-2"></i>Volver al Inicio Ahora
+                <a href="index.php" class="btn btn-farewell">
+                    <i class="fas fa-home me-2"></i>Volver al Inicio
                 </a>
                 <a href="login.php" class="btn btn-farewell-outline">
                     <i class="fas fa-sign-in-alt me-2"></i>Iniciar Sesión
@@ -294,38 +266,5 @@ include 'includes/header.php';
         </div>
     </div>
 </main>
-
-<script>
-    // Auto-redirect con countdown
-    let countdown = 10; // Segundos hasta redirección
-    const countdownElement = document.getElementById('countdown');
-    const btnRedirect = document.getElementById('btnRedirect');
-    
-    // Función para actualizar el countdown
-    function updateCountdown() {
-        countdownElement.textContent = countdown;
-        
-        if (countdown <= 0) {
-            // Redirigir a index.php
-            window.location.href = 'index.php';
-            return;
-        }
-        
-        countdown--;
-        setTimeout(updateCountdown, 1000);
-    }
-    
-    // Iniciar countdown cuando la página carga
-    document.addEventListener('DOMContentLoaded', function() {
-        updateCountdown();
-    });
-    
-    // Actualizar texto del botón cuando queda poco tiempo
-    setInterval(function() {
-        if (countdown <= 3 && countdown > 0) {
-            btnRedirect.innerHTML = '<i class="fas fa-home me-2"></i>Volver al Inicio (' + countdown + 's)';
-        }
-    }, 1000);
-</script>
 
 <?php include 'includes/footer.php'; render_footer(); ?>

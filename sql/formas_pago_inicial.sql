@@ -4,6 +4,9 @@
 -- =========================
 -- Inserta las formas de pago básicas disponibles en el sistema
 -- Ejecutar después de database_estructura.sql
+-- 
+-- Este script está actualizado con la estructura normalizada de database_estructura.sql
+-- Incluye campo de soft delete (activo) para desactivar formas de pago sin eliminarlas
 -- =========================
 
 -- Configuración de codificación UTF-8

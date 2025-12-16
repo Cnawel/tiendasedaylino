@@ -248,7 +248,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($fecha_nacimiento_raw)) {
         $errores['fecha_nacimiento'] = 'La fecha de nacimiento es obligatoria.';
     } else {
-        // Usar función centralizada que valida: formato, rango de años (1925-2012), edad mínima (13 años), no futura
+        // Usar función centralizada que valida: formato, rango de años (1925 - Actualidad), edad mínima (13 años), no futura
         $validacion_fecha = validarFechaNacimiento($fecha_nacimiento_raw);
         if (!$validacion_fecha['valido']) {
             $errores['fecha_nacimiento'] = $validacion_fecha['error'];
@@ -608,7 +608,7 @@ include 'includes/header.php';
                                name="fecha_nacimiento" 
                                id="fecha_nacimiento" 
                                required
-                               max="2012-12-31"
+                               max="<?= date('Y-m-d', strtotime('-13 years')) ?>"
                                min="1925-01-01"
                                value="<?= !empty($valores_form['fecha_nacimiento']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $valores_form['fecha_nacimiento']) ? htmlspecialchars($valores_form['fecha_nacimiento']) : '' ?>">
                         <?php if (isset($errores['fecha_nacimiento'])): ?>
@@ -684,7 +684,7 @@ include 'includes/header.php';
                                    maxlength="32"
                                    autocomplete="new-password"
                                    title="Mínimo 6 caracteres, máximo 32 caracteres">
-                            <button type="button" class="btn-toggle-password" id="togglePassword" aria-label="Mostrar contraseña">
+                            <button type="button" class="btn-toggle-password" data-input-id="password" id="togglePassword" aria-label="Mostrar contraseña">
                                 <i class="fas fa-eye"></i>
                             </button>
                         </div>
@@ -714,7 +714,7 @@ include 'includes/header.php';
                                    required
                                    autocomplete="new-password"
                                    title="Debe coincidir con la contraseña anterior">
-                            <button type="button" class="btn-toggle-password" id="togglePasswordConfirm" aria-label="Mostrar contraseña">
+                            <button type="button" class="btn-toggle-password" data-input-id="password_confirm" id="togglePasswordConfirm" aria-label="Mostrar contraseña">
                                 <i class="fas fa-eye"></i>
                             </button>
                         </div>

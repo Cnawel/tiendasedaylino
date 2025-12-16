@@ -29,8 +29,8 @@ session_start();
 
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/envio_functions.php';
+require_once __DIR__ . '/includes/queries/stock_queries.php';  // Debe cargarse PRIMERO (producto_queries lo necesita)
 require_once __DIR__ . '/includes/queries/producto_queries.php';
-require_once __DIR__ . '/includes/queries/stock_queries.php';
 require_once __DIR__ . '/includes/carrito_functions.php';
 
 // Configurar título de la página
@@ -87,12 +87,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $mensaje_error = $e->getMessage();
             $cantidad_disponible_para_agregar = 0;
             $stock_disponible = 0;
-            
+
             // Extraer stock disponible del mensaje de error
-            if (preg_match('/Disponible: (\d+) unidades/', $mensaje_error, $matches)) {
+            // Buscar diferentes patrones posibles
+            if (preg_match('/Solo quedan (\d+) unidades/', $mensaje_error, $matches)) {
+                $stock_disponible = intval($matches[1]);
+            } elseif (preg_match('/Disponible: (\d+) unidades/', $mensaje_error, $matches)) {
+                $stock_disponible = intval($matches[1]);
+            } elseif (preg_match('/stock máximo disponible \((\d+) unidades\)/', $mensaje_error, $matches)) {
                 $stock_disponible = intval($matches[1]);
             }
-            
+
             // Extraer cantidad disponible para agregar del mensaje de error
             if (preg_match('/Puedes agregar hasta (\d+) unidades más/', $mensaje_error, $matches)) {
                 $cantidad_disponible_para_agregar = intval($matches[1]);
@@ -148,9 +153,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $respuesta = [
                 'cantidad_carrito' => calcularCantidadTotalCarrito($_SESSION['carrito'])
             ];
-            // Siempre mostrar mensaje de éxito (verde) cuando se agrega al carrito
-            // Incluso si se auto-ajustó la cantidad, es un éxito porque se agregó lo disponible
-            $respuesta['tipo_mensaje'] = 'success';
+            
+            // Determinar tipo de mensaje: warning si se agregó menos de lo solicitado, success si fue todo
+            if ($es_stock_maximo && $cantidad_a_agregar < $cantidad) {
+                $respuesta['tipo_mensaje'] = 'warning';
+            } else {
+                $respuesta['tipo_mensaje'] = 'success';
+            }
+            
             enviarRespuestaAjaxExito($mensaje_exito, $respuesta);
         } else {
             redirigirConMensaje('carrito.php', $mensaje_exito);
@@ -389,7 +399,7 @@ $monto_faltante_carrito = obtenerMontoFaltanteEnvioGratis($total_carrito);
             <i class="fas fa-shopping-cart fa-5x text-muted mb-4"></i>
             <h3 class="text-muted mb-4">Tu carrito está vacío</h3>
             <p class="mb-4">¡Agrega productos para comenzar a comprar!</p>
-            <a href="index.php#productos" class="btn boton-tarjeta btn-lg">
+            <a href="index.php#productos" class="btn btn-carrito-compacto btn-lg">
                 <i class="fas fa-shopping-bag me-2"></i>Ver Productos
             </a>
         </div>

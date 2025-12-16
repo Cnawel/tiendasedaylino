@@ -19,7 +19,7 @@ include 'includes/header.php';
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/image_helper.php';
 require_once __DIR__ . '/includes/talles_config.php';
-require_once __DIR__ . '/includes/queries/producto_queries.php';
+require_once __DIR__ . '/includes/queries/producto_queries.php';  // Incluye stock_queries.php automáticamente
 require_once __DIR__ . '/includes/queries/categoria_queries.php';
 require_once __DIR__ . '/includes/catalogo_helper.php';
 
@@ -87,6 +87,10 @@ if ($categoria_nombre === 'todos' || $categoria_id !== null) {
     $productos = obtenerProductosFiltradosCatalogo($mysqli, $filtros);
 }
 // Si $categoria_nombre !== 'todos' y $categoria_id === null, $productos ya está vacío []
+
+// ========================================================================
+// DEBUG TEMPORAL - ELIMINAR DESPUÉS DE IDENTIFICAR EL PROBLEMA
+// ========================================================================
 ?>
 
 <main class="productos">

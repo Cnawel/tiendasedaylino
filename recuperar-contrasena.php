@@ -114,8 +114,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['validar_datos'])) {
                 $mensaje = 'La fecha de nacimiento no es una fecha válida.';
             } else {
                 // Validar rango de año permitido (1925-2012)
-                if ($year < 1925 || $year > 2012) {
-                    $mensaje = 'La fecha de nacimiento debe estar entre 1925 y 2012.';
+                if ($year < 1925) {
+                    $mensaje = 'El año de nacimiento debe ser posterior a 1925.';
                 } else {
                     // La fecha ya está en formato YYYY-MM-DD
                     $fecha_nacimiento_procesada = $fecha_nacimiento;
@@ -328,7 +328,7 @@ if (isset($_SESSION['recuperar_contrasena_id'])) {
                                    name="fecha_nacimiento" 
                                    id="fecha_nacimiento" 
                                    required
-                                   max="2012-12-31"
+                                   max="<?= date('Y-m-d', strtotime('-13 years')) ?>"
                                    min="1925-01-01"
                                    value="<?= isset($_POST['fecha_nacimiento']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_POST['fecha_nacimiento']) ? htmlspecialchars($_POST['fecha_nacimiento']) : '' ?>">
                             <div class="invalid-feedback">Por favor, ingresa tu fecha de nacimiento.</div>
@@ -422,7 +422,7 @@ if (isset($_SESSION['recuperar_contrasena_id'])) {
                                        maxlength="32"
                                        autocomplete="new-password"
                                        autofocus>
-                                <button type="button" class="btn-toggle-password" id="togglePasswordNueva" aria-label="Mostrar contraseña">
+                                <button type="button" class="btn-toggle-password" data-input-id="nueva_contrasena" id="togglePasswordNueva" aria-label="Mostrar contraseña">
                                     <i class="fas fa-eye"></i>
                                 </button>
                             </div>
@@ -446,7 +446,7 @@ if (isset($_SESSION['recuperar_contrasena_id'])) {
                                        minlength="6"
                                        maxlength="32"
                                        autocomplete="new-password">
-                                <button type="button" class="btn-toggle-password" id="togglePasswordConfirmar" aria-label="Mostrar contraseña">
+                                <button type="button" class="btn-toggle-password" data-input-id="confirmar_contrasena" id="togglePasswordConfirmar" aria-label="Mostrar contraseña">
                                     <i class="fas fa-eye"></i>
                                 </button>
                             </div>

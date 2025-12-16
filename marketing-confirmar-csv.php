@@ -22,8 +22,8 @@ require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/csv_functions.php';
 
 // Cargar funciones de productos y stock (necesarias para procesar formularios)
+require_once __DIR__ . '/includes/queries/stock_queries.php';  // Debe cargarse PRIMERO
 require_once __DIR__ . '/includes/queries/producto_queries.php';
-require_once __DIR__ . '/includes/queries/stock_queries.php';
 require_once __DIR__ . '/includes/queries/categoria_queries.php';
 require_once __DIR__ . '/includes/queries/foto_producto_queries.php';
 require_once __DIR__ . '/includes/marketing_functions.php'; // Para usar funciones de validación

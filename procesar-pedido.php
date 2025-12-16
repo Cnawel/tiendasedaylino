@@ -32,11 +32,11 @@ session_start();
 require_once __DIR__ . '/config/database.php';
 
 // Incluir funciones necesarias
+require_once __DIR__ . '/includes/queries/stock_queries.php'; // Debe cargarse PRIMERO (producto_queries lo necesita)
 require_once __DIR__ . '/includes/queries/pedido_queries.php';
 require_once __DIR__ . '/includes/queries/producto_queries.php';
 require_once __DIR__ . '/includes/queries/forma_pago_queries.php';
 require_once __DIR__ . '/includes/queries/pago_queries.php';
-require_once __DIR__ . '/includes/queries/stock_queries.php'; // Necesario para validarStockDisponibleVenta()
 require_once __DIR__ . '/includes/perfil_functions.php';
 require_once __DIR__ . '/includes/envio_functions.php';
 require_once __DIR__ . '/includes/carrito_functions.php';
@@ -170,15 +170,44 @@ $errores_stock = [];
 $checkout_errores = [];
 $checkout_productos_problema = [];
 
-// FIX: Limpiar reservas expiradas ANTES de iniciar transacción
-// Esto libera stock de pedidos viejos (>24h sin pago) para que esté disponible
-// Se ejecuta FUERA de transacción para evitar bloqueos
+// =============================================================================
+// SISTEMA DE LIMPIEZA AUTOMÁTICA DE RESERVAS EXPIRADAS
+// =============================================================================
+// MOMENTO DE EJECUCIÓN: Cada vez que un usuario intenta procesar un pedido
+// UBICACIÓN: ANTES de iniciar la transacción principal
+// PROPÓSITO: Liberar stock reservado por pedidos expirados (>24 horas sin pago)
+//
+// LÓGICA:
+// 1. Busca pedidos en estado 'pendiente' con más de 24 horas sin pago aprobado
+// 2. Para cada pedido expirado:
+//    - Crea movimientos de 'ingreso' para restaurar stock reservado
+//    - Actualiza estado del pedido a 'cancelado'
+//    - Envía email de notificación al cliente automáticamente
+// 3. El stock liberado queda disponible para nuevos pedidos
+//
+// VENTAJAS:
+// - Mantiene stock actualizado sin necesidad de cron jobs
+// - Se ejecuta automáticamente con cada intento de compra
+// - Previene que stock quede "congelado" indefinidamente
+//
+// DESVENTAJAS:
+// - Puede causar demora en el procesamiento si hay muchos pedidos expirados
+// - No es predecible cuándo se ejecuta exactamente
+//
+// IMPLEMENTACIÓN TEMPORAL: Sistema funcional que se ejecuta por evento
+// FUTURO: Considerar migrar a cron job para mejor performance
+// =============================================================================
 try {
     require_once __DIR__ . '/includes/auto_cleanup_reservas.php';
-    limpiarReservasExpiradas($mysqli);
+    $resultado_limpieza = limpiarReservasExpiradas($mysqli);
+
+    // Loggear resultados (opcional - para monitoreo)
+    if ($resultado_limpieza['total_liberadas'] > 0) {
+        error_log("Auto-limpieza: Liberadas {$resultado_limpieza['total_liberadas']} unidades de stock, {$resultado_limpieza['total_cancelados']} pedidos cancelados");
+    }
 } catch (Exception $e) {
     error_log("Error al limpiar reservas expiradas: " . $e->getMessage());
-    // Continuar - no es crítico
+    // Continuar - no es crítico para el flujo principal
 }
 
 // Iniciar transacción ÚNICA para todo el flujo
@@ -408,11 +437,26 @@ try {
     
     /**
      * Crear registro de pago (incluye costo de envío)
+     *
+     * VALIDACIÓN: Garantiza que TODOS los pedidos tengan un pago asociado
+     * Si crearPago falla, intenta auto-recuperarse reintenando una sola vez
      */
     $id_pago = crearPago($mysqli, $id_pedido, $id_forma_pago, $total_pedido_con_envio, 'pendiente');
-    
+
+    // Si crearPago falla, intentar auto-recuperación
     if (!$id_pago || $id_pago <= 0) {
-        throw new Exception("Error al crear el registro de pago");
+        error_log("procesar-pedido.php: Primer intento de crearPago falló para pedido #{$id_pedido}. Reintentando...");
+
+        // Esperar 100ms y reintentar una sola vez
+        usleep(100000);
+        $id_pago = crearPago($mysqli, $id_pedido, $id_forma_pago, $total_pedido_con_envio, 'pendiente');
+
+        if (!$id_pago || $id_pago <= 0) {
+            error_log("procesar-pedido.php: Auto-recuperación de crearPago falló. Pedido #{$id_pedido} quedó orfano.");
+            throw new Exception("Error crítico: No se pudo crear el registro de pago. Por favor, contacta al administrador con el número de pedido #{$id_pedido}");
+        }
+
+        error_log("procesar-pedido.php: Auto-recuperación exitosa. Pago #{$id_pago} creado para pedido #{$id_pedido}");
     }
     
     /**

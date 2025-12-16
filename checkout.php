@@ -468,8 +468,10 @@ $monto_faltante = obtenerMontoFaltanteEnvioGratis($total_carrito);
                                 </div>
                                 <div class="col-md-4 mb-3">
                                     <label for="localidad" class="form-label">Localidad *</label>
-                                    <input type="text" class="form-control" id="localidad" name="localidad" 
-                                           value="<?php echo htmlspecialchars($usuario['localidad'] ?? ''); ?>" 
+                                    <input type="text" class="form-control" id="localidad" name="localidad"
+                                           value="<?php echo htmlspecialchars($usuario['localidad'] ?? ''); ?>"
+                                           pattern="[A-Za-záéíóúÁÉÍÓÚñÑüÜ\s]+"
+                                           title="Solo se permiten letras, tildes, ñ y espacios"
                                            required>
                                 </div>
                                 <div class="col-md-4 mb-3">

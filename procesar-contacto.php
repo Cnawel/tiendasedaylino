@@ -125,9 +125,6 @@ try {
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-// Incluir funciones de contacto
-require_once __DIR__ . '/includes/contacto_functions.php';
-
 // Verificar que sea una petición POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     $_SESSION['mensaje_contacto'] = 'Solicitud inválida. Intenta nuevamente.';
@@ -241,15 +238,6 @@ try {
     $mail->send();
     
     // Si llegamos aquí, el email se envió correctamente
-    // Guardar registro del formulario
-    $datos_registro = [
-        'nombre' => $nombre,
-        'email' => $email,
-        'asunto' => $asunto,
-        'mensaje' => $mensaje
-    ];
-    guardarRegistroContacto($datos_registro);
-    
     $_SESSION['mensaje_contacto'] = '¡Mensaje enviado! Te responderemos pronto.';
     $_SESSION['mensaje_contacto_tipo'] = 'success';
     // Marcar que se envió un mensaje exitosamente (para evitar pre-llenar formulario)

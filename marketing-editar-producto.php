@@ -20,10 +20,10 @@ $usuario_actual = getCurrentUser();
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/image_helper.php';
 require_once __DIR__ . '/includes/talles_config.php';
+require_once __DIR__ . '/includes/queries/stock_queries.php';  // Debe cargarse PRIMERO
 require_once __DIR__ . '/includes/queries/producto_queries.php';
 require_once __DIR__ . '/includes/queries/categoria_queries.php';
 require_once __DIR__ . '/includes/queries/foto_producto_queries.php';
-require_once __DIR__ . '/includes/queries/stock_queries.php';
 require_once __DIR__ . '/includes/product_image_functions.php';
 
 $titulo_pagina = 'Editar Producto';
@@ -885,7 +885,7 @@ $fotos_temporales = obtenerFotosTemporales();
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <h2 class="h3 mb-1">Editar Producto</h2>
-                    <p class="text-muted mb-0"><?= htmlspecialchars($producto['nombre_producto']) ?></p>
+                            <p class="text-secondary mb-0"><?= htmlspecialchars($producto['nombre_producto']) ?></p>
                 </div>
                 <div>
                     <a href="marketing.php" class="btn btn-outline-secondary">
@@ -1177,7 +1177,7 @@ $fotos_temporales = obtenerFotosTemporales();
                                      alt="Miniatura actual" 
                                      class="img-thumbnail" 
                                      style="max-width: 200px; max-height: 200px;">
-                                <br><small class="text-muted">Imagen actual</small>
+                                <br><small class="text-secondary">Imagen actual</small>
                             </div>
                             <?php endif; ?>
                             <label class="form-label small">Seleccionar de imágenes locales:</label>
@@ -1189,7 +1189,7 @@ $fotos_temporales = obtenerFotosTemporales();
                             </select>
                             <label class="form-label small">O subir archivo nuevo:</label>
                             <input type="file" class="form-control" name="foto_miniatura" accept="image/*">
-                            <small class="text-muted">
+                            <small class="text-secondary">
                                 Se usa como imagen principal del producto en listados.<br>
                                 <strong>Requisitos:</strong> Máximo 5MB, dimensiones máx. 4000x4000px, mín. 50x50px. Formatos permitidos: JPG, PNG, GIF, WEBP.
                             </small>
@@ -1202,7 +1202,7 @@ $fotos_temporales = obtenerFotosTemporales();
                                      alt="Foto grupal actual" 
                                      class="img-thumbnail" 
                                      style="max-width: 200px; max-height: 200px;">
-                                <br><small class="text-muted">Imagen actual</small>
+                                <br><small class="text-secondary">Imagen actual</small>
                             </div>
                             <?php endif; ?>
                             <label class="form-label small">Seleccionar de imágenes locales:</label>
@@ -1214,7 +1214,7 @@ $fotos_temporales = obtenerFotosTemporales();
                             </select>
                             <label class="form-label small">O subir archivo nuevo:</label>
                             <input type="file" class="form-control" name="foto_grupal" accept="image/*">
-                            <small class="text-muted">
+                            <small class="text-secondary">
                                 Imagen grupal del producto.<br>
                                 <strong>Requisitos:</strong> Máximo 5MB, dimensiones máx. 4000x4000px, mín. 50x50px. Formatos permitidos: JPG, PNG, GIF, WEBP.
                             </small>
@@ -1259,7 +1259,7 @@ $fotos_temporales = obtenerFotosTemporales();
                                                  alt="Foto 1 <?= htmlspecialchars($color_variante) ?>" 
                                                  class="img-thumbnail" 
                                                  style="max-width: 150px; max-height: 150px;">
-                                            <br><small class="text-muted">Actual</small>
+                                            <br><small class="text-secondary">Actual</small>
                                         </div>
                                         <?php endif; ?>
                                         <label class="form-label small">Local:</label>
@@ -1282,7 +1282,7 @@ $fotos_temporales = obtenerFotosTemporales();
                                                  alt="Foto 2 <?= htmlspecialchars($color_variante) ?>" 
                                                  class="img-thumbnail" 
                                                  style="max-width: 150px; max-height: 150px;">
-                                            <br><small class="text-muted">Actual</small>
+                                            <br><small class="text-secondary">Actual</small>
                                         </div>
                                         <?php endif; ?>
                                         <label class="form-label small">Local:</label>

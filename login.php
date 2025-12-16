@@ -345,7 +345,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['reactivar_cuenta']))
                                maxlength="32"
                                autocomplete="current-password"
                                title="Mínimo 6 caracteres, máximo 32 caracteres">
-                        <button type="button" class="btn-toggle-password" id="togglePassword" aria-label="Mostrar contraseña">
+                        <button type="button" class="btn-toggle-password" data-input-id="password" id="togglePassword" aria-label="Mostrar contraseña">
                             <i class="fas fa-eye"></i>
                         </button>
                     </div>

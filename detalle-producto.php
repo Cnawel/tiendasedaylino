@@ -33,9 +33,9 @@ session_start();
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/image_helper.php';
 require_once __DIR__ . '/includes/talles_config.php';
+require_once __DIR__ . '/includes/queries/stock_queries.php';  // Debe cargarse PRIMERO (producto_queries lo necesita)
 require_once __DIR__ . '/includes/queries/producto_queries.php';
 require_once __DIR__ . '/includes/producto_functions.php';
-require_once __DIR__ . '/includes/queries/stock_queries.php';
 
 // Configurar título de la página
 $titulo_pagina = 'Detalle de Producto';
@@ -79,13 +79,9 @@ if (!$producto) {
 }
 
 /**
- * Obtener TODAS las variantes del producto actual (incluyendo las sin stock)
- * Esto permite mostrar todas las opciones de talle y color disponibles
+ * Obtener todas las variantes del producto actual para mostrar opciones disponibles
+ * y calcular stock. Solo incluye variantes de este producto específico.
  * Consulta desde includes/queries/producto_queries.php
- * 
- * IMPORTANTE: Estas variantes se usan para calcular el STOCK del producto actual.
- * El stock debe calcularse solo con las variantes de este producto específico (id_producto),
- * no con variantes de otros productos aunque tengan el mismo nombre.
  */
 $variantes = obtenerTodasVariantesProducto($mysqli, $id_producto);
 
@@ -98,12 +94,9 @@ foreach ($variantes as &$variante) {
 unset($variante); // Liberar referencia
 
 /**
- * Obtener TODAS las variantes de productos con el mismo nombre_producto, categoría y género
- * Esto permite mostrar todos los talles y colores disponibles del grupo de productos en la UI
- * Solo incluye talles estándar (S, M, L, XL) para mantener consistencia con el catálogo
- * 
- * IMPORTANTE: Estas variantes se usan SOLO para mostrar opciones de colores disponibles en la UI.
- * NO se usan para calcular stock - el stock se calcula solo con $variantes (del producto actual).
+ * Obtener variantes del grupo de productos (mismo nombre, categoría, género)
+ * para mostrar todas las opciones de colores disponibles en la UI.
+ * Solo talles estándar. NO usar para calcular stock.
  * Consulta desde includes/queries/producto_queries.php
  */
 // Obtener talles estándar para filtrar
@@ -126,9 +119,8 @@ $todas_variantes_completas = obtenerTodasVariantesGrupoProducto(
 $todas_fotos = obtenerTodasFotosProducto($mysqli, $id_producto);
 
 /**
- * Obtener fotos de TODOS los productos con el mismo nombre_producto, categoría y género
- * Esto permite mostrar las imágenes de todos los colores disponibles del grupo de productos
- * Solo incluye fotos de productos con categorías activas
+ * Obtener fotos del grupo de productos (mismo nombre, categoría, género)
+ * para mostrar imágenes de todos los colores disponibles.
  * Consulta desde includes/queries/producto_queries.php
  */
 // Obtener fotos del grupo de productos usando función centralizada
@@ -147,14 +139,13 @@ $fotos_generales = $fotos_grupo['generales'];
 $fotos_por_color = $fotos_grupo['por_color'];
 
 // Obtener colores disponibles desde las variantes del GRUPO (para mostrar todas las opciones en UI)
-// Esto permite mostrar todos los colores disponibles del grupo de productos, no solo del producto actual
 // Normalizar colores para formato consistente (primera letra mayúscula, resto minúscula)
 $variantes_para_colores = !empty($todas_variantes_completas) ? $todas_variantes_completas : $variantes;
-$colores_disponibles = array_unique(array_column($variantes_para_colores, 'color'));
+$colores = array_unique(array_column($variantes_para_colores, 'color'));
 // Normalizar todos los colores al mismo formato
-$colores_disponibles = array_unique(array_map('normalizeColor', $colores_disponibles));
-sort($colores_disponibles);
-$primer_color = !empty($colores_disponibles) ? $colores_disponibles[0] : null;
+$colores = array_unique(array_map('normalizeColor', $colores));
+sort($colores);
+$primer_color = !empty($colores) ? $colores[0] : null;
 
 // Preparar imágenes iniciales para mostrar (del primer color o generales)
 // Verificar que los archivos existan antes de agregarlos
@@ -221,17 +212,7 @@ $tallas_en_variantes = array_unique(array_column($variantes, 'talle'));
 // Utiliza función refactorizada que elimina complejidad O(n*m)
 $tallas_info = prepareTallesInfo($variantes, $orden_tallas_estandar);
 
-// Para compatibilidad, mantener array simple de talles disponibles
-$tallas = array_column($tallas_info, 'talle');
 
-// Extraer TODOS los colores únicos que existen en las variantes del GRUPO (para mostrar en UI)
-// Esto permite mostrar todos los colores disponibles del grupo de productos
-// Normalizar colores para formato consistente
-$variantes_para_colores_ui = !empty($todas_variantes_completas) ? $todas_variantes_completas : $variantes;
-$colores_raw = array_unique(array_column($variantes_para_colores_ui, 'color'));
-$colores = array_unique(array_map('normalizeColor', $colores_raw));
-// Ordenar colores alfabéticamente
-sort($colores);
 
 /**
  * Obtener variantes de color del mismo producto base (mismo nombre, categoría, género)
@@ -265,11 +246,10 @@ foreach ($variantes as $variante) {
     $stock_bruto = (int)$variante['stock'];
     $id_variante = (int)$variante['id_variante'];
     
-    // Calcular stock reservado para esta variante
-    $stock_reservado = obtenerStockReservado($mysqli, $id_variante);
-    
-    // Calcular stock disponible (bruto - reservas, mínimo 0)
-    $stock_disponible = max(0, $stock_bruto - $stock_reservado);
+    // Calcular stock disponible
+    // NOTA: Stock_Variantes.stock ya incluye el descuento de reservas (es ATP),
+    // por lo que no debemos restar las reservas nuevamente.
+    $stock_disponible = max(0, $stock_bruto);
     
     // Crear nueva variante con stock disponible
     $variante_con_stock_disponible = $variante;
@@ -670,8 +650,8 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes_con_stock_disponible
         </div>
     </div>
 
-<?php include 'includes/detalle_producto_data.php'; ?>
 <script src="js/detalle-producto-utils.js"></script>
 <script src="js/detalle-producto.js"></script>
+<?php include 'includes/detalle_producto_data.php'; ?>
 
 <?php include 'includes/footer.php'; render_footer(); ?>
