@@ -602,14 +602,14 @@ function procesarEliminacionUsuario($mysqli, $post, $id_usuario_actual) {
         $total_pedidos = contarPedidosUsuario($mysqli, $del_user_id);
         
         // Si tiene pedidos, anonimizar en lugar de eliminar físicamente
+        // Si tiene pedidos, anonimizar en lugar de eliminar físicamente
         if ($total_pedidos > 0) {
-            // Desvincular pedidos primero (establecer id_usuario = NULL)
-            if (!desvincularPedidosUsuario($mysqli, $del_user_id)) {
-                return ['mensaje' => 'Error al desvincular pedidos del usuario', 'mensaje_tipo' => 'danger'];
-            }
+            // REGLA DE NEGOCIO: No desvincular pedidos para mantener estadística histórica.
+            // Los pedidos quedan vinculados al usuario (que ahora tendrá nombre NULL).
+            // Esto permite ver "X pedidos" incluso para usuarios eliminados.
             
-            // Desasociar movimientos de stock
-            anularUsuarioEnMovimientosStock($mysqli, $del_user_id);
+            // Tampoco desvincular movimientos de stock para mantener trazabilidad
+            // anularUsuarioEnMovimientosStock($mysqli, $del_user_id);
             
             // Anonimizar usuario (elimina datos personales pero mantiene registro)
             if (anonimizarUsuario($mysqli, $del_user_id)) {

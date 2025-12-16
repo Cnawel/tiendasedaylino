@@ -436,4 +436,3 @@ class StateValidator {
         return array_keys($matrix);
     }
 }
-

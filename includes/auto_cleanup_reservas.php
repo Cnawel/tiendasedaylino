@@ -6,9 +6,28 @@
  * Limpia automáticamente las reservas de pedidos que tienen más de 24 horas
  * sin pago aprobado.
  *
- * LÓGICA SIMPLE:
- * 1. Lee fecha_pedido de la tabla Pedidos
- * 2. IF pedido > 24 horas Y sin pago aprobado → Liberar reserva
+ * MOMENTO DE EJECUCIÓN:
+ * - Se ejecuta AUTOMÁTICAMENTE cada vez que un usuario intenta procesar un pedido
+ * - Ubicación: procesar-pedido.php (ANTES de la transacción principal)
+ * - Propósito: Liberar stock "congelado" para mantener inventario actualizado
+ *
+ * LÓGICA DE EJECUCIÓN:
+ * 1. Busca pedidos en estado 'pendiente' con fecha_pedido > 24 horas
+ * 2. Verifica que NO tengan pago aprobado
+ * 3. Para cada pedido expirado:
+ *    - Restaura stock mediante movimientos de 'ingreso'
+ *    - Cambia estado del pedido a 'cancelado'
+ *    - Envía email de notificación al cliente
+ * 4. Retorna estadísticas de limpieza
+ *
+ * IMPLEMENTACIÓN TEMPORAL:
+ * - Sistema funcional que se ejecuta por evento (no cron job)
+ * - Asegura que el stock esté siempre actualizado
+ * - Previene race conditions por stock reservado indefinidamente
+ *
+ * MÉTRICAS RETORNADAS:
+ * - total_liberadas: Número de unidades de stock liberadas
+ * - total_cancelados: Número de pedidos cancelados automáticamente
  * ========================================================================
  */
 
@@ -29,28 +48,43 @@ function limpiarReservasExpiradas($mysqli) {
 
     try {
         // Cargar funciones necesarias
-        require_once __DIR__ . '/../queries/pedido_queries.php';
-        // FIX: Procesar TODOS los pedidos expirados (sin LIMIT)
-        // Anteriormente LIMIT 50 dejaba reservas sin liberar si había > 50 pedidos
+        require_once __DIR__ . '/queries/pedido_queries.php';
+
+        // ✅ NIVEL 5: Calcular fecha límite en PHP (sin DATE_SUB)
+        $fecha_limite = date('Y-m-d H:i:s', strtotime('-24 hours'));
+
+        // ✅ NIVEL 5: Query simple sin TIMESTAMPDIFF ni DATE_SUB
         $sql = "
-            SELECT p.id_pedido, p.id_usuario,
-                   TIMESTAMPDIFF(HOUR, p.fecha_pedido, NOW()) as horas
+            SELECT p.id_pedido, p.id_usuario, p.fecha_pedido
             FROM Pedidos p
             LEFT JOIN Pagos pag ON p.id_pedido = pag.id_pedido
             WHERE p.estado_pedido = 'pendiente'
-              AND p.fecha_pedido <= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+              AND p.fecha_pedido <= ?
               AND (pag.estado_pago IS NULL OR pag.estado_pago != 'aprobado')
         ";
 
-        $result = $mysqli->query($sql);
+        $stmt = $mysqli->prepare($sql);
+        if (!$stmt) {
+            return ['total_liberadas' => 0, 'total_cancelados' => 0];
+        }
+
+        $stmt->bind_param('s', $fecha_limite);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
         if (!$result) {
+            $stmt->close();
             return ['total_liberadas' => 0, 'total_cancelados' => 0];
         }
 
         while ($pedido = $result->fetch_assoc()) {
             $id_pedido = intval($pedido['id_pedido']);
             $id_usuario = intval($pedido['id_usuario']);
-            $horas = intval($pedido['horas']);
+
+            // ✅ NIVEL 5: Calcular horas en PHP (sin TIMESTAMPDIFF)
+            $fecha_pedido = strtotime($pedido['fecha_pedido']);
+            $ahora = time();
+            $horas = ($ahora - $fecha_pedido) / 3600;
 
             // IF: Pedido tiene más de 24 horas?
             if ($horas >= 24) {
@@ -74,7 +108,8 @@ function limpiarReservasExpiradas($mysqli) {
                     }
 
                     // Devolver stock - FIX: Usar prepared statement
-                    $obs = "Liberación de reserva expirada - Pedido #{$id_pedido} ({$horas} horas)";
+                    $horas_redondeadas = round($horas, 1);
+                    $obs = "Liberación de reserva expirada - Pedido #{$id_pedido} (" . number_format($horas_redondeadas, 1, ',', '.') . " horas)";
 
                     $stmt_mov = $mysqli->prepare("
                         INSERT INTO Movimientos_Stock
@@ -101,16 +136,18 @@ function limpiarReservasExpiradas($mysqli) {
 
                 $stmt_det->close();
 
-                // Actualizar estado del pedido a 'cancelado'
-                // NOTA: actualizarEstadoPedido() envía automáticamente el email de notificación
-                if (actualizarEstadoPedido($mysqli, $id_pedido, 'cancelado')) {
+                // Actualizar estado del pedido a 'cancelado' usando función validada
+                // actualizarEstadoPedidoConValidaciones() incluye envío automático de email y validaciones
+                if (actualizarEstadoPedidoConValidaciones($mysqli, $id_pedido, 'cancelado', null)) {
                     $total_cancelados++;
                     error_log("Auto-limpieza: Pedido #{$id_pedido} cancelado automáticamente (más de 24 horas sin pago aprobado)");
                 } else {
-                    error_log("Auto-limpieza: ERROR al cancelar pedido #{$id_pedido}");
+                    error_log("Auto-limpieza: ERROR al cancelar pedido #{$id_pedido} - validaciones fallaron");
                 }
             }
         }
+
+        $stmt->close();
 
     } catch (Exception $e) {
         error_log("Error en limpiarReservasExpiradas: " . $e->getMessage());

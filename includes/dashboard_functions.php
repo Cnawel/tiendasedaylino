@@ -14,6 +14,5 @@ function obtenerTiposMovimientoMap() {
         'venta' => ['color' => 'success', 'nombre' => 'Venta', 'signo' => '-'],
         'ingreso' => ['color' => 'info', 'nombre' => 'Ingreso', 'signo' => '+'],
         'ajuste' => ['color' => 'warning', 'nombre' => 'Ajuste', 'signo' => ''],
-        'devolucion' => ['color' => 'secondary', 'nombre' => 'Devolución', 'signo' => '+']
     ];
 }

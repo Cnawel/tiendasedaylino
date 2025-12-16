@@ -1,20 +1,20 @@
 <?php
 /**
  * ========================================================================
- * FUNCIONES DE VALIDACIÓN DE ESTADOS - Tienda Seda y Lino
+ * FUNCIONES DE VALIDACI?N DE ESTADOS - Tienda Seda y Lino
  * ========================================================================
- * Funciones simples para validación de estados de pedidos y pagos
+ * Funciones simples para validaci?n de estados de pedidos y pagos
  *
- * REEMPLAZA A: state_validator.php (clase estática compleja)
- * VERSIÓN SIMPLIFICADA: Nivel semi-senior
+ * REEMPLAZA A: state_validator.php (clase est?tica compleja)
+ * VERSI?N SIMPLIFICADA: Nivel semi-senior
  *
  * Funciones principales:
  * - obtenerTransicionesPagoValidas() - Matriz de transiciones de pago
  * - obtenerTransicionesPedidoValidas() - Matriz de transiciones de pedido
- * - puedeTransicionarPago() - Valida transición de pago
- * - puedeTransicionarPedido() - Valida transición de pedido
- * - validarCombinacionPedidoPago() - Valida combinación pedido-pago
- * - estaEnRecorridoActivo() - Verifica si está en proceso
+ * - puedeTransicionarPago() - Valida transici?n de pago
+ * - puedeTransicionarPedido() - Valida transici?n de pedido
+ * - validarCombinacionPedidoPago() - Valida combinaci?n pedido-pago
+ * - estaEnRecorridoActivo() - Verifica si est? en proceso
  * - esEstadoInicial() - Verifica si es estado inicial
  * - esEstadoTerminal() - Verifica si es estado terminal
  * - puedeCancelar() - Verifica si puede cancelarse
@@ -24,7 +24,7 @@
  * ========================================================================
  */
 
-// Cargar helpers de estado si no están cargados
+// Cargar helpers de estado si no est?n cargados
 if (!function_exists('normalizarEstado')) {
     require_once __DIR__ . '/estado_helpers.php';
 }
@@ -34,7 +34,7 @@ if (!function_exists('normalizarEstado')) {
 // ========================================================================
 
 /**
- * Obtiene las transiciones válidas para estados de pago
+ * Obtiene las transiciones v?lidas para estados de pago
  *
  * REGLAS DE NEGOCIO:
  * - pendiente: Puede ir a pendiente_aprobacion, aprobado, rechazado o cancelado
@@ -48,22 +48,21 @@ if (!function_exists('normalizarEstado')) {
 function obtenerTransicionesPagoValidas() {
     return [
         'pendiente' => ['pendiente_aprobacion', 'aprobado', 'rechazado', 'cancelado'],
-        'pendiente_aprobacion' => ['aprobado', 'rechazado'], // NO puede cancelarse: ya está en recorrido activo
-        'aprobado' => ['rechazado'], // Solo rechazo en casos extremos
+        'pendiente_aprobacion' => ['aprobado', 'rechazado'], // Solo puede avanzar a aprobado
+        'aprobado' => [], // Estado terminal, no admite cambios
         'rechazado' => [], // Estado terminal
         'cancelado' => [] // Estado terminal
     ];
 }
 
 /**
- * Obtiene las transiciones válidas para estados de pedido
+ * Obtiene las transiciones v?lidas para estados de pedido
  *
  * REGLAS DE NEGOCIO:
  * - pendiente: Puede ir a preparacion o cancelado
  * - preparacion: Puede ir a en_viaje, completado o cancelado (solo si pago cancelado/rechazado)
  * - en_viaje: Solo puede ir a completado (NO puede cancelarse)
  * - completado: Estado terminal, no admite cambios
- * - devolucion: Solo puede ir a cancelado (NO IMPLEMENTADO EN MVP)
  * - cancelado: Estado terminal, no admite cambios
  *
  * @return array Matriz de transiciones [estado_actual => [estados_permitidos]]
@@ -74,7 +73,6 @@ function obtenerTransicionesPedidoValidas() {
         'preparacion' => ['en_viaje', 'completado', 'cancelado'], // Cancelado solo si pago cancelado/rechazado
         'en_viaje' => ['completado'], // NO puede cancelarse
         'completado' => [], // Estado terminal
-        'devolucion' => ['cancelado'], // NO IMPLEMENTADO EN MVP
         'cancelado' => [] // Estado terminal
     ];
 }
@@ -88,7 +86,7 @@ function obtenerTransicionesPedidoValidas() {
 function obtenerEstadosRecorridoActivo($tipo) {
     $estados = [
         'pago' => ['pendiente_aprobacion', 'aprobado'],
-        'pedido' => ['preparacion', 'en_viaje', 'completado', 'devolucion']
+        'pedido' => ['preparacion', 'en_viaje', 'completado']
     ];
 
     return $estados[$tipo] ?? [];
@@ -125,15 +123,15 @@ function obtenerEstadosTerminales($tipo) {
 }
 
 // ========================================================================
-// FUNCIONES DE VALIDACIÓN DE TRANSICIONES
+// FUNCIONES DE VALIDACI?N DE TRANSICIONES
 // ========================================================================
 
 /**
- * Valida si una transición de estado de pago es válida
+ * Valida si una transici?n de estado de pago es v?lida
  *
  * @param string $estado_actual Estado actual del pago
  * @param string $estado_nuevo Estado nuevo deseado
- * @return bool True si la transición es válida
+ * @return bool True si la transici?n es v?lida
  */
 function puedeTransicionarPago($estado_actual, $estado_nuevo) {
     // Normalizar estados
@@ -153,16 +151,16 @@ function puedeTransicionarPago($estado_actual, $estado_nuevo) {
         return false;
     }
 
-    // Verificar si el nuevo estado está permitido
+    // Verificar si el nuevo estado est? permitido
     return in_array($nuevo, $transiciones[$actual]);
 }
 
 /**
- * Valida si una transición de estado de pedido es válida
+ * Valida si una transici?n de estado de pedido es v?lida
  *
  * @param string $estado_actual Estado actual del pedido
  * @param string $estado_nuevo Estado nuevo deseado
- * @return bool True si la transición es válida
+ * @return bool True si la transici?n es v?lida
  */
 function puedeTransicionarPedido($estado_actual, $estado_nuevo) {
     // Normalizar estados
@@ -182,20 +180,20 @@ function puedeTransicionarPedido($estado_actual, $estado_nuevo) {
         return false;
     }
 
-    // Verificar si el nuevo estado está permitido
+    // Verificar si el nuevo estado est? permitido
     return in_array($nuevo, $transiciones[$actual]);
 }
 
 // ========================================================================
-// FUNCIONES DE VERIFICACIÓN DE ESTADO
+// FUNCIONES DE VERIFICACI?N DE ESTADO
 // ========================================================================
 
 /**
- * Verifica si un estado está en recorrido activo (NO puede cancelarse)
+ * Verifica si un estado est? en recorrido activo (NO puede cancelarse)
  *
  * @param string $estado Estado a verificar
  * @param string $tipo Tipo: 'pago' o 'pedido'
- * @return bool True si está en recorrido activo
+ * @return bool True si est? en recorrido activo
  */
 function estaEnRecorridoActivo($estado, $tipo) {
     $estado_norm = normalizarEstado($estado, '');
@@ -244,18 +242,18 @@ function esEstadoTerminal($estado, $tipo) {
 function puedeCancelar($estado, $tipo) {
     $estado_norm = normalizarEstado($estado, '');
 
-    // Solo estados iniciales pueden cancelarse (no están en recorrido activo)
+    // Solo estados iniciales pueden cancelarse (no est?n en recorrido activo)
     return esEstadoInicial($estado_norm, $tipo) && !estaEnRecorridoActivo($estado_norm, $tipo);
 }
 
 // ========================================================================
-// VALIDACIÓN DE COMBINACIÓN PEDIDO-PAGO
+// VALIDACI?N DE COMBINACI?N PEDIDO-PAGO
 // ========================================================================
 
 /**
- * Valida combinación de estado pedido y pago
+ * Valida combinaci?n de estado pedido y pago
  *
- * Detecta las 5 inconsistencias críticas principales:
+ * Detecta las 5 inconsistencias cr?ticas principales:
  * 1. Pedido completado con pago no aprobado
  * 2. Pedido en viaje con pago rechazado/cancelado
  * 3. Pedido cancelado con pago aprobado
@@ -270,14 +268,14 @@ function validarCombinacionPedidoPago($estado_pedido, $estado_pago) {
     // Normalizar pedido
     $pedido = normalizarEstado($estado_pedido, '');
 
-    // Manejar caso sin pago (null o vacío)
+    // Manejar caso sin pago (null o vac?o)
     if ($estado_pago === null || $estado_pago === '') {
-        $estados_avanzados = ['preparacion', 'en_viaje', 'completado', 'devolucion'];
+        $estados_avanzados = ['preparacion', 'en_viaje', 'completado'];
         if (in_array($pedido, $estados_avanzados)) {
             return [
                 'valido' => false,
                 'tipo' => 'warning',
-                'mensaje' => "Pedido en '{$pedido}' sin pago asociado (debería tener pago aprobado)",
+                'mensaje' => "Pedido en '{$pedido}' sin pago asociado (deber?a tener pago aprobado)",
                 'severidad' => 'ADVERTENCIA',
                 'accion' => 'Crear y aprobar pago, o cancelar pedido'
             ];
@@ -301,8 +299,8 @@ function validarCombinacionPedidoPago($estado_pedido, $estado_pago) {
         return [
             'valido' => false,
             'tipo' => 'danger',
-            'mensaje' => "INCONSISTENCIA CRÍTICA: Pedido completado con pago '{$pago}'",
-            'severidad' => 'CRÍTICA',
+            'mensaje' => "INCONSISTENCIA CR?TICA: Pedido completado con pago '{$pago}'",
+            'severidad' => 'CR?TICA',
             'accion' => 'Revisar inmediatamente, contactar cliente, verificar stock'
         ];
     }
@@ -312,8 +310,8 @@ function validarCombinacionPedidoPago($estado_pedido, $estado_pago) {
         return [
             'valido' => false,
             'tipo' => 'danger',
-            'mensaje' => "INCONSISTENCIA CRÍTICA: Pedido en viaje con pago '{$pago}'",
-            'severidad' => 'CRÍTICA',
+            'mensaje' => "INCONSISTENCIA CR?TICA: Pedido en viaje con pago '{$pago}'",
+            'severidad' => 'CR?TICA',
             'accion' => 'Revisar inmediatamente, contactar cliente, verificar stock'
         ];
     }
@@ -323,7 +321,7 @@ function validarCombinacionPedidoPago($estado_pedido, $estado_pago) {
         return [
             'valido' => false,
             'tipo' => 'warning',
-            'mensaje' => "Pedido cancelado con pago aprobado (debería restaurar stock)",
+            'mensaje' => "Pedido cancelado con pago aprobado (deber?a restaurar stock)",
             'severidad' => 'ADVERTENCIA',
             'accion' => 'Verificar stock restaurado, cancelar pago si es necesario'
         ];
@@ -334,7 +332,7 @@ function validarCombinacionPedidoPago($estado_pedido, $estado_pago) {
         return [
             'valido' => false,
             'tipo' => 'warning',
-            'mensaje' => "Pedido en preparacion con pago '{$pago}' (debería estar cancelado)",
+            'mensaje' => "Pedido en preparacion con pago '{$pago}' (deber?a estar cancelado)",
             'severidad' => 'ADVERTENCIA',
             'accion' => 'Cancelar pedido y restaurar stock'
         ];
@@ -348,13 +346,13 @@ function validarCombinacionPedidoPago($estado_pedido, $estado_pago) {
         return [
             'valido' => false,
             'tipo' => 'warning',
-            'mensaje' => "Pedido en '{$pedido}' con pago en '{$pago}' (debería estar aprobado)",
+            'mensaje' => "Pedido en '{$pedido}' con pago en '{$pago}' (deber?a estar aprobado)",
             'severidad' => 'ADVERTENCIA',
             'accion' => 'Revisar y aprobar pago si corresponde'
         ];
     }
 
-    // Combinación válida
+    // Combinaci?n v?lida
     return [
         'valido' => true,
         'tipo' => null,
@@ -365,7 +363,7 @@ function validarCombinacionPedidoPago($estado_pedido, $estado_pago) {
 }
 
 // ========================================================================
-// FUNCIONES AUXILIARES (COMPATIBILIDAD CON CÓDIGO EXISTENTE)
+// FUNCIONES AUXILIARES (COMPATIBILIDAD CON C?DIGO EXISTENTE)
 // ========================================================================
 
 /**

@@ -26,9 +26,6 @@ function obtenerFormasPago($mysqli) {
     
     $stmt = $mysqli->prepare($sql);
     if (!$stmt) {
-        // Registrar error detallado para debugging
-        error_log("ERROR obtenerFormasPago - prepare falló: " . $mysqli->error . " (Errno: " . $mysqli->errno . ")");
-        error_log("SQL: " . $sql);
         return [];
     }
     

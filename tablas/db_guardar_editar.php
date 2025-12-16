@@ -1,6 +1,6 @@
 <?php  
 
-  include("config/database.example.php");
+  include(__DIR__ . '/../config/database.php');
 
   //obtenemos los nombres de la tabla, la clave primaria y el valor de esa clave
   $tabla = $_GET['tabla'];

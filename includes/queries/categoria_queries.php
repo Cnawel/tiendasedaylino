@@ -46,14 +46,8 @@ function obtenerCategoriaIdPorNombre($mysqli, $nombre_categoria) {
     if ($row) {
         $id_encontrado = (int)$row['id_categoria'];
         $nombre_encontrado = trim($row['nombre_categoria']);
-        // Log para debugging: verificar que el nombre encontrado coincide con el buscado
-        if (strtolower($nombre_encontrado) !== strtolower($nombre_categoria_normalizado)) {
-            error_log("INFO obtenerCategoriaIdPorNombre - Nombre encontrado difiere del buscado. Buscado: '" . $nombre_categoria_normalizado . "', Encontrado: '" . $nombre_encontrado . "' (ID: " . $id_encontrado . ")");
-        }
         return $id_encontrado;
     } else {
-        // Log cuando no se encuentra la categoría para debugging
-        error_log("WARNING obtenerCategoriaIdPorNombre - No se encontró categoría con nombre: '" . $nombre_categoria_normalizado . "'");
         return null;
     }
 }

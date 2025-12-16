@@ -203,7 +203,6 @@ if (!function_exists('renderModalVerPedido')) {
                                                     <th>Talla</th>
                                                     <th>Color</th>
                                                     <th class="text-end">Cantidad</th>
-                                                    <th class="text-end">Devuelto</th>
                                                     <th class="text-end">Precio Unit.</th>
                                                     <th class="text-end">Subtotal</th>
                                                 </tr>
@@ -212,9 +211,7 @@ if (!function_exists('renderModalVerPedido')) {
                                                 <?php 
                                                 $total_calculado = 0;
                                                 foreach ($detalles_pedido as $detalle): 
-                                                    $cantidad_devuelta = $detalle['cantidad_devuelta'] ?? 0;
-                                                    $cantidad_neto = $detalle['cantidad'] - $cantidad_devuelta;
-                                                    $subtotal = $cantidad_neto * $detalle['precio_unitario'];
+                                                    $subtotal = $detalle['cantidad'] * $detalle['precio_unitario'];
                                                     $total_calculado += $subtotal;
                                                 ?>
                                                 <tr>
@@ -222,13 +219,6 @@ if (!function_exists('renderModalVerPedido')) {
                                                     <td><?= htmlspecialchars($detalle['talle']) ?></td>
                                                     <td><?= htmlspecialchars($detalle['color']) ?></td>
                                                     <td class="text-end"><?= $detalle['cantidad'] ?></td>
-                                                    <td class="text-end">
-                                                        <?php if ($cantidad_devuelta > 0): ?>
-                                                            <span class="badge bg-warning"><?= $cantidad_devuelta ?></span>
-                                                        <?php else: ?>
-                                                            <span class="text-muted">0</span>
-                                                        <?php endif; ?>
-                                                    </td>
                                                     <td class="text-end">$<?= number_format($detalle['precio_unitario'], 2, ',', '.') ?></td>
                                                     <td class="text-end"><strong>$<?= number_format($subtotal, 2, ',', '.') ?></strong></td>
                                                 </tr>
@@ -236,7 +226,7 @@ if (!function_exists('renderModalVerPedido')) {
                                             </tbody>
                                             <tfoot>
                                                 <tr>
-                                                    <td colspan="6" class="text-end"><strong>Total:</strong></td>
+                                                    <td colspan="5" class="text-end"><strong>Total:</strong></td>
                                                     <td class="text-end"><strong class="text-primary">$<?= number_format($pedido_completo['total_pedido'] ?? $total_calculado, 2, ',', '.') ?></strong></td>
                                                 </tr>
                                             </tfoot>

@@ -83,11 +83,6 @@ function _verificarHashGuardado($mysqli, $id_usuario, $hash_original) {
     // Verificar que el hash guardado coincide con el hash original
     if ($hash_guardado !== $hash_original) {
         error_log("ADVERTENCIA crearUsuarioCliente: Hash guardado no coincide con hash original. ID Usuario: $id_usuario");
-        error_log("DEBUG crearUsuarioCliente: Hash original longitud: $hash_original_length, Hash guardado longitud: $hash_guardado_length");
-        error_log("DEBUG crearUsuarioCliente: Hash original (primeros 20 chars): " . substr($hash_original, 0, 20));
-        error_log("DEBUG crearUsuarioCliente: Hash guardado (primeros 20 chars): " . substr($hash_guardado, 0, 20));
-    } else {
-        error_log("DEBUG crearUsuarioCliente: Hash verificado correctamente. ID Usuario: $id_usuario, Longitud hash: $hash_original_length");
     }
     
     // Verificar longitud del hash guardado
@@ -407,7 +402,7 @@ function verificarUsuarioTienePedidos($mysqli, $id_usuario) {
  * - Y estado_pago = 'aprobado'
  *
  * NO bloquean eliminación:
- * - Pedidos en estados finales: completado, cancelado, devolucion
+ * - Pedidos en estados finales: completado, cancelado
  * - Pedidos en pendiente sin pago aprobado
  *
  * @param mysqli $mysqli Conexión a la base de datos
@@ -595,6 +590,28 @@ function contarPedidosUsuario($mysqli, $id_usuario) {
  * @return bool True si se eliminó correctamente, false en caso contrario
  */
 function eliminarUsuarioFisicamente($mysqli, $id_usuario) {
+    // PASO DE SEGURIDAD 1: Desvincular pedidos antes de eliminar
+    // Esto asegura que si la restricción FK es CASCADE, los pedidos NO se eliminen.
+    // Aunque ya debería haberse hecho en el proceso de anonimización, esto actúa como
+    // una red de seguridad final (fail-safe).
+    $sql_pedidos = "UPDATE Pedidos SET id_usuario = NULL WHERE id_usuario = ?";
+    $stmt_pedidos = $mysqli->prepare($sql_pedidos);
+    if ($stmt_pedidos) {
+        $stmt_pedidos->bind_param('i', $id_usuario);
+        $stmt_pedidos->execute();
+        $stmt_pedidos->close();
+    }
+
+    // PASO DE SEGURIDAD 2: Desvincular movimientos de stock
+    $sql_stock = "UPDATE Movimientos_Stock SET id_usuario = NULL WHERE id_usuario = ?";
+    $stmt_stock = $mysqli->prepare($sql_stock);
+    if ($stmt_stock) {
+        $stmt_stock->bind_param('i', $id_usuario);
+        $stmt_stock->execute();
+        $stmt_stock->close();
+    }
+
+    // PASO 3: Eliminar usuario físicamente
     $sql = "DELETE FROM Usuarios WHERE id_usuario = ?";
     
     $stmt = $mysqli->prepare($sql);
@@ -958,11 +975,9 @@ function crearUsuarioCliente($mysqli, $nombre, $apellido, $email, $hash_password
         _verificarHashGuardado($mysqli, $id_usuario, $hash_password);
         
         $stmt->close();
-        error_log("DEBUG crearUsuarioCliente: Usuario creado exitosamente con ID: $id_usuario");
         return $id_usuario;
     } else {
         error_log("ERROR crearUsuarioCliente: No se pudo ejecutar consulta - " . $stmt->error . " (Código: " . $stmt->errno . ")");
-        error_log("DEBUG crearUsuarioCliente: Parámetros - nombre: " . substr($nombre, 0, 20) . ", email: " . substr($email, 0, 30) . ", pregunta_id: $pregunta_recupero_id, hash_length: $hash_length");
         $stmt->close();
         return 0;
     }

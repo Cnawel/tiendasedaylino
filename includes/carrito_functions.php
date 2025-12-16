@@ -48,12 +48,8 @@ function tieneProductosReales($carrito) {
 }
 
 /**
- * calcularCantidadTotalCarrito() - Definida en carrito_cookie_functions.php
- *
- * Función centralizada para calcular cantidad total de items en el carrito.
- * Se carga automáticamente al inicio de este archivo.
- *
- * @see carrito_cookie_functions.php::calcularCantidadTotalCarrito()
+ * NOTA: La función calcularCantidadTotalCarrito() está centralizada en carrito_cookie_functions.php
+ * para evitar duplicación de código. Esta función se eliminó de aquí.
  */
 
 /**

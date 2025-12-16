@@ -1,6 +1,6 @@
 <?php 
 
-   include("config/database.example.php");
+   include(__DIR__ . '/../config/database.php');
 
    //obtenemos el nombre de la tabla por el metodo GET
    $tabla = $_GET['tabla'];
@@ -29,6 +29,16 @@
     <a href="db_tablas_sql.php">
         <button>← Volver</button>
     </a>
+
+    <?php 
+       // Mostrar mensaje de error si existe
+       if (isset($_GET['error'])) {
+          $error_message = htmlspecialchars(urldecode($_GET['error']));
+          echo "<div style='background-color: #fff3cd; border: 1px solid #ffc107; color: #856404; padding: 15px; margin: 20px 0; border-radius: 5px;'>";
+          echo "<strong>⚠️ Advertencia:</strong> " . $error_message;
+          echo "</div>";
+       }
+    ?>
 
     <table>
         <thead>

@@ -210,7 +210,7 @@ Ambas funciones realizan múltiples intentos de búsqueda (hasta 3 intentos) par
 - `perfil_queries.php` - función `obtenerPedidosUsuario()` (línea 218-244)
 
 **Problema:**
-Las queries calculan totales usando `SUM()` y `COALESCE()` con múltiples JOINs, lo cual puede ser costoso. La función `obtenerPedidosUsuario()` también calcula devoluciones usando subconsultas.
+Las queries calculan totales usando `SUM()` y `COALESCE()` con múltiples JOINs, lo cual puede ser costoso.
 
 **Mejora propuesta:**
 1. **Usar campo `total` de la tabla Pedidos cuando esté disponible:**
@@ -228,8 +228,6 @@ Las queries calculan totales usando `SUM()` y `COALESCE()` con múltiples JOINs,
    GROUP BY p.id_pedido;
    ```
 
-3. **Optimizar cálculo de devoluciones:**
-   - Considerar agregar columna calculada o vista para devoluciones por pedido
 
 **Impacto esperado:** Reducción del 20-30% en tiempo de ejecución
 

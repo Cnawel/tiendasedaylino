@@ -29,8 +29,66 @@
  * @return array Array con ['mensaje' => string, 'mensaje_tipo' => string]
  */
 function _procesarErroresActualizacionPedidoPago($error_message, $pedido_id) {
+    // Sanitizar mensaje de error removiendo información técnica sensible
+    $error_message = _sanitizarMensajeError($error_message);
+
+    // Primero intentar procesar como error de stock
     require_once __DIR__ . '/error_handlers.php';
-    return procesarErrorStock($error_message, ['id_pedido' => $pedido_id]);
+    $resultado_stock = procesarErrorStock($error_message, ['id_pedido' => $pedido_id]);
+
+    // Si procesarErrorStock retornó un mensaje genérico (no procesó el error específico),
+    // intentar procesar como error de pago
+    if (strpos($resultado_stock['mensaje'], 'Error al procesar la operación') !== false) {
+        // Procesar errores específicos de pago
+        if (strpos($error_message, 'No se puede cambiar el estado del pedido sin pago aprobado') !== false) {
+            return ['mensaje' => 'No se puede cambiar el estado del pedido sin pago aprobado. Primero aprueba el pago desde el panel de ventas.', 'mensaje_tipo' => 'danger'];
+        }
+        elseif (strpos($error_message, 'No se puede aprobar el pago') !== false) {
+            return ['mensaje' => $error_message, 'mensaje_tipo' => 'warning'];
+        }
+        elseif (strpos($error_message, 'No se puede rechazar') !== false || strpos($error_message, 'No se puede cancelar') !== false) {
+            return ['mensaje' => 'No se puede cambiar el estado del pago en este momento. Verifica que cumpla con las reglas de negocio.', 'mensaje_tipo' => 'warning'];
+        }
+        elseif (strpos($error_message, 'Transición de estado') !== false) {
+            return ['mensaje' => 'La transición de estado solicitada no está permitida según las reglas de negocio.', 'mensaje_tipo' => 'warning'];
+        }
+        elseif (strpos($error_message, 'Error al actualizar estado del pago') !== false) {
+            return ['mensaje' => 'Error al actualizar el estado del pago. Inténtalo nuevamente.', 'mensaje_tipo' => 'danger'];
+        }
+        elseif (strpos($error_message, 'Error al actualizar estado del pedido') !== false) {
+            return ['mensaje' => 'Error al actualizar el estado del pedido. Inténtalo nuevamente.', 'mensaje_tipo' => 'danger'];
+        }
+        // Si no se reconoce el error, mostrar mensaje genérico pero más corto
+        else {
+            $id_contexto = $pedido_id ? "pedido #$pedido_id" : "";
+            return ['mensaje' => "Error al procesar la operación" . ($id_contexto ? " del {$id_contexto}" : "") . ". Contacta al administrador si el problema persiste.", 'mensaje_tipo' => 'danger'];
+        }
+    }
+
+    return $resultado_stock;
+}
+
+/**
+ * Sanitiza mensajes de error removiendo información técnica sensible
+ *
+ * @param string $mensaje_error Mensaje de error original
+ * @return string Mensaje sanitizado
+ */
+function _sanitizarMensajeError($mensaje_error) {
+    // Remover errores de MySQL que contienen información técnica
+    $mensaje_error = preg_replace('/Error al preparar.*?: .*/', 'Error de base de datos', $mensaje_error);
+    $mensaje_error = preg_replace('/Error al ejecutar.*?: .*/', 'Error de base de datos', $mensaje_error);
+    $mensaje_error = preg_replace('/You have an error in your SQL syntax.*?/', 'Error de consulta SQL', $mensaje_error);
+
+    // Remover paths de archivos del sistema
+    $mensaje_error = preg_replace('/\/[a-zA-Z0-9_\/\-]+\.php/', '[archivo]', $mensaje_error);
+
+    // Limitar longitud del mensaje a 200 caracteres para evitar mensajes muy largos
+    if (strlen($mensaje_error) > 200) {
+        $mensaje_error = substr($mensaje_error, 0, 200) . '...';
+    }
+
+    return $mensaje_error;
 }
 
 /**
@@ -49,42 +107,44 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
     if (!isset($post['actualizar_estado_pedido'])) {
         return false;
     }
-    
+
     // Cargar funciones necesarias
     require_once __DIR__ . '/queries_helper.php';
     require_once __DIR__ . '/estado_helpers.php';
     try {
         cargarArchivoQueries('pedido_queries', __DIR__ . '/queries');
         cargarArchivoQueries('pago_queries', __DIR__ . '/queries');
+        require_once __DIR__ . '/queries/pedido_queries.php';
+        require_once __DIR__ . '/email_gmail_functions.php';
     } catch (Exception $e) {
         error_log("ERROR: No se pudo cargar archivos de queries - " . $e->getMessage());
         die("Error crítico: Archivo de consultas no encontrado. Por favor, contacta al administrador.");
     }
-    
+
     // Extraer y normalizar datos del formulario
     $pedido_id = intval($post['pedido_id'] ?? 0);
     $nuevo_estado = normalizarEstado($post['nuevo_estado'] ?? '');
-    
+
     // IMPORTANTE: No normalizar nuevo_estado_pago si está vacío (opción "-- Mantener estado actual --")
     // Solo normalizar si tiene un valor real
     $nuevo_estado_pago_raw = trim($post['nuevo_estado_pago'] ?? '');
     $nuevo_estado_pago = !empty($nuevo_estado_pago_raw) ? normalizarEstado($nuevo_estado_pago_raw) : '';
-    
+
     $estado_anterior = normalizarEstado($post['estado_anterior'] ?? '');
     $estado_pago_anterior = normalizarEstado($post['estado_pago_anterior'] ?? '');
-    
-    // Logging para debugging
-    error_log("procesarActualizacionPedidoPago: POST recibido - pedido_id: {$pedido_id}, nuevo_estado: {$nuevo_estado}, nuevo_estado_pago: '{$nuevo_estado_pago}' (raw: '{$nuevo_estado_pago_raw}')");
-    error_log("procesarActualizacionPedidoPago: POST completo - " . json_encode(array_keys($post)));
     
     // Campos adicionales del pago
     // Nota: monto_pago y numero_transaccion son solo lectura (llenados por el cliente)
     // Solo se procesa el motivo de rechazo si se rechaza el pago
+    // Solo se procesa el motivo de rechazo si se rechaza el pago
     $motivo_rechazo = trim($post['motivo_rechazo'] ?? '');
+
+    // Extraer datos de seguimiento (opcionales)
+    $codigo_seguimiento = trim($post['codigo_seguimiento'] ?? '');
+    $empresa_envio = trim($post['empresa_envio'] ?? '');
     
     // Validar estados permitidos (según ENUM de la base de datos)
     // NOTA: Todo pedido en 'pendiente' ya tiene stock validado (se valida antes de crear el pedido)
-    // NOTA: 'devolucion' existe en DB pero NO está implementado en MVP
     $estados_pedido_validos = ['pendiente', 'preparacion', 'en_viaje', 'completado', 'cancelado'];
     $estados_pago_validos = ['pendiente', 'pendiente_aprobacion', 'aprobado', 'rechazado', 'cancelado'];
     
@@ -101,9 +161,6 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
     $pago_actual = obtenerPagoPorPedido($mysqli, $pedido_id);
     $estado_pago_anterior_real = $pago_actual ? normalizarEstado($pago_actual['estado_pago']) : '';
     
-    // Logging para debugging
-    error_log("procesarActualizacionPedidoPago: Estado pago anterior real: '{$estado_pago_anterior_real}', nuevo_estado_pago recibido: '{$nuevo_estado_pago}'");
-    
     // Determinar si se está cambiando el estado del pago
     $cambiar_estado_pago = false;
     $estado_pago_final = '';
@@ -111,17 +168,7 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
         if ($nuevo_estado_pago !== $estado_pago_anterior_real) {
             $cambiar_estado_pago = true;
             $estado_pago_final = $nuevo_estado_pago;
-            error_log("procesarActualizacionPedidoPago: Se detectó cambio de estado de pago: '{$estado_pago_anterior_real}' -> '{$estado_pago_final}'");
-            error_log("procesarActualizacionPedidoPago: Transición de pago detectada - anterior: '{$estado_pago_anterior_real}', nuevo: '{$estado_pago_final}', validación: " . (in_array($nuevo_estado_pago, $estados_pago_validos) ? 'válido' : 'inválido'));
-        } else {
-            error_log("procesarActualizacionPedidoPago: No hay cambio de estado de pago (mismo estado: '{$estado_pago_anterior_real}')");
         }
-    } else {
-        $razon = [];
-        if (!$pago_actual) $razon[] = 'no existe pago';
-        if (empty($nuevo_estado_pago)) $razon[] = 'nuevo_estado_pago vacío';
-        if (!in_array($nuevo_estado_pago, $estados_pago_validos)) $razon[] = 'estado inválido';
-        error_log("procesarActualizacionPedidoPago: No se puede cambiar estado de pago - " . implode(', ', $razon) . " (pago_actual: " . ($pago_actual ? 'existe' : 'no existe') . ", nuevo_estado_pago: '{$nuevo_estado_pago}', válido: " . (in_array($nuevo_estado_pago, $estados_pago_validos) ? 'sí' : 'no') . ")");
     }
     
     // Preparar motivo de rechazo si se está rechazando el pago
@@ -145,24 +192,35 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
     $estado_pedido_actual = normalizarEstado($pedido_actual['estado_pedido'] ?? '');
     $nuevo_estado_norm = normalizarEstado($nuevo_estado);
     
-    // Si no hay cambios reales en ningún estado, informar al usuario
-    // Solo verificar si realmente se está intentando cambiar el estado del pago
-    $cambio_pedido = $estado_pedido_actual !== $nuevo_estado_norm;
-    $cambio_pago = $cambiar_estado_pago && !empty($estado_pago_final) && $estado_pago_anterior_real !== normalizarEstado($estado_pago_final);
+        // Si no hay cambios reales en ningún estado, informar al usuario
+        // Solo verificar si realmente se está intentando cambiar el estado del pago
+        $cambio_pedido = $estado_pedido_actual !== $nuevo_estado_norm;
+        $cambio_pago = $cambiar_estado_pago && !empty($estado_pago_final) && $estado_pago_anterior_real !== normalizarEstado($estado_pago_final);
+        // Si hay un pago y se recibió un valor vacío para nuevo_estado_pago, verificar si hay transiciones disponibles
+        // MEJORADO: Detectar cuando el campo viene vacío (usuario no seleccionó nada del dropdown)
+        if ($pago_actual) {
+            $nuevo_estado_pago_viene_vacio = isset($_POST['nuevo_estado_pago']) && trim($_POST['nuevo_estado_pago']) === '';
 
-    // Si hay un pago y se recibió un valor vacío para nuevo_estado_pago, verificar si hay transiciones disponibles
-    if ($pago_actual && isset($_POST['nuevo_estado_pago']) && $_POST['nuevo_estado_pago'] === '') {
-        // Solo mostrar error si hay transiciones válidas disponibles
-        require_once __DIR__ . '/ventas_components.php';
-        $transiciones_disponibles = obtenerTransicionesValidasPago($estado_pago_anterior_real);
-        if (!empty($transiciones_disponibles)) {
-            return ['mensaje' => '⚠️ ERROR: Debe seleccionar un nuevo estado de pago en el desplegable. Estado actual del pago: ' . strtoupper($estado_pago_anterior_real) . '. Transiciones disponibles: ' . implode(', ', $transiciones_disponibles), 'mensaje_tipo' => 'danger'];
+            if ($nuevo_estado_pago_viene_vacio) {
+                // Verificar si hay transiciones disponibles
+                require_once __DIR__ . '/ventas_components.php';
+                $transiciones_disponibles = obtenerTransicionesValidasPago($estado_pago_anterior_real);
+
+                if (!empty($transiciones_disponibles)) {
+                    return [
+                        'mensaje' => '⚠️ Debe seleccionar un nuevo estado de pago del menú desplegable.<br><br>' .
+                                '<strong>Estado actual:</strong> ' . strtoupper($estado_pago_anterior_real) . '<br>' .
+                                '<strong>Opciones disponibles:</strong> ' . implode(', ', array_map('ucfirst', $transiciones_disponibles)) . '<br><br>' .
+                                '<em>Si desea cambiar solo el estado del pedido sin modificar el pago, primero debe seleccionar una opción del menú "Estado del Pago".</em>',
+                        'mensaje_tipo' => 'warning'
+                    ];
+                }
+            }
         }
-    }
 
-    if (!$cambio_pedido && !$cambio_pago) {
-        return ['mensaje' => 'No se realizaron cambios. El pedido y el pago ya están en los estados seleccionados.', 'mensaje_tipo' => 'info'];
-    }
+        if (!$cambio_pedido && !$cambio_pago) {
+            return false; // No mostrar mensaje
+        }
     
     // Validar que no se intente cambiar un pedido cancelado a otro estado (excepto mantener cancelado)
     if ($estado_pedido_actual === 'cancelado' && $nuevo_estado !== 'cancelado') {
@@ -170,7 +228,7 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
     }
     
     // Validar que no se retroceda desde estados finales (en_viaje, completado)
-    // en_viaje solo puede ir a completado (NO retrocesos, NO devolucion - no implementado en MVP)
+    // en_viaje solo puede ir a completado (NO retrocesos)
     if ($estado_pedido_actual === 'en_viaje' && !in_array($nuevo_estado, ['en_viaje', 'completado'])) {
         return ['mensaje' => 'No se puede retroceder desde "En Viaje". Solo se permite avanzar a "Completado".', 'mensaje_tipo' => 'danger'];
     }
@@ -184,103 +242,74 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
     // validarTransicionPago() ya maneja todas las reglas (línea 196)
     // Eliminada validación inline duplicada que verificaba aprobado→rechazado
 
-    // Logging de transición de estado
-    error_log("procesarActualizacionPedidoPago: Pedido #{$pedido_id} - Estado actual: {$estado_pedido_actual} -> Nuevo estado: {$nuevo_estado}");
-    if ($cambiar_estado_pago) {
-        error_log("procesarActualizacionPedidoPago: Pago #{$pago_actual['id_pago']} - Estado actual: {$estado_pago_anterior_real} -> Nuevo estado: {$estado_pago_final}");
-    }
+    // Validar transiciones de estado
     
-    // ESTRATEGIA: Si se está cambiando el estado del pago, actualizar el pago primero
-    // usando actualizarEstadoPagoConPedido() que maneja automáticamente:
-    // - Actualización del estado del pago
-    // - Cambios en el estado del pedido (si aplica)
-    // - Gestión de stock (descuento al aprobar, reversión al rechazar/cancelar)
-    // NOTA: actualizarEstadoPagoConPedido() maneja su propia transacción, no iniciar una aquí
-    if ($cambiar_estado_pago && $pago_actual) {
-        try {
-            // Validar transición de pago antes de ejecutar
-            error_log("APROBACION: Validando transición de pago: '{$estado_pago_anterior_real}' -> '{$estado_pago_final}'");
-            validarTransicionPago($estado_pago_anterior_real, $estado_pago_final);
+        // ESTRATEGIA: Si se está cambiando el estado del pago, actualizar el pago primero
+        // usando actualizarEstadoPagoConPedido() que maneja automáticamente:
+        // - Actualización del estado del pago
+        // - Cambios en el estado del pedido (si aplica)
+        // - Gestión de stock (descuento al aprobar, reversión al rechazar/cancelar)
+        // NOTA: actualizarEstadoPagoConPedido() maneja su propia transacción, no iniciar una aquí
+        if ($cambiar_estado_pago && $pago_actual) {
+            try {
+                // Validar transición de pago antes de ejecutar
+                validarTransicionPago($estado_pago_anterior_real, $estado_pago_final);
 
-            error_log("APROBACION: Llamando actualizarEstadoPagoConPedido para pago #{$pago_actual['id_pago']}");
-            $resultado_actualizacion = actualizarEstadoPagoConPedido($mysqli, $pago_actual['id_pago'], $estado_pago_final, $motivo_rechazo_final, $id_usuario);
-            if (!$resultado_actualizacion) {
-                throw new Exception('Error al actualizar el estado del pago: la función retornó false');
+                $resultado_actualizacion = actualizarEstadoPagoConPedido($mysqli, $pago_actual['id_pago'], $estado_pago_final, $motivo_rechazo_final, $id_usuario);
+                if (!$resultado_actualizacion) {
+                    throw new Exception('Error al actualizar el estado del pago: la función retornó false');
+                }
+            } catch (Exception $e) {
+                // Procesar error y retornar mensaje amigable
+                $mensaje_error = _sanitizarMensajeError($e->getMessage());
+                return _procesarErroresActualizacionPedidoPago($mensaje_error, $pedido_id);
             }
-            error_log("APROBACION: Pago actualizado exitosamente");
-        } catch (Exception $e) {
-            error_log("APROBACION ERROR: " . $e->getMessage());
-            // Procesar error y retornar mensaje amigable
-            return _procesarErroresActualizacionPedidoPago($e->getMessage(), $pedido_id);
-        }
         
         // Obtener el estado actual del pedido después de actualizar el pago
         // porque actualizarEstadoPagoConPedido() puede haber cambiado el estado del pedido
         $pedido_actualizado = obtenerPedidoPorId($mysqli, $pedido_id);
         $estado_pedido_despues_pago = $pedido_actualizado ? normalizarEstado($pedido_actualizado['estado_pedido']) : '';
         
-        // Si el estado del pedido cambió por la actualización del pago y es diferente al deseado,
-        // actualizar el estado del pedido solo si es necesario y compatible
-        // Nota: Si el pago se rechazó/canceló, el pedido ya fue cancelado por actualizarEstadoPagoConPedido()
+            $pedido_actualizado = obtenerPedidoPorId($mysqli, $pedido_id);
+        $estado_pedido_despues_pago = $pedido_actualizado ? normalizarEstado($pedido_actualizado['estado_pedido']) : '';
+        
+        // Si el estado del pedido actual es diferente del estado deseado, intentar actualizarlo
         if ($estado_pedido_despues_pago !== $nuevo_estado) {
-            // CASO ESPECIAL 1: Si el pago se aprobó, el pedido automáticamente pasó a "preparacion"
-            // Si el usuario seleccionó un estado incompatible (ej: "pendiente"), mantener "preparacion"
-            // y no generar error, ya que el cambio automático es correcto
-            $pago_fue_aprobado = ($estado_pago_anterior_real !== 'aprobado' && $estado_pago_final === 'aprobado');
-            
-            // CASO ESPECIAL 2: Si el pago se rechazó/canceló, el pedido automáticamente pasó a "cancelado"
-            // Si el usuario seleccionó un estado diferente, mantener "cancelado" y no generar error
-            $pago_fue_rechazado_cancelado = (in_array($estado_pago_final, ['rechazado', 'cancelado']) 
-                                            && !in_array($estado_pago_anterior_real, ['rechazado', 'cancelado']));
-            
-            if ($pago_fue_aprobado && $estado_pedido_despues_pago === 'preparacion') {
-                // Validar si el estado seleccionado es compatible con "preparacion"
-                try {
-                    validarTransicionPedido($estado_pedido_despues_pago, $nuevo_estado);
-                    // Si la transición es válida, aplicar el cambio
-                    if (!actualizarEstadoPedidoConValidaciones($mysqli, $pedido_id, $nuevo_estado, $id_usuario)) {
-                        throw new Exception('Error al actualizar el estado del pedido');
-                    }
-                    // Actualizar el estado final para el mensaje de éxito
-                    $nuevo_estado = $nuevo_estado;
-                } catch (Exception $e) {
-                    // Si la transición no es válida (ej: preparacion → pendiente),
-                    // mantener "preparacion" y continuar sin error
-                    // Esto es correcto porque el pago se aprobó y el pedido debe estar en "preparacion"
-                    error_log("procesarActualizacionPedidoPago: Estado de pedido seleccionado ({$nuevo_estado}) no es compatible con estado automático (preparacion) después de aprobar pago. Manteniendo 'preparacion'.");
-                    $nuevo_estado = 'preparacion'; // Usar el estado automático correcto
-                }
-            } elseif ($pago_fue_rechazado_cancelado && $estado_pedido_despues_pago === 'cancelado') {
-                // Si el pago se rechazó/canceló, el pedido debe estar cancelado
-                // No permitir cambiar a otro estado, mantener "cancelado"
-                error_log("procesarActualizacionPedidoPago: Estado de pedido seleccionado ({$nuevo_estado}) no es compatible con estado automático (cancelado) después de rechazar/cancelar pago. Manteniendo 'cancelado'.");
-                $nuevo_estado = 'cancelado'; // Usar el estado automático correcto
-            } else {
-                // Para otros casos (cambios normales sin cambios automáticos de estado)
-                // Solo actualizar si el nuevo estado es válido para el estado actual
-                if ($estado_pedido_despues_pago !== 'cancelado' || $nuevo_estado === 'cancelado') {
+            // Si el nuevo estado deseado es 'cancelado', permitir la transición incluso desde un estado que no lo permite directamente
+            // Esto es porque el pago fue rechazado/cancelado, y el pedido *debe* terminar en cancelado.
+            // En este caso, no se llama a validarTransicionPedido ya que la cancelación es forzada por el pago.
+            if ($nuevo_estado === 'cancelado' && in_array($estado_pago_final, ['rechazado', 'cancelado'])) {
+                // Si el pedido ya está en cancelado, no hacer nada
+                if ($estado_pedido_despues_pago !== 'cancelado') {
                     try {
-                        // Validar transición de pedido antes de ejecutar
-                        validarTransicionPedido($estado_pedido_despues_pago, $nuevo_estado);
-                        
-                        if (!actualizarEstadoPedidoConValidaciones($mysqli, $pedido_id, $nuevo_estado, $id_usuario)) {
-                            throw new Exception('Error al actualizar el estado del pedido');
+                        if (!actualizarEstadoPedido($mysqli, $pedido_id, $nuevo_estado, $id_usuario)) {
+                            throw new Exception('Error al actualizar el estado del pedido a cancelado');
                         }
                     } catch (Exception $e) {
-                        error_log("procesarActualizacionPedidoPago: Error al actualizar estado del pedido después de cambiar pago - " . $e->getMessage());
                         return _procesarErroresActualizacionPedidoPago($e->getMessage(), $pedido_id);
                     }
                 }
+            } else {
+                // Para otros cambios de estado del pedido (no es una cancelación forzada por pago)
+                try {
+                    // Validar transición de pedido desde el estado actual (después de la actualización del pago)
+                    validarTransicionPedido($estado_pedido_despues_pago, $nuevo_estado);
+                    
+                    if (!actualizarEstadoPedidoConValidaciones($mysqli, $pedido_id, $nuevo_estado, $id_usuario)) {
+                        throw new Exception('Error al actualizar el estado del pedido');
+                    }
+                } catch (Exception $e) {
+                    return _procesarErroresActualizacionPedidoPago($e->getMessage(), $pedido_id);
+                }
             }
+        } else {
         }
             
             // Obtener el estado final real del pedido (puede haber cambiado)
             $pedido_final = obtenerPedidoPorId($mysqli, $pedido_id);
             $estado_pedido_final_real = $pedido_final ? normalizarEstado($pedido_final['estado_pedido']) : $nuevo_estado;
             
-            // Logging de éxito
-            error_log("procesarActualizacionPedidoPago: Pedido #{$pedido_id} actualizado exitosamente - Estado: {$estado_pedido_actual} → {$estado_pedido_final_real}");
-            error_log("procesarActualizacionPedidoPago: Pago #{$pago_actual['id_pago']} actualizado exitosamente - Estado: {$estado_pago_anterior_real} → {$estado_pago_final}");
+            // Actualización exitosa
             
             // Preparar mensaje de éxito
             require_once __DIR__ . '/estado_helpers.php';
@@ -299,7 +328,7 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
             // Verificar si realmente hubo cambios antes de mostrar mensaje
             $cambio_pago = $estado_pago_anterior_real !== $estado_pago_final;
             $cambio_pedido = $estado_pedido_actual !== $estado_pedido_final_real;
-            
+
             if (!$cambio_pago && !$cambio_pedido) {
                 return false;
             }
@@ -318,6 +347,23 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
                 $mensaje_exito = formatearMensajeExito($estado_pedido_actual, $estado_pedido_final_real, 'pedido', $info_adicional);
             }
             
+
+            
+            // === NOTIFICACIONES POR EMAIL ===
+            // Obtener ID de usuario
+            $id_usuario_notif = $pago_actual['id_usuario'];
+            
+            // 1. Notificar Pago Rechazado o Cancelado
+            if (in_array($estado_pago_final, ['rechazado', 'cancelado'])) {
+                $motivo_email = ($estado_pago_final === 'rechazado') ? $motivo_rechazo_final : null;
+                enviar_email_pedido_cancelado_o_rechazado($pedido_id, $id_usuario_notif, $estado_pago_final, $motivo_email, $mysqli);
+            }
+            
+            // 2. Notificar Pedido En Viaje (si cambió el pedido a "En Viaje")
+            if ($estado_pedido_final_real === 'en_viaje' && $estado_pedido_actual !== 'en_viaje') {
+                 enviar_email_pedido_en_viaje($pedido_id, $id_usuario_notif, $codigo_seguimiento, $empresa_envio, $mysqli);
+            }
+            
             return ['mensaje' => $mensaje_exito, 'mensaje_tipo' => 'success'];
         }
         
@@ -328,19 +374,17 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
         if ($estado_pedido_actual === $nuevo_estado_norm) {
             return false;
         }
-        
-        error_log("procesarActualizacionPedidoPago: Actualizando solo estado del pedido #{$pedido_id} a {$nuevo_estado}");
-        
+
         try {
             // Validar transición de pedido antes de ejecutar
             validarTransicionPedido($estado_pedido_actual, $nuevo_estado);
-            
+
             if (!actualizarEstadoPedidoConValidaciones($mysqli, $pedido_id, $nuevo_estado, $id_usuario)) {
                 throw new Exception('Error al actualizar el pedido');
             }
         } catch (Exception $e) {
-            error_log("procesarActualizacionPedidoPago: Error al actualizar estado del pedido - " . $e->getMessage());
-            return _procesarErroresActualizacionPedidoPago($e->getMessage(), $pedido_id);
+            $mensaje_error = _sanitizarMensajeError($e->getMessage());
+            return _procesarErroresActualizacionPedidoPago($mensaje_error, $pedido_id);
         }
         
         // Si se canceló el pedido y existe un pago, cancelar el pago también si no está cancelado
@@ -348,23 +392,19 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
         // incluso si el pago está en recorrido activo (aprobado, pendiente_aprobacion)
         if ($nuevo_estado === 'cancelado' && $pago_actual && $estado_pago_anterior_real !== 'cancelado' && $estado_pago_anterior_real !== 'rechazado') {
             try {
-                error_log("procesarActualizacionPedidoPago: Cancelando pago #{$pago_actual['id_pago']} forzadamente por cancelación de pedido (estado pago anterior: {$estado_pago_anterior_real})");
                 // El stock ya fue restaurado por actualizarEstadoPedidoConValidaciones() cuando canceló el pedido
                 // Solo necesitamos actualizar el estado del pago sin afectar el pedido
                 // NOTA: actualizarEstadoPago() maneja su propia transacción
                 if (!actualizarEstadoPago($mysqli, $pago_actual['id_pago'], 'cancelado', null, null)) {
                     throw new Exception('Error al cancelar el pago');
                 }
-                error_log("procesarActualizacionPedidoPago: Pago #{$pago_actual['id_pago']} cancelado exitosamente");
             } catch (Exception $e) {
-                error_log("procesarActualizacionPedidoPago: Error al cancelar pago - " . $e->getMessage());
                 // No fallar la operación completa si solo falla cancelar el pago
                 // El pedido ya fue cancelado exitosamente
             }
         }
         
-        // Logging de éxito
-        error_log("procesarActualizacionPedidoPago: Pedido #{$pedido_id} actualizado exitosamente - Estado: {$estado_pedido_actual} → {$nuevo_estado}");
+        // Actualización exitosa
         
         // Cargar función helper para formatear mensajes de éxito
         require_once __DIR__ . '/estado_helpers.php';
@@ -377,9 +417,23 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
             $info_adicional['stock_restaurado'] = true;
         }
         
+
         // Formatear mensaje de éxito con transición de estados
         $mensaje_exito = formatearMensajeExito($estado_pedido_actual, $nuevo_estado, 'pedido', $info_adicional);
-        
+
+        // === NOTIFICACIONES POR EMAIL ===
+        $id_usuario_notif = $pedido_actual['id_usuario'];
+
+        // 1. Notificar Pedido Cancelado
+        if ($nuevo_estado === 'cancelado') {
+             enviar_email_pedido_cancelado_o_rechazado($pedido_id, $id_usuario_notif, 'cancelado', null, $mysqli);
+        }
+
+        // 2. Notificar Pedido En Viaje
+        if ($nuevo_estado === 'en_viaje') {
+             enviar_email_pedido_en_viaje($pedido_id, $id_usuario_notif, $codigo_seguimiento, $empresa_envio, $mysqli);
+        }
+
         return ['mensaje' => $mensaje_exito, 'mensaje_tipo' => 'success'];
 }
 
@@ -418,12 +472,12 @@ function procesarAprobacionPago($mysqli, $post, $id_usuario) {
         $resultado = aprobarPago($mysqli, $pago_id, $id_usuario);
 
         if ($resultado) {
-            return ['mensaje' => 'Pago aprobado correctamente. Stock descontado automáticamente.', 'mensaje_tipo' => 'success'];
+            return ['mensaje' => 'Pago aprobado correctamente. Stock validado y descontado.', 'mensaje_tipo' => 'success'];
         } else {
             return ['mensaje' => 'Error al aprobar el pago. Verifique el stock disponible.', 'mensaje_tipo' => 'danger'];
         }
     } catch (Exception $e) {
-        $mensaje_error = $e->getMessage();
+        $mensaje_error = _sanitizarMensajeError($e->getMessage());
 
         // Verificar si el error es por stock insuficiente
         if (strpos($mensaje_error, 'STOCK_INSUFICIENTE') !== false) {
@@ -442,8 +496,9 @@ function procesarAprobacionPago($mysqli, $post, $id_usuario) {
                 return ['mensaje' => "No se puede aprobar el pago: $mensaje_limpio", 'mensaje_tipo' => 'warning'];
             }
         } else {
-            // Error que no es de stock
-            return ['mensaje' => 'Error al aprobar el pago: ' . $mensaje_error, 'mensaje_tipo' => 'danger'];
+            // Error que no es de stock - procesar con función centralizada
+            $resultado_error = _procesarErroresActualizacionPedidoPago($mensaje_error, 0);
+            return $resultado_error;
         }
     }
 }
@@ -488,10 +543,17 @@ function procesarRechazoPago($mysqli, $post, $id_usuario) {
     }
     $motivo_rechazo = $validacion_motivo['valor'];
     
-    if (rechazarPago($mysqli, $pago_id, $id_usuario, $motivo_rechazo)) {
-        return ['mensaje' => 'Pago rechazado correctamente. Stock restaurado automáticamente si había sido descontado.', 'mensaje_tipo' => 'success'];
-    } else {
-        return ['mensaje' => 'Error al rechazar el pago', 'mensaje_tipo' => 'danger'];
+    try {
+        if (rechazarPago($mysqli, $pago_id, $id_usuario, $motivo_rechazo)) {
+            return ['mensaje' => 'Pago rechazado correctamente. Stock restaurado automáticamente si había sido descontado.', 'mensaje_tipo' => 'success'];
+        } else {
+            return ['mensaje' => 'Error al rechazar el pago', 'mensaje_tipo' => 'danger'];
+        }
+    } catch (Exception $e) {
+        // Procesar error usando función centralizada
+        $mensaje_error = _sanitizarMensajeError($e->getMessage());
+        $resultado_error = _procesarErroresActualizacionPedidoPago($mensaje_error, 0);
+        return $resultado_error;
     }
 }
 

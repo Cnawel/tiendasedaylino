@@ -31,6 +31,14 @@ if (!file_exists($admin_functions_path)) {
 }
 require_once $admin_functions_path;
 
+// Cargar funciones de contraseñas para validar respuestas de recupero
+$password_functions_path = __DIR__ . '/password_functions.php';
+if (!file_exists($password_functions_path)) {
+    error_log("ERROR: No se pudo encontrar password_functions.php en " . $password_functions_path);
+    die("Error crítico: Archivo de funciones de contraseña no encontrado. Por favor, contacta al administrador.");
+}
+require_once $password_functions_path;
+
 /**
  * Valida un teléfono según reglas de negocio
  * 
@@ -76,7 +84,7 @@ function validarTelefono($telefono, $es_opcional = true) {
     }
     
     // VALIDACIÓN 3: Formato válido (solo números, espacios y símbolos: +, -, (, ))
-    // Patrón debe coincidir exactamente con JavaScript: /^[0-9+()\- ]+$/
+    // Patrón debe coincidir exactamente con JavaScript: /^[0-9+()- ]+$/
     if (!preg_match('/^[0-9+\-() ]+$/', $telefono)) {
         return ['valido' => false, 'valor' => '', 'error' => 'El teléfono solo puede contener números y símbolos (+, -, paréntesis, espacios).'];
     }
@@ -106,8 +114,8 @@ function validarTelefono($telefono, $es_opcional = true) {
  * @return array ['valido' => bool, 'valor' => string, 'error' => string]
  */
 function validarCodigoPostal($codigo_postal) {
-    // Normalizar: remover espacios al inicio y final
-    $codigo_postal = trim($codigo_postal);
+    // Normalizar: remover todos los espacios
+    $codigo_postal = str_replace(' ', '', $codigo_postal);
     
     // VALIDACIÓN 1: Campo obligatorio
     if (empty($codigo_postal)) {
@@ -147,8 +155,8 @@ function validarCodigoPostal($codigo_postal) {
  * 
  * REGLAS DE VALIDACIÓN:
  * - Longitud mínima: Variable según tipo (calle: 2, número: 1, piso: 1)
- * - Formato: Letras (con acentos), números, espacios, guiones, apóstrofes y acentos graves
- * - Patrón: /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+$/
+ * - Formato: Letras (con acentos), números, espacios, guiones, apóstrofes y acentos graves, puntos y comas
+ * - Patrón: /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\.,\-\'`]+$/
  * 
  * VALIDACIÓN CLIENTE (JavaScript):
  * - common_js_functions.php:validarDireccion() - Mismas reglas
@@ -187,9 +195,9 @@ function validarDireccion($direccion, $es_requerido = true, $longitud_minima = 2
     }
     
     // VALIDACIÓN 2: Formato válido
-    // Patrón debe coincidir exactamente con JavaScript: /^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-'`]+$/
-    if (!preg_match("/^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\-\'`]+$/", $direccion)) {
-        return ['valido' => false, 'valor' => '', 'error' => 'La dirección contiene caracteres no permitidos. Solo se permiten letras (incluyendo acentos), números, espacios, guiones, apóstrofes y acentos graves.'];
+    // Patrón debe coincidir con la validación de dirección completa que permite puntos, comas, y ordinales
+    if (!preg_match("/^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\.,\-\'`º°]+$/", $direccion)) {
+        return ['valido' => false, 'valor' => '', 'error' => 'La dirección contiene caracteres no permitidos. Solo se permiten letras (incluyendo acentos), números, espacios, puntos, comas, guiones, apóstrofes, acentos graves, y ordinales (º, °).'];
     }
     
     // NOTA: NO sanitizar aquí con htmlspecialchars() - los datos deben guardarse en BD sin sanitizar
@@ -242,7 +250,7 @@ function validarDireccionCompleta($direccion_calle, $direccion_numero, $direccio
     // Combinar dirección completa
     $direccion_completa = trim($validacion_calle['valor']) . ' ' . trim($validacion_numero['valor']);
     if (!empty($direccion_piso)) {
-        $direccion_completa .= ' ' . trim($direccion_piso);
+        $direccion_completa .= ' ' . trim($validacion_piso['valor']);
     }
     $direccion_completa = trim($direccion_completa);
     
@@ -304,7 +312,8 @@ function validarDatosUsuario($nombre, $apellido, $email, $telefono = '') {
     $validacion_apellido = validarNombreApellido($apellido, 'apellido');
     if (!$validacion_apellido['valido']) {
         $errores['apellido'] = $validacion_apellido['error'];
-    } else {
+    }
+     else {
         $datos_validos['apellido'] = $validacion_apellido['valor'];
     }
     
@@ -312,9 +321,8 @@ function validarDatosUsuario($nombre, $apellido, $email, $telefono = '') {
     $validacion_email = validarEmail($email);
     if (!$validacion_email['valido']) {
         $errores['email'] = $validacion_email['error'];
-    } else {
-        // NOTA: validarEmail() retorna valor sanitizado, pero para guardar en BD necesitamos el original
-        // Usar el email original sin sanitizar para guardar en BD
+    }
+     else {
         $datos_validos['email'] = strtolower(trim($email));
     }
     
@@ -323,10 +331,12 @@ function validarDatosUsuario($nombre, $apellido, $email, $telefono = '') {
         $validacion_telefono = validarTelefono($telefono, true);
         if (!$validacion_telefono['valido']) {
             $errores['telefono'] = $validacion_telefono['error'];
-        } else {
+        }
+         else {
             $datos_validos['telefono'] = $validacion_telefono['valor'];
         }
-    } else {
+    }
+     else {
         $datos_validos['telefono'] = '';
     }
     
@@ -342,7 +352,7 @@ function validarDatosUsuario($nombre, $apellido, $email, $telefono = '') {
  * 
  * REGLAS DE VALIDACIÓN:
  * - Formato: YYYY-MM-DD o dd/mm/yyyy
- * - Rango de años: 1925-2012
+ * - Rango de años: 1925 - Actualidad
  * - Edad mínima: 13 años
  * - No puede ser fecha futura
  * 
@@ -398,9 +408,10 @@ function validarFechaNacimiento($fecha_nacimiento) {
         // Extraer año de la fecha procesada
         $año = intval($fecha_nac->format('Y'));
         
-        // VALIDACIÓN 1: Rango de año permitido (1925-2012)
-        if ($año < 1925 || $año > 2012) {
-            return ['valido' => false, 'valor' => null, 'error' => 'La fecha de nacimiento debe estar entre 1925 y 2012.'];
+        // VALIDACIÓN 1: Rango de año (mínimo 1925)
+        // Nota: La edad máxima (futuro) se valida con $hoy y la mínima (13 años) con $edad_minima
+        if ($año < 1925) {
+            return ['valido' => false, 'valor' => null, 'error' => 'El año de nacimiento debe ser posterior a 1925.'];
         }
         
         // VALIDACIÓN 2: No puede ser futura
@@ -591,7 +602,7 @@ function validarUsuarioExiste($usuario) {
  * Valida fecha de nacimiento del usuario para recuperación
  *
  * @param array $usuario Datos del usuario obtenidos de BD
- * @param string $fecha_nacimiento Fecha proporcionada en formato DD/MM/YYYY
+ * @param string $fecha_nacimiento Fecha proporcionada en formato YYYY-MM-DD
  * @return array ['valido' => bool, 'error' => string]
  */
 function validarFechaNacimientoRecupero($usuario, $fecha_nacimiento) {
@@ -601,9 +612,25 @@ function validarFechaNacimientoRecupero($usuario, $fecha_nacimiento) {
         return ['valido' => false, 'error' => 'No se encontró fecha de nacimiento para este usuario.'];
     }
 
-    // Comparar fechas
-    $fecha_nac_formateada = date('d/m/Y', strtotime($fecha_nac_bd));
-    if ($fecha_nac_formateada !== $fecha_nacimiento) {
+    // Comparar fechas (Normalizar ambas a Y-m-d para asegurar coincidencia)
+    $fecha_bd_obj = new DateTime($fecha_nac_bd);
+
+    // Intentar parsear la fecha de input en diferentes formatos
+    try {
+        $fecha_input_obj = new DateTime($fecha_nacimiento);
+    } catch (Exception $e) {
+        // Si falla, intentar con formato DD/MM/YYYY
+        try {
+            $fecha_input_obj = DateTime::createFromFormat('d/m/Y', $fecha_nacimiento);
+            if (!$fecha_input_obj) {
+                throw new Exception('Formato de fecha inválido');
+            }
+        } catch (Exception $e2) {
+            return ['valido' => false, 'error' => 'Formato de fecha inválido. Use YYYY-MM-DD o DD/MM/YYYY.'];
+        }
+    }
+    
+    if ($fecha_bd_obj->format('Y-m-d') !== $fecha_input_obj->format('Y-m-d')) {
         return ['valido' => false, 'error' => 'La fecha de nacimiento no coincide con nuestros registros.'];
     }
 
@@ -625,7 +652,7 @@ function validarPreguntaRespuestaRecupero($usuario, $pregunta_id, $respuesta) {
     }
 
     if (empty($respuesta)) {
-        return ['valido' => false, 'error' => 'Debes proporcionar una respuesta.'];
+        return ['valido' => false, 'valor' => '', 'error' => 'Debes proporcionar una respuesta.'];
     }
 
     // Obtener datos guardados en BD
@@ -641,11 +668,8 @@ function validarPreguntaRespuestaRecupero($usuario, $pregunta_id, $respuesta) {
         return ['valido' => false, 'error' => 'La pregunta de seguridad no coincide con nuestros registros.'];
     }
 
-    // Comparar respuesta (normalizada)
-    $respuesta_usuario = strtolower(trim($respuesta));
-    $respuesta_guardada = strtolower(trim($respuesta_bd));
-
-    if ($respuesta_usuario !== $respuesta_guardada) {
+    // Comparar la respuesta usando el hash almacenado
+    if (!verificarRespuestaRecupero($respuesta, $respuesta_bd)) {
         return ['valido' => false, 'error' => 'La respuesta de seguridad es incorrecta.'];
     }
 
@@ -704,7 +728,7 @@ function validarEmail($valor) {
 
     // Normalizar: remover espacios al inicio y final
     // LÓGICA: Los espacios en emails son inválidos y pueden causar errores de autenticación
-    $valor = trim($valor);
+    $valor = strtolower(trim($valor));
 
     // VALIDACIÓN 1: Campo obligatorio
     // REGLA DE NEGOCIO: El email es el identificador único del usuario y es obligatorio
@@ -802,8 +826,8 @@ function validarPassword($password, $requiere_complejidad = true) {
     // LÓGICA: Permitir caracteres comunes en contraseñas: letras, números, y símbolos típicos (@, _, -, ., !, $, %, *, ?, &, #, etc.)
     // No se restringen caracteres especiales comunes para permitir mayor seguridad
     // Solo se bloquean caracteres de control y caracteres que puedan causar problemas de seguridad
-    // Permitir: letras, números, espacios, y símbolos comunes: @_\-\.!$%*?&#^~|\\\/{}\[\]()<>:;"'=+
-    if (!preg_match('/^[A-Za-z0-9@_\-\.!$%*?&#^~|\\\\\/\{\}\[\]()<>:;"\'=+\s]+$/', $password)) {
+    // Permitir: letras, números, espacios, y símbolos comunes: @_\-.!$%*?&#^~|\/{}[]()<>:;"'=+
+    if (!preg_match('/^[A-Za-z0-9@_\-.!$%*?&#^~|\\\\\\/{}[]()<>:;"\'=+\s]+$/', $password)) {
         return ['valido' => false, 'error' => 'La contraseña contiene caracteres no permitidos.'];
     }
 
@@ -827,4 +851,3 @@ function validarPassword($password, $requiere_complejidad = true) {
     // Si pasa todas las validaciones, la contraseña es válida
     return ['valido' => true, 'error' => ''];
 }
-

@@ -367,15 +367,19 @@ function procesarCSV($archivo_temporal, $mysqli) {
             if (empty($nombre_categoria_raw) && isset($producto['id_categoria'])) {
                 $id_cat = intval($producto['id_categoria']);
                 // Buscar nombre de categoría por ID
-                foreach ($categorias_disponibles as $cat) {
-                    if ($cat['id_categoria'] == $id_cat) {
-                        $nombre_categoria_raw = $cat['nombre_categoria'];
-                        break;
+                    foreach ($categorias_disponibles as $cat) {
+                        if ($cat['id_categoria'] == $id_cat) {
+                            $nombre_categoria_raw = $cat['nombre_categoria'];
+                            break;
+                        }
                     }
-                }
-                if (empty($nombre_categoria_raw)) {
-                    $errores[] = "Línea $linea: ID de categoría '$id_cat' no existe en la base de datos. Usa el nombre de la categoría en lugar del ID.";
-                    continue;
+                    if (empty($nombre_categoria_raw)) {
+                        $errores[] = "Línea $linea: ID de categoría '$id_cat' no existe en la base de datos. Usa el nombre de la categoría en lugar del ID.";
+                        continue;
+                    }
+                } else {
+                    // No es numérico, asumir que es el NOMBRE de la categoría
+                    $nombre_categoria_raw = trim($valor_id_cat);
                 }
             }
             
@@ -534,17 +538,44 @@ function agruparProductosCSV($productos_csv) {
     foreach ($productos_csv as $fila) {
         $nombre_producto = $fila['nombre_producto'];
         
-        // Si el producto ya existe, agregar variante
+        // Si el producto ya existe, buscar si la variante ya existe
         if (isset($productos_agrupados[$nombre_producto])) {
-            // Agregar variante con sus fotos específicas (foto1 y foto2)
-            $variante = [
-                'talle' => $fila['talle'],
-                'color' => $fila['color'],
-                'stock' => $fila['stock'],
-                'foto1_prod' => !empty($fila['foto1_prod']) ? $fila['foto1_prod'] : '',
-                'foto2_prod' => !empty($fila['foto2_prod']) ? $fila['foto2_prod'] : ''
-            ];
-            $productos_agrupados[$nombre_producto]['variantes'][] = $variante;
+            $variante_existente_index = -1;
+            $talle_fila = strtolower(trim($fila['talle']));
+            $color_fila = strtolower(trim($fila['color']));
+            
+            // Buscar variante existente por talle y color
+            foreach ($productos_agrupados[$nombre_producto]['variantes'] as $index => $variante) {
+                if (strtolower(trim($variante['talle'])) === $talle_fila && 
+                    strtolower(trim($variante['color'])) === $color_fila) {
+                    $variante_existente_index = $index;
+                    break;
+                }
+            }
+            
+            if ($variante_existente_index >= 0) {
+                // Variante ya existe: fusionar datos (sumar stock)
+                $stock_actual = $productos_agrupados[$nombre_producto]['variantes'][$variante_existente_index]['stock'];
+                $productos_agrupados[$nombre_producto]['variantes'][$variante_existente_index]['stock'] = $stock_actual + $fila['stock'];
+                
+                // Completar fotos de variante si faltan
+                if (empty($productos_agrupados[$nombre_producto]['variantes'][$variante_existente_index]['foto1_prod']) && !empty($fila['foto1_prod'])) {
+                    $productos_agrupados[$nombre_producto]['variantes'][$variante_existente_index]['foto1_prod'] = $fila['foto1_prod'];
+                }
+                if (empty($productos_agrupados[$nombre_producto]['variantes'][$variante_existente_index]['foto2_prod']) && !empty($fila['foto2_prod'])) {
+                    $productos_agrupados[$nombre_producto]['variantes'][$variante_existente_index]['foto2_prod'] = $fila['foto2_prod'];
+                }
+            } else {
+                // Variante no existe, agregar nueva
+                $variante = [
+                    'talle' => $fila['talle'],
+                    'color' => $fila['color'],
+                    'stock' => $fila['stock'],
+                    'foto1_prod' => !empty($fila['foto1_prod']) ? $fila['foto1_prod'] : '',
+                    'foto2_prod' => !empty($fila['foto2_prod']) ? $fila['foto2_prod'] : ''
+                ];
+                $productos_agrupados[$nombre_producto]['variantes'][] = $variante;
+            }
             
             // Actualizar fotos base (foto_min y foto3) solo si no existen y esta fila las tiene
             if (empty($productos_agrupados[$nombre_producto]['foto_prod_miniatura']) && !empty($fila['foto_prod_miniatura'])) {

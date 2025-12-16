@@ -1,5 +1,5 @@
 <?php  
-   include("config/database.example.php");
+   include(__DIR__ . '/../config/database.php');
 
    //obtenemos los parametros enviados por GET
    $tabla = $_GET['tabla'];  //nombre de la tabla

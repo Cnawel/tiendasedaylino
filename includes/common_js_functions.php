@@ -119,6 +119,50 @@ function togglePassword(inputIdOrElement) {
 }
 
 /**
+ * Inicializa todos los botones de toggle password
+ * Busca elementos con clase .btn-toggle-password y agrega event listener
+ */
+function initPasswordToggles() {
+    const toggleButtons = document.querySelectorAll('.btn-toggle-password');
+    
+    toggleButtons.forEach(button => {
+        // Remover listeners anteriores si existen (para evitar duplicados en reinicialización)
+        const newButton = button.cloneNode(true);
+        if (button.parentNode) {
+            button.parentNode.replaceChild(newButton, button);
+        }
+        
+        newButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Buscar input asociado
+            let inputId = this.getAttribute('data-input-id');
+            let input;
+            
+            if (inputId) {
+                input = document.getElementById(inputId);
+            } else {
+                // Intentar buscar input hermano anterior (patrón común)
+                input = this.previousElementSibling;
+                while (input && input.tagName !== 'INPUT') {
+                    input = input.previousElementSibling;
+                }
+            }
+            
+            if (input) {
+                togglePassword(input);
+            }
+        });
+    });
+}
+
+// Inicializar automáticamente cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', function() {
+    initPasswordToggles();
+});
+
+/**
  * Validar que las contraseñas coincidan
  * Soporta múltiples contextos con parámetros opcionales
  * @param {string} passwordId - ID del campo password (opcional, default: 'password')

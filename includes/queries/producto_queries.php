@@ -5,16 +5,23 @@
  * ========================================================================
  * Archivo centralizado con todas las consultas relacionadas a productos
  * Facilita mantenimiento, reutilización y organización del código SQL
- * 
+ *
  * REEMPLAZO DE TRIGGERS:
  * Este archivo implementa la lógica PHP que reemplaza los siguientes triggers de MySQL:
  * - trg_validar_categoria_activa_producto: crearProducto()
- * 
+ *
+ * DEPENDENCIAS:
+ * - stock_queries.php: Usa obtenerStockReservado() para filtrado de catálogo
+ * - talles_config.php: Cargado dinámicamente según necesidad
+ *
  * Uso:
  *   require_once __DIR__ . '/includes/queries/producto_queries.php';
  *   $producto = obtenerProductoPorId($mysqli, $id_producto);
  * ========================================================================
  */
+
+// Cargar dependencias necesarias
+require_once __DIR__ . '/stock_queries.php';
 
 /**
  * Función auxiliar: Asegura que obtenerTallesEstandar() esté disponible
@@ -1063,7 +1070,7 @@ function _obtenerIdsProductosFiltrados($mysqli, $where_parts, $params, $types) {
     // MODIFICADO: Ahora retorna combinaciones (id_producto, color) para mostrar todas las variantes de color
     $sql_ids = "SELECT DISTINCT p.id_producto, sv.color
                 FROM Productos p
-                INNER JOIN Stock_Variantes sv ON p.id_producto = sv.id_producto AND sv.activo = 1
+                INNER JOIN Stock_Variantes sv ON p.id_producto = sv.id_producto AND sv.activo = 1 AND sv.stock > 0
                 INNER JOIN Categorias c ON p.id_categoria = c.id_categoria
                 WHERE " . implode(' AND ', $where_parts_ids);
     
@@ -1854,6 +1861,92 @@ function _combinarDatosProductos($datos_basicos, $color_stock, $fotos, $combinac
     return $productos_completos;
 }
 
+/**
+ * Función auxiliar: Filtra productos considerando stock reservado
+ *
+ * Calcula el stock disponible real (stock_bruto - stock_reservado) para cada producto
+ * y elimina aquellos sin stock disponible. Esta función corrige el problema donde
+ * productos aparecían en catálogo con stock_bruto > 0 pero todo el stock estaba reservado.
+ *
+ * ESTRATEGIA:
+ * 1. Para cada producto-color, obtener todas sus variantes activas
+ * 2. Calcular stock_reservado total de todas las variantes
+ * 3. Calcular stock_disponible = total_stock - stock_reservado
+ * 4. Mantener solo productos con stock_disponible > 0
+ *
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param array $productos Array de productos de obtenerProductosFiltradosCatalogo()
+ * @return array Array filtrado de productos con stock disponible real
+ */
+function _filtrarProductosPorStockDisponible($mysqli, $productos) {
+    if (empty($productos) || !is_array($productos)) {
+        return [];
+    }
+
+    $productos_filtrados = [];
+
+    foreach ($productos as $producto) {
+        // Validar que el producto tenga los campos necesarios
+        if (!isset($producto['id_producto']) || !isset($producto['color']) || !isset($producto['total_stock'])) {
+            continue;
+        }
+
+        $id_producto = (int)$producto['id_producto'];
+        $color = trim($producto['color']);
+        $stock_bruto = (int)$producto['total_stock'];
+
+        // Obtener todas las variantes de esta combinación producto-color
+        $sql_variantes = "
+            SELECT id_variante, stock
+            FROM Stock_Variantes
+            WHERE id_producto = ?
+              AND color = ?
+              AND activo = 1
+              AND stock > 0
+        ";
+
+        $stmt = $mysqli->prepare($sql_variantes);
+        if (!$stmt) {
+            error_log("ERROR _filtrarProductosPorStockDisponible - prepare falló: " . $mysqli->error);
+            // En caso de error, mantener el producto (fail safe)
+            $productos_filtrados[] = $producto;
+            continue;
+        }
+
+        $stmt->bind_param('is', $id_producto, $color);
+
+        if (!$stmt->execute()) {
+            error_log("ERROR _filtrarProductosPorStockDisponible - execute falló: " . $stmt->error);
+            $stmt->close();
+            // En caso de error, mantener el producto (fail safe)
+            $productos_filtrados[] = $producto;
+            continue;
+        }
+
+        $result = $stmt->get_result();
+
+        // Calcular stock reservado total para todas las variantes de este producto-color
+        $stock_reservado_total = 0;
+        while ($row = $result->fetch_assoc()) {
+            $id_variante = (int)$row['id_variante'];
+            $stock_reservado_total += obtenerStockReservado($mysqli, $id_variante);
+        }
+
+        $stmt->close();
+
+        // Calcular stock disponible real
+        $stock_disponible = $stock_bruto - $stock_reservado_total;
+
+        // Solo agregar productos con stock disponible > 0
+        if ($stock_disponible > 0) {
+            // Actualizar el stock en el producto para reflejar el stock disponible real
+            $producto['total_stock'] = $stock_disponible;
+            $productos_filtrados[] = $producto;
+        }
+    }
+
+    return $productos_filtrados;
+}
 
 /**
  * Función auxiliar: Obtiene datos completos de productos usando consultas separadas
@@ -1953,41 +2046,50 @@ function obtenerProductosFiltradosCatalogo($mysqli, $filtros = []) {
     // 1. Primero obtiene IDs de productos que cumplen filtros
     // 2. Luego ejecuta 3 consultas simples separadas (datos básicos, color/stock, fotos)
     // 3. Combina resultados en PHP
+    // 4. FILTRADO POST-QUERY: Calcula stock disponible y elimina productos sin stock real
     // Esta estrategia es más fácil de mantener y depurar que la consulta compleja anterior.
-    
+
     // ===================================================================
     // SECCIÓN 1: INICIALIZACIÓN Y VALIDACIÓN DE DEPENDENCIAS
     // ===================================================================
     // Verificar que la función obtenerTallesEstandar() esté disponible
     _asegurarTallesEstandarDisponible();
-    
+
     // ===================================================================
     // SECCIÓN 2: CONSTRUCCIÓN DE FILTROS WHERE DINÁMICOS
     // ===================================================================
     // Construir condiciones WHERE base que siempre se aplican:
-    // - Solo variantes con stock disponible (stock > 0)
+    // - Solo variantes con stock REAL disponible (considerando reservas)
     // - Solo variantes activas (activo = 1)
     // - Solo productos activos (activo = 1)
+    //
+    // IMPORTANTE: sv.stock > 0 NO es suficiente porque NO considera reservas activas.
+    // Las reservas son stock ya comprometido por otros clientes (pedidos pendientes).
+    // Por eso, debemos filtrar productos que tengan STOCK DISPONIBLE REAL.
+    //
+    // SOLUCIÓN IMPLEMENTADA: Mantenemos sv.stock > 0 como filtro base en la query,
+    // y luego aplicamos filtrado post-query en PHP calculando stock_disponible
+    // (stock_bruto - stock_reservado) para cada combinación producto-color.
     $where_parts = [
-        "sv.stock > 0",
+        "sv.stock > 0",  // Filtro base (stock bruto)
         "sv.activo = 1",
         "p.activo = 1"
     ];
     // Arrays para almacenar parámetros y tipos para prepared statements
     $params = [];
     $types = '';
-    
+
     // Usar función auxiliar para construir filtros WHERE dinámicos
     // Esta función procesa los filtros y agrega condiciones WHERE, parámetros y tipos
     _construirFiltrosWhere($filtros, $where_parts, $params, $types);
-    
+
     // ===================================================================
     // SECCIÓN 3: PRIMERA CONSULTA - OBTENER IDs DE PRODUCTOS QUE CUMPLEN FILTROS
     // ===================================================================
     // Usar función auxiliar para obtener IDs de productos que cumplen los filtros
     // Esta consulta es más eficiente que obtener todos los datos de una vez
     $productos_ids = _obtenerIdsProductosFiltrados($mysqli, $where_parts, $params, $types);
-    
+
     // ===================================================================
     // SECCIÓN 4: SEGUNDA CONSULTA - OBTENER DATOS COMPLETOS DE PRODUCTOS
     // ===================================================================
@@ -1998,12 +2100,19 @@ function obtenerProductosFiltradosCatalogo($mysqli, $filtros = []) {
         // Determinar si hay filtro de talles para decidir qué subconsultas usar
         // Esto afecta cómo se calcula el color y stock: si hay filtro, solo usar talles estándar
         $hay_filtro_talles = !empty($filtros['talles']) && is_array($filtros['talles']);
-        
+
         // Usar función auxiliar que ejecuta consultas separadas y combina resultados
         // Esta función ahora usa múltiples consultas simples en lugar de una consulta compleja
         $productos = _obtenerDatosCompletosProductos($mysqli, $productos_ids, $hay_filtro_talles);
-        
-        return $productos;
+
+        // ===================================================================
+        // SECCIÓN 5: FILTRADO POST-QUERY - CONSIDERAR STOCK RESERVADO
+        // ===================================================================
+        // Filtrar productos que realmente tienen stock disponible (restando reservas)
+        // NOTA: Requiere que stock_queries.php esté incluido (normalmente ya incluido en páginas)
+        $productos_con_stock_disponible = _filtrarProductosPorStockDisponible($mysqli, $productos);
+
+        return $productos_con_stock_disponible;
     } else {
         // ===================================================================
         // CASO ESPECIAL: NO HAY PRODUCTOS QUE CUMPLAN LOS FILTROS
@@ -2148,20 +2257,81 @@ function obtenerTallesDisponibles($mysqli, $categoria_id = null) {
     }
     
     // Inicializar array para almacenar talles con su stock total
-    $talles = [];
+    $talles_brutos = [];
     // Iterar sobre cada fila del resultado
     while ($row = $result->fetch_assoc()) {
         // Validar que la fila tenga los campos necesarios
         if (isset($row['talle']) && isset($row['total_stock'])) {
             // Guardar talle como clave y stock total como valor (convertido a int)
             // El talle viene del array de talles estándar (S, M, L, XL)
-            $talles[$row['talle']] = (int)$row['total_stock'];
+            $talles_brutos[$row['talle']] = (int)$row['total_stock'];
         }
     }
-    
+
     // Cerrar statement para liberar recursos
     $stmt->close();
-    // Retornar array asociativo [talle => stock_total]
+
+    // POST-PROCESAMIENTO: Calcular stock disponible considerando reservas activas
+    // Obtener stock reservado por talle y restar del stock bruto
+    $talles = [];
+    foreach ($talles_brutos as $talle => $stock_bruto) {
+        // Consultar variantes con este talle para calcular stock reservado
+        $sql_variantes = "
+            SELECT sv.id_variante
+            FROM Stock_Variantes sv
+            INNER JOIN Productos p ON sv.id_producto = p.id_producto
+            WHERE sv.talle = ?
+              AND sv.activo = 1
+              AND p.activo = 1
+              AND sv.stock > 0
+        ";
+
+        // Agregar filtro de categoría si aplica
+        if ($categoria_id !== null) {
+            $sql_variantes .= " AND p.id_categoria = ?";
+        }
+
+        $stmt_var = $mysqli->prepare($sql_variantes);
+        if (!$stmt_var) {
+            // Si falla, usar stock bruto (fail-safe)
+            $talles[$talle] = $stock_bruto;
+            continue;
+        }
+
+        if ($categoria_id !== null) {
+            $stmt_var->bind_param('si', $talle, $categoria_id);
+        } else {
+            $stmt_var->bind_param('s', $talle);
+        }
+
+        if (!$stmt_var->execute()) {
+            $stmt_var->close();
+            // Si falla, usar stock bruto (fail-safe)
+            $talles[$talle] = $stock_bruto;
+            continue;
+        }
+
+        $result_var = $stmt_var->get_result();
+
+        // Calcular stock reservado total para este talle
+        $stock_reservado_total = 0;
+        while ($row_var = $result_var->fetch_assoc()) {
+            $id_variante = (int)$row_var['id_variante'];
+            $stock_reservado_total += obtenerStockReservado($mysqli, $id_variante);
+        }
+
+        $stmt_var->close();
+
+        // Calcular stock disponible
+        $stock_disponible = $stock_bruto - $stock_reservado_total;
+
+        // Solo incluir talles con stock disponible > 0
+        if ($stock_disponible > 0) {
+            $talles[$talle] = $stock_disponible;
+        }
+    }
+
+    // Retornar array asociativo [talle => stock_disponible]
     return $talles;
 }
 
@@ -2243,20 +2413,81 @@ function obtenerGenerosDisponiblesStock($mysqli, $categoria_id = null) {
     }
     
     // Inicializar array para almacenar géneros con su stock total
-    $generos = [];
+    $generos_brutos = [];
     // Iterar sobre cada fila del resultado
     while ($row = $result->fetch_assoc()) {
         // Validar que la fila tenga los campos necesarios
         if (isset($row['genero']) && isset($row['total_stock'])) {
             // Guardar género como clave y stock total como valor (convertido a int)
             // El género viene del enum: 'hombre', 'mujer', 'unisex'
-            $generos[$row['genero']] = (int)$row['total_stock'];
+            $generos_brutos[$row['genero']] = (int)$row['total_stock'];
         }
     }
-    
+
     // Cerrar statement para liberar recursos
     $stmt->close();
-    // Retornar array asociativo [genero => stock_total]
+
+    // POST-PROCESAMIENTO: Calcular stock disponible considerando reservas activas
+    // Obtener stock reservado por género y restar del stock bruto
+    $generos = [];
+    foreach ($generos_brutos as $genero => $stock_bruto) {
+        // Consultar variantes con este género para calcular stock reservado
+        $sql_variantes = "
+            SELECT sv.id_variante
+            FROM Stock_Variantes sv
+            INNER JOIN Productos p ON sv.id_producto = p.id_producto
+            WHERE p.genero = ?
+              AND sv.activo = 1
+              AND p.activo = 1
+              AND sv.stock > 0
+        ";
+
+        // Agregar filtro de categoría si aplica
+        if ($categoria_id !== null) {
+            $sql_variantes .= " AND p.id_categoria = ?";
+        }
+
+        $stmt_var = $mysqli->prepare($sql_variantes);
+        if (!$stmt_var) {
+            // Si falla, usar stock bruto (fail-safe)
+            $generos[$genero] = $stock_bruto;
+            continue;
+        }
+
+        if ($categoria_id !== null) {
+            $stmt_var->bind_param('si', $genero, $categoria_id);
+        } else {
+            $stmt_var->bind_param('s', $genero);
+        }
+
+        if (!$stmt_var->execute()) {
+            $stmt_var->close();
+            // Si falla, usar stock bruto (fail-safe)
+            $generos[$genero] = $stock_bruto;
+            continue;
+        }
+
+        $result_var = $stmt_var->get_result();
+
+        // Calcular stock reservado total para este género
+        $stock_reservado_total = 0;
+        while ($row_var = $result_var->fetch_assoc()) {
+            $id_variante = (int)$row_var['id_variante'];
+            $stock_reservado_total += obtenerStockReservado($mysqli, $id_variante);
+        }
+
+        $stmt_var->close();
+
+        // Calcular stock disponible
+        $stock_disponible = $stock_bruto - $stock_reservado_total;
+
+        // Solo incluir géneros con stock disponible > 0
+        if ($stock_disponible > 0) {
+            $generos[$genero] = $stock_disponible;
+        }
+    }
+
+    // Retornar array asociativo [genero => stock_disponible]
     return $generos;
 }
 
@@ -2367,37 +2598,98 @@ function obtenerColoresDisponiblesStock($mysqli, $categoria_id = null) {
     }
     
     // Inicializar array para almacenar colores con su stock total
-    $colores = [];
+    $colores_brutos = [];
     // Iterar sobre cada fila del resultado
     while ($row = $result->fetch_assoc()) {
         // Validar que la fila tenga los campos necesarios
         if (!isset($row['color']) || !isset($row['total_stock'])) {
             continue; // Saltar filas incompletas
         }
-        
+
         // Normalizar color usando función auxiliar para consistencia
         // Esto asegura que "Negro", "negro", "NEGRO" se conviertan todos en "Negro"
         $color_normalizado = _normalizarColor($row['color']);
-        
+
         // Si el color normalizado está vacío, saltar esta fila
         if (empty($color_normalizado)) {
             continue;
         }
-        
+
         // Acumular stock si hay múltiples formatos del mismo color
         // Aunque agrupamos en SQL, puede haber variaciones mínimas que se normalizan igual
-        if (isset($colores[$color_normalizado])) {
+        if (isset($colores_brutos[$color_normalizado])) {
             // Si el color ya existe, sumar el stock al existente
-            $colores[$color_normalizado] += (int)$row['total_stock'];
+            $colores_brutos[$color_normalizado] += (int)$row['total_stock'];
         } else {
             // Si es un color nuevo, asignar el stock directamente
-            $colores[$color_normalizado] = (int)$row['total_stock'];
+            $colores_brutos[$color_normalizado] = (int)$row['total_stock'];
         }
     }
-    
+
     // Cerrar statement para liberar recursos
     $stmt->close();
-    // Retornar array asociativo [color_normalizado => stock_total]
+
+    // POST-PROCESAMIENTO: Calcular stock disponible considerando reservas activas
+    // Obtener stock reservado por color y restar del stock bruto
+    $colores = [];
+    foreach ($colores_brutos as $color_normalizado => $stock_bruto) {
+        // Consultar variantes con este color para calcular stock reservado
+        $sql_variantes = "
+            SELECT sv.id_variante
+            FROM Stock_Variantes sv
+            INNER JOIN Productos p ON sv.id_producto = p.id_producto
+            WHERE LOWER(TRIM(sv.color)) = LOWER(TRIM(?))
+              AND sv.activo = 1
+              AND p.activo = 1
+              AND sv.stock > 0
+        ";
+
+        // Agregar filtro de categoría si aplica
+        if ($categoria_id !== null) {
+            $sql_variantes .= " AND p.id_categoria = ?";
+        }
+
+        $stmt_var = $mysqli->prepare($sql_variantes);
+        if (!$stmt_var) {
+            // Si falla, usar stock bruto (fail-safe)
+            $colores[$color_normalizado] = $stock_bruto;
+            continue;
+        }
+
+        if ($categoria_id !== null) {
+            $stmt_var->bind_param('si', $color_normalizado, $categoria_id);
+        } else {
+            $stmt_var->bind_param('s', $color_normalizado);
+        }
+
+        if (!$stmt_var->execute()) {
+            $stmt_var->close();
+            // Si falla, usar stock bruto (fail-safe)
+            $colores[$color_normalizado] = $stock_bruto;
+            continue;
+        }
+
+        $result_var = $stmt_var->get_result();
+
+        // Calcular stock reservado total para este color
+        $stock_reservado_total = 0;
+        while ($row_var = $result_var->fetch_assoc()) {
+            $id_variante = (int)$row_var['id_variante'];
+            $stock_reservado_total += obtenerStockReservado($mysqli, $id_variante);
+        }
+
+        $stmt_var->close();
+
+        // Calcular stock disponible
+        $stock_disponible = $stock_bruto - $stock_reservado_total;
+
+        // Solo incluir colores con stock disponible > 0
+        if ($stock_disponible > 0) {
+            $colores[$color_normalizado] = $stock_disponible;
+        }
+    }
+
+    // Retornar array asociativo [color_normalizado => stock_disponible]
     return $colores;
 }
 

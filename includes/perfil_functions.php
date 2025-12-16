@@ -81,7 +81,7 @@ function procesarActualizacionRecupero($mysqli, $id_usuario, $post) {
     $respuesta_recupero = trim($post['respuesta_recupero'] ?? '');
     $respuesta_recupero_final = null;
     if (!empty($respuesta_recupero)) {
-        if (strlen($respuesta_recupero) <= 4) {
+                if (strlen($respuesta_recupero) < 4) {
             if (empty($mensaje)) {
                 $mensaje = 'La respuesta de recupero debe tener al menos 4 caracteres.';
                 $mensaje_tipo = 'danger';
@@ -455,20 +455,11 @@ function procesarCambioContrasena($mysqli, $id_usuario, $post) {
  * @return array Array con 'mensaje', 'mensaje_tipo' y 'eliminado' (bool) - si eliminado=true, redirigir
  */
 function procesarEliminacionCuenta($mysqli, $id_usuario, $post) {
-    // Debug: Inicio de función
-    $debug_info = [];
-    $debug_info['function_start'] = [
-        'id_usuario' => $id_usuario,
-        'post_data' => $post,
-        'email_confirmacion_raw' => $post['email_confirmacion'] ?? 'NO SET'
-    ];
-    
     $mensaje = '';
     $mensaje_tipo = '';
     $eliminado = false;
     
     $email_confirmacion_raw = $post['email_confirmacion'] ?? '';
-    $debug_info['email_after_trim'] = $email_confirmacion_raw;
     
     // Validar email usando función centralizada
     $validacion_email = validarEmail($email_confirmacion_raw);
@@ -481,11 +472,9 @@ function procesarEliminacionCuenta($mysqli, $id_usuario, $post) {
             $mensaje = $validacion_email['error'];
         }
         $mensaje_tipo = 'danger';
-        $debug_info['validation'] = 'EMAIL_INVALIDO';
     } else {
         // Email válido - usar valor original sin sanitizar para comparación
         $email_confirmacion = strtolower(trim($email_confirmacion_raw));
-        $debug_info['validation'] = 'EMAIL_VALIDO';
         
         // Obtener datos del usuario antes de desactivar la cuenta (para notificación admin)
         $perfil_queries_path = __DIR__ . '/queries/perfil_queries.php';
@@ -495,25 +484,9 @@ function procesarEliminacionCuenta($mysqli, $id_usuario, $post) {
         }
         require_once $perfil_queries_path;
         $datos_usuario = obtenerDatosUsuario($mysqli, $id_usuario);
-        $debug_info['datos_usuario_obtenidos'] = [
-            'usuario_existe' => !empty($datos_usuario),
-            'email_usuario' => $datos_usuario['email'] ?? 'NO SET',
-            'nombre' => $datos_usuario['nombre'] ?? 'NO SET'
-        ];
         
         // Procesar eliminación de cuenta
-        $debug_info['antes_eliminarCuentaUsuario'] = [
-            'id_usuario' => $id_usuario,
-            'email_confirmacion' => $email_confirmacion,
-            'email_usuario' => $datos_usuario['email'] ?? 'NO SET',
-            'emails_coinciden' => isset($datos_usuario['email']) && strtolower(trim($datos_usuario['email'])) === strtolower(trim($email_confirmacion))
-        ];
-        
         $resultado_eliminacion = eliminarCuentaUsuario($mysqli, $id_usuario, $email_confirmacion);
-        $debug_info['despues_eliminarCuentaUsuario'] = [
-            'resultado' => $resultado_eliminacion,
-            'tipo' => gettype($resultado_eliminacion)
-        ];
         
         if ($resultado_eliminacion) {
             $eliminado = true;
@@ -669,27 +642,10 @@ function procesarEliminacionCuenta($mysqli, $id_usuario, $post) {
         } else {
             $mensaje = 'Error al procesar la eliminación. Verifica que el correo electrónico sea correcto.';
             $mensaje_tipo = 'danger';
-            $debug_info['eliminacion_fallida'] = [
-                'razon' => 'eliminarCuentaUsuario retornó false',
-                'mysqli_error' => $mysqli->error ?? 'NO SET',
-                'mysqli_errno' => $mysqli->errno ?? 'NO SET'
-            ];
         }
     }
     
-    // Agregar debug info al resultado
-    $debug_info['resultado_final'] = [
-        'eliminado' => $eliminado,
-        'mensaje' => $mensaje,
-        'mensaje_tipo' => $mensaje_tipo
-    ];
-    
-    // Guardar debug info en variable global para acceso desde perfil.php
-    if (function_exists('addDebug')) {
-        addDebug('DEBUG procesarEliminacionCuenta()', $debug_info);
-    }
-    
-    return ['mensaje' => $mensaje, 'mensaje_tipo' => $mensaje_tipo, 'eliminado' => $eliminado, 'debug_info' => $debug_info];
+    return ['mensaje' => $mensaje, 'mensaje_tipo' => $mensaje_tipo, 'eliminado' => $eliminado];
 }
 
 /**
@@ -818,3 +774,4 @@ function construirMensajeErrorPago($error_message, $id_pago = 0, $id_usuario = 0
         ];
     }
 }
+

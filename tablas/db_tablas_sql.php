@@ -1,6 +1,6 @@
 <?php 
 
-   include("config/database.example.php");
+   include(__DIR__ . '/../config/database.php');
 
    //obtenemos los nombres de las tablas que hay en nuestra base de datos
    $tablas = $mysqli->query("SHOW TABLES");

@@ -32,7 +32,6 @@ function obtenerMapeoEstadosPedido() {
         'preparacion' => ['color' => 'info', 'nombre' => 'Preparación'],
         'en_viaje' => ['color' => 'primary', 'nombre' => 'En Viaje'],
         'completado' => ['color' => 'success', 'nombre' => 'Completado'],
-        'devolucion' => ['color' => 'secondary', 'nombre' => 'Devolución'],
         'cancelado' => ['color' => 'secondary', 'nombre' => 'Cancelado']
     ];
 }
@@ -66,16 +65,17 @@ function obtenerMapeoEstadosPago() {
  * @return string Estado normalizado
  */
 function normalizarEstado($estado, $default = 'pendiente') {
-    if ($estado === null) {
+    if ($estado === null || $estado === '') {
         return $default;
     }
-    
-    $estado_normalizado = strtolower(trim($estado));
-    
+
+    // Usar mb_strtolower para manejar correctamente caracteres UTF-8 con tildes
+    $estado_normalizado = mb_strtolower(trim($estado), 'UTF-8');
+
     if (empty($estado_normalizado)) {
         return $default;
     }
-    
+
     return $estado_normalizado;
 }
 
@@ -140,10 +140,9 @@ function obtenerInfoEstadoPago($estado) {
  * 
  * CASOS VÁLIDOS (NO muestran warning): 20 combinaciones
  * - pendiente + cualquier estado de pago (5 casos)
- * - preparacion/en_viaje/completado/devolucion + aprobado (4 casos)
+ * - preparacion/en_viaje/completado + aprobado (3 casos)
  * - cancelado + pendiente/pendiente_aprobacion/rechazado/cancelado (4 casos)
  * - preparacion + pendiente (1 caso - aunque técnicamente debería tener aprobado, no es crítico)
- * - devolucion + aprobado (1 caso)
  * 
  * CASOS CON WARNING: 15 combinaciones
  * - 4 críticos (danger): en_viaje/completado + rechazado/cancelado
@@ -162,9 +161,6 @@ function obtenerInfoEstadoPago($estado) {
  *   - 'accion_sugerida' => string Acción sugerida para resolver la inconsistencia
  */
 function detectarInconsistenciasEstado($estado_pedido, $estado_pago, $estado_pedido_anterior = null, $estado_pago_anterior = null) {
-    // Cargar funciones de estado si no están cargadas
-    require_once __DIR__ . '/state_functions.php';
-
     // Normalizar estado del pedido
     $estado_pedido_norm = normalizarEstado($estado_pedido);
 
@@ -232,8 +228,6 @@ function detectarInconsistenciasEstado($estado_pedido, $estado_pago, $estado_ped
         $grupo = 'estados_avanzados_sin_pago_aprobado';
     } elseif (strpos($validation['mensaje'], 'debería estar cancelado') !== false) {
         $grupo = 'estados_con_pago_rechazado';
-    } elseif ($estado_pedido_norm === 'devolucion') {
-        $grupo = 'devolucion_con_pago_rechazado';
     } elseif ($estado_pedido_norm === 'cancelado' && $estado_pago_norm === 'aprobado') {
         $grupo = 'cancelado_con_pago_aprobado';
     }
@@ -349,6 +343,7 @@ function estaEnRecorridoActivoPedido($estado_pedido) {
 function obtenerEstadosCancelablesDirectamente() {
     return ['pendiente', 'pendiente_validado_stock'];
 }
+/* pendiente_validado_stock >> ESTE ESTADO NO EXISTE, SE DEJÓ COMO EJEMPLO DE CÓMO AGREGAR OTROS ESTADOS SI FUERA NECESARIO */
 
 /**
  * Verifica si un pedido se puede cancelar directamente (sin devolución)
@@ -361,7 +356,7 @@ function puedeCancelarPedidoDirectamente($estado_pedido, $estado_pago = null) {
     $estado_normalizado = normalizarEstado($estado_pedido);
 
     // Validar que NO esté en estado terminal
-    if (in_array($estado_normalizado, ['cancelado', 'completado', 'devolucion'])) {
+    if (in_array($estado_normalizado, ['cancelado', 'completado'])) {
         return [
             'puede_cancelar' => false,
             'razon' => 'El pedido ya está en estado terminal'

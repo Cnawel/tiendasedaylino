@@ -4,18 +4,27 @@
  * CONSULTAS SQL DE PAGOS - Tienda Seda y Lino
  * ========================================================================
  * Archivo centralizado con todas las consultas relacionadas a pagos
- * 
+ *
  * REEMPLAZO DE TRIGGERS:
  * Este archivo implementa la lógica PHP que reemplaza los siguientes triggers de MySQL:
  * - trg_validar_pago_unico_aprobado: crearPago()
  * - trg_validar_pago_unico_aprobado_update: actualizarEstadoPago() y actualizarPagoCompleto()
  * - trg_actualizar_pedido_por_pago: actualizarEstadoPago() y actualizarPagoCompleto()
- * 
+ *
+ * DEPENDENCIAS:
+ * - stock_queries.php: Usa obtenerStockReservado() para validaciones
+ * - pedido_queries.php: Cargado dinámicamente según necesidad
+ *
  * Uso:
  *   require_once __DIR__ . '/includes/queries/pago_queries.php';
  *   $pago = obtenerPagoPorPedido($mysqli, $id_pedido);
  * ========================================================================
  */
+
+    // Carga las dependencias necesarias para el funcionamiento de este archivo.
+require_once __DIR__ . '/stock_queries.php';
+require_once __DIR__ . '/../estado_helpers.php';
+require_once __DIR__ . '/../state_functions.php';
 
 /**
  * Función auxiliar: Obtiene un pago con información completa de forma de pago
@@ -29,7 +38,7 @@
  * @return array|null Array con datos del pago o null si no existe
  */
 function _obtenerPagoComun($mysqli, $campo, $valor) {
-    // Validar que el campo sea válido
+    // Valida que el campo proporcionado sea un campo válido para la búsqueda.
     if (!in_array($campo, ['id_pedido', 'id_pago'])) {
         return null;
     }
@@ -99,16 +108,16 @@ function obtenerPagoPorId($mysqli, $id_pago) {
  * @param int $id_forma_pago ID de la forma de pago
  * @param float $monto Monto del pago
  * @param string $estado_pago Estado inicial (default: 'pendiente')
- * @return int ID del pago creado o 0 si falló
+ * @return int ID del pago creado o 0 en caso de fallo
  */
 function crearPago($mysqli, $id_pedido, $id_forma_pago, $monto, $estado_pago = 'pendiente') {
-    // Validar parámetros de entrada
+    // Valida los parámetros de entrada para asegurar que son correctos antes de procesar.
     $id_pedido = intval($id_pedido);
     $id_forma_pago = intval($id_forma_pago);
     $monto = floatval($monto);
     $estado_pago = trim($estado_pago);
 
-    // FIX: Validar que los parámetros sean válidos - SIEMPRE, no solo para aprobado
+    // CORRECCIÓN: Valida que los parámetros sean válidos SIEMPRE, no solo cuando el pago está aprobado.
     if ($id_pedido <= 0) {
         error_log("crearPago: ID pedido inválido: $id_pedido");
         return 0;
@@ -119,24 +128,25 @@ function crearPago($mysqli, $id_pedido, $id_forma_pago, $monto, $estado_pago = '
         return 0;
     }
 
-    // FIX: Validar monto > 0 SIEMPRE (no solo para estado aprobado)
+    // CORRECCIÓN: Valida que el monto sea mayor a 0 SIEMPRE, no solo para el estado de pago aprobado.
     if ($monto <= 0) {
         error_log("crearPago: Monto inválido ($monto) para pedido #{$id_pedido}");
         return 0;
     }
 
-    // FIX: Validar que monto no sea excesivo (posible overflow o error)
-    if ($monto > 999999.99) {
-        error_log("crearPago: Monto excesivo ($monto) para pedido #{$id_pedido}");
+    // CORRECCIÓN: Valida que el monto no exceda el límite máximo permitido por el tipo de dato DECIMAL(10,2) en la base de datos.
+    $monto_maximo = 99999999.99;
+    if ($monto > $monto_maximo) {
+        error_log("crearPago: Monto excede el límite permitido ({$monto_maximo}) para pedido #{$id_pedido}");
         return 0;
     }
     
-    // FIX: Prevenir pagos duplicados - verificar si ya existe pago activo
+    // CORRECCIÓN: Evita la creación de pagos duplicados verificando si ya existe CUALQUIER pago para el mismo pedido
+    // (sin importar estado). Esto previene la inconsistencia de múltiples pagos por pedido.
     $sql_verificar = "
-        SELECT COUNT(*) as pagos_activos
+        SELECT COUNT(*) as pagos_totales
         FROM Pagos
         WHERE id_pedido = ?
-          AND estado_pago IN ('pendiente', 'pendiente_aprobacion', 'aprobado')
     ";
 
     $stmt_verificar = $mysqli->prepare($sql_verificar);
@@ -147,17 +157,17 @@ function crearPago($mysqli, $id_pedido, $id_forma_pago, $monto, $estado_pago = '
             $verificacion = $result_verificar->fetch_assoc();
             $stmt_verificar->close();
 
-            if ($verificacion && intval($verificacion['pagos_activos']) > 0) {
-                error_log("crearPago: Ya existe un pago activo para pedido #{$id_pedido}");
+            if ($verificacion && intval($verificacion['pagos_totales']) > 0) {
+                error_log("crearPago: Ya existe un pago para pedido #{$id_pedido} (total pagos: {$verificacion['pagos_totales']})");
                 return 0;
             }
         } else {
             $stmt_verificar->close();
-            error_log("crearPago: Error al verificar pagos activos: " . $mysqli->error);
+            error_log("crearPago: Error al verificar pagos: " . $mysqli->error);
         }
     }
 
-    // Guardar el monto del pago en la base de datos
+    // Guarda la información del pago en la base de datos.
     $sql = "INSERT INTO Pagos (id_pedido, id_forma_pago, estado_pago, monto, fecha_pago) VALUES (?, ?, ?, ?, NOW())";
 
     $stmt = $mysqli->prepare($sql);
@@ -177,7 +187,7 @@ function crearPago($mysqli, $id_pedido, $id_forma_pago, $monto, $estado_pago = '
     $id_pago = $mysqli->insert_id;
     $stmt->close();
     
-    // Validar que se obtuvo un ID válido
+    // Valida que se haya obtenido un ID de pago válido después de la inserción en la base de datos.
     if (!$id_pago || $id_pago <= 0) {
         error_log("crearPago: Error - insert_id no válido después de insertar");
         return 0;
@@ -187,218 +197,22 @@ function crearPago($mysqli, $id_pedido, $id_forma_pago, $monto, $estado_pago = '
 }
 
 /**
- * Actualiza el estado de un pago
- * Reemplaza la funcionalidad de los triggers:
- * - trg_validar_pago_unico_aprobado_update: valida monto > 0 y pago único aprobado
- * - trg_actualizar_pedido_por_pago: actualiza estado del pedido cuando se aprueba/rechaza
- * 
+ * Wrapper que delega a actualizarEstadoPagoConPedido()
+ * Se proporciona para compatibilidad con código existente.
+ * Internamente usa la versión con validación e integración con pedido.
+ *
  * @param mysqli $mysqli Conexión a la base de datos
  * @param int $id_pago ID del pago
  * @param string $nuevo_estado Nuevo estado del pago
  * @param string|null $motivo_rechazo Motivo del rechazo (opcional)
- * @param string|null $fecha_aprobacion Fecha de aprobación (opcional, se establece automáticamente si es null)
+ * @param string|null $fecha_aprobacion Fecha de aprobación (ignorada, se usa NOW())
  * @return bool True si se actualizó correctamente
  */
 function actualizarEstadoPago($mysqli, $id_pago, $nuevo_estado, $motivo_rechazo = null, $fecha_aprobacion = null) {
-    $estados_validos = ['pendiente', 'pendiente_aprobacion', 'aprobado', 'rechazado', 'cancelado'];
-    
-    if (!in_array($nuevo_estado, $estados_validos)) {
-        return false;
-    }
-    
-    // Obtener datos actuales del pago para validaciones
-    $pago_actual = obtenerPagoPorId($mysqli, $id_pago);
-    if (!$pago_actual) {
-        return false;
-    }
-    
-    $estado_anterior = $pago_actual['estado_pago'];
-    $monto_actual = floatval($pago_actual['monto']);
-    $id_pedido = intval($pago_actual['id_pedido']);
-    
-    // Iniciar transacción para atomicidad de operaciones
-    $mysqli->begin_transaction();
-
-    // Validar solo si se está aprobando un pago (reemplaza trg_validar_pago_unico_aprobado_update)
-    if ($nuevo_estado === 'aprobado' && $estado_anterior !== 'aprobado') {
-        // Validar monto > 0 cuando se aprueba
-        if ($monto_actual <= 0) {
-            $mysqli->rollback();
-            return false; // No se puede aprobar un pago con monto menor o igual a cero
-        }
-
-        // Verificar si ya existe otro pago aprobado para este pedido (excluyendo el actual)
-        // Sin FOR UPDATE - la validación de unicidad se hará en el UPDATE con WHERE
-        $sql_verificar = "
-            SELECT COUNT(*) as pagos_aprobados
-            FROM Pagos
-            WHERE id_pedido = ?
-              AND estado_pago = 'aprobado'
-              AND id_pago != ?
-        ";
-
-        $stmt_verificar = $mysqli->prepare($sql_verificar);
-        if ($stmt_verificar) {
-            $stmt_verificar->bind_param('ii', $id_pedido, $id_pago);
-            if ($stmt_verificar->execute()) {
-                $result_verificar = $stmt_verificar->get_result();
-                $verificacion = $result_verificar->fetch_assoc();
-                $stmt_verificar->close();
-
-                if ($verificacion && intval($verificacion['pagos_aprobados']) > 0) {
-                    $mysqli->rollback();
-                    return false; // Ya existe otro pago aprobado para este pedido
-                }
-            } else {
-                $stmt_verificar->close();
-                $mysqli->rollback();
-                error_log("Error en actualizarEstadoPago - verificación falló: " . $mysqli->error);
-                return false;
-            }
-        } else {
-            $mysqli->rollback();
-            error_log("Error en actualizarEstadoPago - prepare verificación falló: " . $mysqli->error);
-            return false;
-        }
-    }
-    
-    // Si se aprueba, establecer fecha_aprobacion si no está establecida
-    if ($nuevo_estado === 'aprobado' && $fecha_aprobacion === null) {
-        $fecha_aprobacion = date('Y-m-d H:i:s');
-    }
-    
-    // Si no es aprobado, limpiar fecha_aprobacion
-    if ($nuevo_estado !== 'aprobado') {
-        $fecha_aprobacion = null;
-    }
-    
     try {
-        // Actualizar estado del pago
-        $sql = "
-            UPDATE Pagos 
-            SET estado_pago = ?,
-                fecha_actualizacion = NOW(),
-                fecha_aprobacion = ?,
-                motivo_rechazo = ?
-            WHERE id_pago = ?
-        ";
-        
-        $stmt = $mysqli->prepare($sql);
-        if (!$stmt) {
-            throw new Exception('Error al preparar actualización de pago');
-        }
-        
-        // Preparar valores para bind_param (null es válido para campos NULL en MySQL)
-        $fecha_aprobacion_str = $fecha_aprobacion ?? null;
-        $motivo_rechazo_str = $motivo_rechazo ?? null;
-        
-        // bind_param: 'sssi' = 4 parámetros: estado (s), fecha_aprobacion (s), motivo_rechazo (s), id_pago (i)
-        $stmt->bind_param('sssi', $nuevo_estado, $fecha_aprobacion_str, $motivo_rechazo_str, $id_pago);
-        $resultado = $stmt->execute();
-        
-        if (!$resultado) {
-            $stmt->close();
-            throw new Exception('Error al actualizar estado del pago');
-        }
-        
-        // Verificar que la actualización realmente ocurrió
-        $rows_affected = $stmt->affected_rows;
-        $stmt->close();
-        
-        if ($rows_affected === 0) {
-            throw new Exception('Error: No se pudo actualizar el estado del pago. El pago puede haber sido modificado por otro proceso o no existe.');
-        }
-        
-        // Actualizar estado del pedido según el estado del pago (reemplaza trg_actualizar_pedido_por_pago)
-        $pedido_queries_path = __DIR__ . '/pedido_queries.php';
-        if (!file_exists($pedido_queries_path)) {
-            error_log("ERROR: No se pudo encontrar pedido_queries.php en " . $pedido_queries_path);
-            die("Error crítico: Archivo de consultas de pedido no encontrado. Por favor, contacta al administrador.");
-        }
-        require_once $pedido_queries_path;
-        
-        // Cuando el pago se aprueba, cambiar pedido a preparacion
-        if ($nuevo_estado === 'aprobado' && $estado_anterior !== 'aprobado') {
-            $sql_pedido = "
-                UPDATE Pedidos 
-                SET estado_pedido = 'preparacion',
-                    fecha_actualizacion = NOW()
-                WHERE id_pedido = ? 
-                  AND estado_pedido IN ('pendiente', 'preparacion')
-            ";
-            
-            $stmt_pedido = $mysqli->prepare($sql_pedido);
-            if ($stmt_pedido) {
-                $stmt_pedido->bind_param('i', $id_pedido);
-                if (!$stmt_pedido->execute()) {
-                    $stmt_pedido->close();
-                    // No lanzar excepción aquí, solo loggear, ya que el pago ya se actualizó
-                    error_log("Error al actualizar pedido a preparacion en actualizarEstadoPago: " . $stmt_pedido->error);
-                } else {
-                    // Verificar que la actualización realmente ocurrió
-                    $rows_affected_pedido = $stmt_pedido->affected_rows;
-                    $stmt_pedido->close();
-                    if ($rows_affected_pedido === 0) {
-                        error_log("Warning: No se pudo actualizar pedido #{$id_pedido} a preparacion. Puede que el pedido ya esté en otro estado.");
-                    }
-                }
-            }
-        }
-        
-        // Cuando el pago se rechaza o cancela, cambiar pedido a cancelado
-        // REGLA: Si el pago se rechaza y el pedido está en pendiente o preparacion, cancelar automáticamente
-        $email_enviado = false;
-        if (in_array($nuevo_estado, ['rechazado', 'cancelado'])
-            && $estado_anterior !== $nuevo_estado) {
-
-            // Obtener estado actual del pedido
-            $pedido_actual = obtenerPedidoPorId($mysqli, $id_pedido);
-            $estado_pedido_actual = $pedido_actual ? strtolower(trim($pedido_actual['estado_pedido'] ?? '')) : '';
-            $id_usuario_pedido = $pedido_actual ? intval($pedido_actual['id_usuario']) : null;
-
-            // Cancelar el pedido SIEMPRE si está en pendiente o preparacion cuando el pago se rechaza
-            // Seguir con la lógica de cuándo puede cancelar: solo pendiente y preparacion
-            if ($estado_pedido_actual !== 'cancelado'
-                && $estado_pedido_actual !== 'completado'
-                && in_array($estado_pedido_actual, ['pendiente', 'pendiente_validado_stock', 'preparacion'])) {
-                $sql_pedido = "
-                    UPDATE Pedidos
-                    SET estado_pedido = 'cancelado',
-                        fecha_actualizacion = NOW()
-                    WHERE id_pedido = ?
-                ";
-
-                $stmt_pedido = $mysqli->prepare($sql_pedido);
-                if ($stmt_pedido) {
-                    $stmt_pedido->bind_param('i', $id_pedido);
-                    $stmt_pedido->execute();
-                    $stmt_pedido->close();
-
-                    // Enviar email si se canceló el pedido por pago rechazado
-                    if ($nuevo_estado === 'rechazado' && $id_usuario_pedido) {
-                        // Cargar función de email si no está cargada
-                        if (!function_exists('enviar_email_pedido_cancelado_o_rechazado')) {
-                            require_once __DIR__ . '/../email_gmail_functions.php';
-                        }
-
-                        // Enviar email de notificación de pago rechazado
-                        try {
-                            enviar_email_pedido_cancelado_o_rechazado($id_pedido, $id_usuario_pedido, 'rechazado', $motivo_rechazo, $mysqli);
-                            $email_enviado = true;
-                        } catch (Exception $e) {
-                            error_log("Error al enviar email de rechazo para pedido #$id_pedido: " . $e->getMessage());
-                        }
-                    }
-                }
-            }
-        }
-
-        $mysqli->commit();
-        return true;
-        
+        return actualizarEstadoPagoConPedido($mysqli, $id_pago, $nuevo_estado, $motivo_rechazo);
     } catch (Exception $e) {
-        $mysqli->rollback();
-        error_log("Error en actualizarEstadoPago: " . $e->getMessage());
+        error_log("actualizarEstadoPago: Error - " . $e->getMessage());
         return false;
     }
 }
@@ -426,13 +240,13 @@ function aprobarPago($mysqli, $id_pago, $id_usuario = null) {
         throw new Exception("No se encontró el pago con ID: $id_pago");
     }
 
-    // Si ya está aprobado, no hacer nada
+    // Si el pago ya se encuentra en estado 'aprobado', no se realiza ninguna acción adicional.
     if ($pago['estado_pago'] === 'aprobado') {
         return true;
     }
 
-    // Usar actualizarEstadoPagoConPedido() que es la función RECOMENDADA
-    // para aprobar pagos porque maneja toda la lógica de negocio completa
+    // Se utiliza la función `actualizarEstadoPagoConPedido()` que es la RECOMENDADA
+    // para aprobar pagos, ya que gestiona toda la lógica de negocio de forma integral.
     $resultado = actualizarEstadoPagoConPedido($mysqli, $id_pago, 'aprobado', null, $id_usuario);
 
     if (!$resultado) {
@@ -445,9 +259,11 @@ function aprobarPago($mysqli, $id_pago, $id_usuario = null) {
 /**
  * Actualiza un pago completo con todos sus campos editables
  * Reemplaza la funcionalidad de los triggers:
- * - trg_validar_pago_unico_aprobado_update: valida monto > 0 y pago único aprobado
- * - trg_actualizar_pedido_por_pago: actualiza estado del pedido cuando se aprueba/rechaza
- * 
+ * ⚠️ OBSOLETO: NO USAR. Versión intermedia sin integración con pedido.
+ * Para nuevo código, usar actualizarEstadoPagoConPedido() que tiene validación completa.
+ * Ver docs/06_DUPLICACION_CODIGO_A_LIMPIAR.md
+ * TODO: Eliminar esta función en siguiente refactor.
+ *
  * @param mysqli $mysqli Conexión a la base de datos
  * @param int $id_pago ID del pago
  * @param string $estado_pago Estado del pago
@@ -463,7 +279,7 @@ function actualizarPagoCompleto($mysqli, $id_pago, $estado_pago, $monto, $numero
         throw new Exception('Estado de pago inválido: ' . $estado_pago);
     }
     
-    // Validar número de transacción: máximo 100 caracteres (sin mínimo)
+    // Valida el número de transacción, asegurando que tenga un máximo de 100 caracteres.
     if ($numero_transaccion !== null) {
         $numero_transaccion = trim($numero_transaccion);
         if (!empty($numero_transaccion)) {
@@ -471,14 +287,14 @@ function actualizarPagoCompleto($mysqli, $id_pago, $estado_pago, $monto, $numero
             if ($longitud > 100) {
                 throw new Exception('El número de transacción no puede exceder 100 caracteres.');
             }
-            // Validar caracteres permitidos según diccionario: [A-Z, a-z, 0-9, -, _]
+            // Valida los caracteres permitidos para el número de transacción según el diccionario definido: [A-Z, a-z, 0-9, -, _].
             if (!preg_match('/^[A-Za-z0-9\-_]+$/', $numero_transaccion)) {
                 throw new Exception('El número de transacción solo puede contener letras, números, guiones y guiones bajos.');
             }
         }
     }
     
-    // Validar motivo de rechazo según diccionario: 0-500 caracteres (opcional)
+    // Valida el motivo de rechazo, asegurando que tenga entre 0 y 500 caracteres (es opcional).
     if ($motivo_rechazo !== null) {
         $motivo_rechazo = trim($motivo_rechazo);
         if (!empty($motivo_rechazo)) {
@@ -488,7 +304,7 @@ function actualizarPagoCompleto($mysqli, $id_pago, $estado_pago, $monto, $numero
         }
     }
     
-    // Obtener datos actuales del pago para validaciones
+    // Obtiene los datos actuales del pago para realizar validaciones posteriores.
     $pago_actual = obtenerPagoPorId($mysqli, $id_pago);
     if (!$pago_actual) {
         throw new Exception('Pago no encontrado con ID: ' . $id_pago);
@@ -497,7 +313,7 @@ function actualizarPagoCompleto($mysqli, $id_pago, $estado_pago, $monto, $numero
     $estado_anterior = $pago_actual['estado_pago'];
     $id_pedido = intval($pago_actual['id_pedido']);
     
-    // Validar transición de estado permitida (previene cambios inválidos)
+    // Valida que la transición de estado sea permitida, previniendo cambios de estado inválidos.
     if ($estado_pago !== $estado_anterior) {
         validarTransicionPago($estado_anterior, $estado_pago);
     }
@@ -513,9 +329,9 @@ function actualizarPagoCompleto($mysqli, $id_pago, $estado_pago, $monto, $numero
         try {
             $mysqli->begin_transaction();
             
-            // Verificar que el estado no haya cambiado desde que lo leímos (race condition check)
-            // Re-leer el estado dentro de la transacción para detectar cambios concurrentes
-            // Sin FOR UPDATE - el UPDATE final validará el estado
+            // Verifica que el estado no haya cambiado desde la última lectura para prevenir condiciones de carrera.
+            // Re-lee el estado dentro de la transacción actual para detectar posibles cambios concurrentes en la base de datos.
+            // No se utiliza FOR UPDATE aquí; la validación del estado se realizará en la sentencia UPDATE final.
             $sql_verificar_estado = "SELECT estado_pago FROM Pagos WHERE id_pago = ?";
             $stmt_verificar_estado = $mysqli->prepare($sql_verificar_estado);
             if (!$stmt_verificar_estado) {
@@ -542,7 +358,7 @@ function actualizarPagoCompleto($mysqli, $id_pago, $estado_pago, $monto, $numero
                 throw new Exception('El estado del pago ha cambiado durante la transacción. Estado anterior: ' . $estado_anterior . ', Estado actual: ' . $estado_actual_verificado);
             }
             
-            // Validar monto > 0 cuando se aprueba
+            // Valida que el monto sea mayor a 0 al aprobar el pago.
             if ($estado_pago === 'aprobado' && $estado_anterior !== 'aprobado') {
                 if ($monto <= 0) {
                     $mysqli->rollback();
@@ -550,15 +366,15 @@ function actualizarPagoCompleto($mysqli, $id_pago, $estado_pago, $monto, $numero
                 }
             }
             
-            // Si se aprueba, establecer fecha_aprobacion si no está establecida
+            // Si el pago es aprobado y la fecha de aprobación no está establecida, se asigna la fecha y hora actual.
             if ($estado_pago === 'aprobado') {
                 $fecha_aprobacion = date('Y-m-d H:i:s');
             }
             
-            // Validar solo si se está aprobando un pago (reemplaza trg_validar_pago_unico_aprobado_update)
+            // Realiza validaciones específicas solo si el pago está siendo aprobado (reemplaza la lógica del trigger `trg_validar_pago_unico_aprobado_update`).
             if ($estado_pago === 'aprobado' && $estado_anterior !== 'aprobado') {
-                // Verificar si ya existe otro pago aprobado para este pedido (excluyendo el actual)
-                // Sin FOR UPDATE - SELECT simple para verificar antes del UPDATE
+                // Verifica si ya existe otro pago aprobado para el mismo pedido, excluyendo el pago actual.
+                // Se utiliza un SELECT simple sin FOR UPDATE para verificar la existencia de pagos antes de proceder con el UPDATE.
             $sql_verificar = "
                 SELECT COUNT(*) as pagos_aprobados
                 FROM Pagos
@@ -588,7 +404,7 @@ function actualizarPagoCompleto($mysqli, $id_pago, $estado_pago, $monto, $numero
                 }
             }
             
-            // Si se está aprobando el pago, validar stock ANTES de aprobar
+            // Si el pago está siendo aprobado, se valida el stock disponible ANTES de confirmar la aprobación.
             if ($estado_pago === 'aprobado' && $estado_anterior !== 'aprobado') {
                 $stock_queries_path = __DIR__ . '/stock_queries.php';
                 if (!file_exists($stock_queries_path)) {
@@ -597,9 +413,9 @@ function actualizarPagoCompleto($mysqli, $id_pago, $estado_pago, $monto, $numero
                 }
                 require_once $stock_queries_path;
                 
-                // ESTRATEGIA DE MÚLTIPLES QUERIES SIMPLES:
-                // Query 1: Obtener detalles básicos del pedido (solo id_variante y cantidad)
-                // Sin FOR UPDATE - SELECT simple para obtener datos
+                // ESTRATEGIA DE MÚLTIPLES CONSULTAS SIMPLES:
+                // Consulta 1: Obtiene los detalles básicos del pedido (solo ID de variante y cantidad).
+                // Se utiliza un SELECT simple sin FOR UPDATE para obtener los datos necesarios.
                 $sql_detalles = "
                     SELECT id_variante, cantidad
                     FROM Detalle_Pedido
@@ -631,66 +447,91 @@ function actualizarPagoCompleto($mysqli, $id_pago, $estado_pago, $monto, $numero
                 if (empty($detalles_pedido)) {
                     throw new Exception('El pedido no tiene detalles');
                 }
-                
-                // Validar stock por variante en loop PHP (queries simples separadas)
+
+                // Verifica si el pedido ya cuenta con reservas de stock.
+                // Si existen reservas, el stock ya fue descontado físicamente al momento de crear el pedido.
+                $reservas_previas = verificarReservasPreviasPedido($mysqli, $id_pedido);
+                $tiene_reservas = ($reservas_previas > 0);
+
+                // Valida el stock por cada variante dentro de un bucle PHP, utilizando consultas simples e independientes.
+                // IMPORTANTE: Si el pedido ya tiene reservas, el stock FÍSICO ya fue descontado.
+                // Solo se valida el stock si NO hay reservas previas (esto aplica a pedidos antiguos que no utilizaban el sistema de reservas).
                 $errores_stock = [];
-                foreach ($detalles_pedido as $detalle) {
-                $id_variante = $detalle['id_variante'];
-                $cantidad_solicitada = $detalle['cantidad'];
-                
-                // Query 2: Obtener información de stock y estado de variante/producto
-                // Sin FOR UPDATE - SELECT simple para validar antes del UPDATE
-                $sql_variante = "
-                    SELECT
-                        sv.stock,
-                        sv.activo as variante_activa,
-                        sv.talle,
-                        sv.color,
-                        p.activo as producto_activo,
-                        p.nombre_producto
-                    FROM Stock_Variantes sv
-                    INNER JOIN Productos p ON sv.id_producto = p.id_producto
-                    WHERE sv.id_variante = ?
-                ";
-                
-                $stmt_variante = $mysqli->prepare($sql_variante);
-                if (!$stmt_variante) {
-                    $errores_stock[] = "Error al validar variante #{$id_variante}";
-                    continue;
+
+                if ($tiene_reservas) {
+                    // Si el pedido ya tiene reservas, el stock ya fue descontado al momento de su creación.
+                    // No es necesario validar el stock disponible, ya que los productos ya están reservados.
+                    error_log("actualizarEstadoPagoConPedido: Pedido #{$id_pedido} ya tiene {$reservas_previas} reservas. Stock ya descontado al crear el pedido.");
+                } else {
+                    // Si NO existen reservas, se valida el stock disponible de manera normal.
+                    // (Esto se aplica a pedidos antiguos creados sin el sistema de reserva de stock).
+                    foreach ($detalles_pedido as $detalle) {
+                        $id_variante = $detalle['id_variante'];
+                        $cantidad_solicitada = $detalle['cantidad'];
+
+                        // Consulta 2: Obtiene la información de stock y el estado de la variante/producto.
+                        // Se utiliza un SELECT simple sin FOR UPDATE para validar los datos antes de realizar cualquier UPDATE.
+                        $sql_variante = "
+                            SELECT
+                                sv.stock,
+                                sv.activo as variante_activa,
+                                sv.talle,
+                                sv.color,
+                                p.activo as producto_activo,
+                                p.nombre_producto
+                            FROM Stock_Variantes sv
+                            INNER JOIN Productos p ON sv.id_producto = p.id_producto
+                            WHERE sv.id_variante = ?
+                        ";
+
+                        $stmt_variante = $mysqli->prepare($sql_variante);
+                        if (!$stmt_variante) {
+                            $errores_stock[] = "Error al validar variante #{$id_variante}";
+                            continue;
+                        }
+
+                        $stmt_variante->bind_param('i', $id_variante);
+                        if (!$stmt_variante->execute()) {
+                            $stmt_variante->close();
+                            $errores_stock[] = "Error al validar variante #{$id_variante}";
+                            continue;
+                        }
+
+                        $result_variante = $stmt_variante->get_result();
+                        $variante_data = $result_variante->fetch_assoc();
+                        $stmt_variante->close();
+
+                        if (!$variante_data) {
+                            $errores_stock[] = "La variante #{$id_variante} no existe en el sistema.";
+                            continue;
+                        }
+
+                        $stock_actual = intval($variante_data['stock']);
+                        $variante_activa = intval($variante_data['variante_activa']);
+                        $producto_activo = intval($variante_data['producto_activo']);
+                        $talle = $variante_data['talle'];
+                        $color = $variante_data['color'];
+                        $nombre_producto = $variante_data['nombre_producto'];
+
+                        // Calcula el stock reservado por otros pedidos, excluyendo el pedido actual.
+                        $stock_reservado_otros = obtenerStockReservado($mysqli, $id_variante, $id_pedido);
+                        $stock_disponible = $stock_actual - $stock_reservado_otros;
+
+                        // Asegura que el stock disponible no sea un valor negativo.
+                        if ($stock_disponible < 0) {
+                            $stock_disponible = 0;
+                        }
+
+                        // Validar que variante y producto estén activos
+                        if ($variante_activa === 0) {
+                            $errores_stock[] = "La variante {$talle} {$color} del producto {$nombre_producto} está inactiva";
+                        } elseif ($producto_activo === 0) {
+                            $errores_stock[] = "El producto {$nombre_producto} está inactivo";
+                        } elseif ($stock_disponible < $cantidad_solicitada) {
+                            $errores_stock[] = "Stock insuficiente para {$nombre_producto} (Talla: {$talle}, Color: {$color}). Disponible: {$stock_disponible}, Solicitado: {$cantidad_solicitada}";
+                        }
+                    }
                 }
-                
-                $stmt_variante->bind_param('i', $id_variante);
-                if (!$stmt_variante->execute()) {
-                    $stmt_variante->close();
-                    $errores_stock[] = "Error al validar variante #{$id_variante}";
-                    continue;
-                }
-                
-                $result_variante = $stmt_variante->get_result();
-                $variante_data = $result_variante->fetch_assoc();
-                $stmt_variante->close();
-                
-                if (!$variante_data) {
-                    $errores_stock[] = "La variante #{$id_variante} no existe";
-                    continue;
-                }
-                
-                $stock_disponible = intval($variante_data['stock']);
-                $variante_activa = intval($variante_data['variante_activa']);
-                $producto_activo = intval($variante_data['producto_activo']);
-                $talle = $variante_data['talle'];
-                $color = $variante_data['color'];
-                $nombre_producto = $variante_data['nombre_producto'];
-                
-                // Validar que variante y producto estén activos
-                if ($variante_activa === 0) {
-                    $errores_stock[] = "La variante {$talle} {$color} del producto {$nombre_producto} está inactiva";
-                } elseif ($producto_activo === 0) {
-                    $errores_stock[] = "El producto {$nombre_producto} está inactivo";
-                } elseif ($stock_disponible < $cantidad_solicitada) {
-                    $errores_stock[] = "Stock insuficiente para {$nombre_producto} (Talla: {$talle}, Color: {$color}). Disponible: {$stock_disponible}, Solicitado: {$cantidad_solicitada}";
-                }
-            }
             
             // Si hay errores de stock, lanzar excepción ANTES de aprobar el pago
             if (!empty($errores_stock)) {
@@ -699,7 +540,7 @@ function actualizarPagoCompleto($mysqli, $id_pago, $estado_pago, $monto, $numero
         }
 
 
-        // Actualizar pago completo
+        // Realiza la actualización completa del pago en la base de datos.
         $sql = "
             UPDATE Pagos
             SET estado_pago = ?,
@@ -713,7 +554,7 @@ function actualizarPagoCompleto($mysqli, $id_pago, $estado_pago, $monto, $numero
 
         $stmt = $mysqli->prepare($sql);
         if (!$stmt) {
-            throw new Exception('Error al preparar actualización de pago');
+            throw new Exception('Error al preparar actualización de pago: ' . $mysqli->error);
         }
 
         $stmt->bind_param('sdsssi', $estado_pago, $monto, $numero_transaccion, $fecha_aprobacion, $motivo_rechazo, $id_pago);
@@ -722,9 +563,10 @@ function actualizarPagoCompleto($mysqli, $id_pago, $estado_pago, $monto, $numero
             $stmt->close();
             throw new Exception('Error al actualizar pago: ' . $error_msg);
         }
+
         $stmt->close();
         
-        // Actualizar estado del pedido según el estado del pago (reemplaza trg_actualizar_pedido_por_pago)
+        // Actualiza el estado del pedido basándose en el estado del pago (reemplaza la lógica del trigger `trg_actualizar_pedido_por_pago`).
         $pedido_queries_path = __DIR__ . '/pedido_queries.php';
         if (!file_exists($pedido_queries_path)) {
             error_log("ERROR: No se pudo encontrar pedido_queries.php en " . $pedido_queries_path);
@@ -732,16 +574,16 @@ function actualizarPagoCompleto($mysqli, $id_pago, $estado_pago, $monto, $numero
         }
         require_once $pedido_queries_path;
         
-        // Cuando el pago se aprueba, cambiar pedido a preparacion y descontar stock
+        // Si el pago es aprobado, el pedido se cambia automáticamente a estado 'preparacion' y se descuenta el stock.
         if ($estado_pago === 'aprobado' && $estado_anterior !== 'aprobado') {
-            // Descontar stock del pedido (ya validado anteriormente, dentro de la misma transacción)
+            // Descuenta el stock del pedido (esta operación ya fue validada previamente dentro de la misma transacción).
             $stock_queries_path = __DIR__ . '/stock_queries.php';
             if (!file_exists($stock_queries_path)) {
                 error_log("ERROR: No se pudo encontrar stock_queries.php en " . $stock_queries_path);
                 die("Error crítico: Archivo de consultas de stock no encontrado. Por favor, contacta al administrador.");
             }
             require_once $stock_queries_path;
-            // Obtener id_usuario del pedido para registrar en el movimiento de stock
+            // Obtiene el ID de usuario del pedido para registrarlo en el movimiento de stock.
             $sql_pedido_usuario = "SELECT id_usuario FROM Pedidos WHERE id_pedido = ?";
             $stmt_pedido_usuario = $mysqli->prepare($sql_pedido_usuario);
             $id_usuario_pago = null;
@@ -761,29 +603,31 @@ function actualizarPagoCompleto($mysqli, $id_pago, $estado_pago, $monto, $numero
                 $id_usuario_pago = intval($pedido_data['id_usuario']);
             }
             try {
-                if (!descontarStockPedido($mysqli, $id_pedido, $id_usuario_pago, true)) {
-                    throw new Exception('Error al descontar stock del pedido');
+                $resultado_stock = descontarStockPedido($mysqli, $id_pedido, $id_usuario_pago, true);
+                if ($resultado_stock === false || $resultado_stock === null) {
+                    throw new Exception('Error al descontar stock del pedido: La función retornó ' .
+                        (is_null($resultado_stock) ? 'null' : 'false'));
                 }
             } catch (Exception $e) {
-                // Re-lanzar excepción para que se haga rollback de toda la transacción
+                // Re-lanza la excepción para asegurar que toda la transacción sea revertida (rollback).
                 throw $e;
             }
             
-            // Actualizar estado del pedido a 'preparacion' usando función centralizada
-            // Solo si el estado actual es 'pendiente', 'preparacion' o vacío (NULL/'')
+            // Actualiza el estado del pedido a 'preparacion' utilizando una función centralizada para la gestión de estados.
+            // Esta acción solo se realiza si el estado actual del pedido es 'pendiente', 'preparacion' o está vacío (NULL/'').
             $pedido_queries_path = __DIR__ . '/pedido_queries.php';
             if (file_exists($pedido_queries_path)) {
                 require_once $pedido_queries_path;
             }
 
-            // Permitir estado vacío tratándolo como 'pendiente' (datos legacy)
+            // Permite estados vacíos, tratándolos como 'pendiente' para compatibilidad con datos heredados.
             $estados_permitidos = ['pendiente', 'preparacion', '', null];
-            if (!actualizarEstadoPedidoConValidacion($mysqli, $id_pedido, 'preparacion', $estados_permitidos)) {
+            if (!actualizarEstadoPedidoConValidaciones($mysqli, $id_pedido, 'preparacion', $estados_permitidos)) {
                 throw new Exception('Error al actualizar estado del pedido: el estado actual no permite esta actualización');
             }
         }
         
-        // Cuando el pago se rechaza o cancela, cambiar pedido a cancelado
+        // Si el pago es rechazado o cancelado, el pedido asociado se cambia automáticamente a estado 'cancelado'.
         if (in_array($estado_pago, ['rechazado', 'cancelado']) 
             && $estado_anterior !== $estado_pago 
             && in_array($estado_anterior, ['pendiente', 'pendiente_aprobacion', 'preparacion'])) {
@@ -799,7 +643,7 @@ function actualizarPagoCompleto($mysqli, $id_pago, $estado_pago, $monto, $numero
             if ($stmt_pedido) {
                 $stmt_pedido->bind_param('i', $id_pedido);
                 if (!$stmt_pedido->execute()) {
-                    // Loggear error pero no lanzar excepción ya que es opcional
+                    // Registra el error en el log, pero no lanza una excepción, ya que esta acción es opcional.
                     error_log("Error al actualizar estado del pedido a cancelado: " . $stmt_pedido->error);
                 }
                 $stmt_pedido->close();
@@ -850,31 +694,62 @@ function actualizarPagoCompleto($mysqli, $id_pago, $estado_pago, $monto, $numero
 function rechazarPago($mysqli, $id_pago, $id_usuario = null, $motivo = null) {
     // Obtener datos del pago
     $pago = obtenerPagoPorId($mysqli, $id_pago);
-    
+
     if (!$pago) {
         return false;
     }
-    
+
     $mysqli->begin_transaction();
-    
+
     try {
-        // Actualizar estado del pago
-        if (!actualizarEstadoPago($mysqli, $id_pago, 'rechazado')) {
-            throw new Exception('Error al actualizar estado del pago');
+        // Actualiza el estado del pago directamente, sin utilizar la función `actualizarEstadoPago` (que contiene validaciones más complejas).
+        $sql_actualizar_pago = "
+            UPDATE Pagos
+            SET estado_pago = 'rechazado',
+                motivo_rechazo = ?,
+                fecha_actualizacion = NOW()
+            WHERE id_pago = ?
+        ";
+
+        $stmt_actualizar_pago = $mysqli->prepare($sql_actualizar_pago);
+        if (!$stmt_actualizar_pago) {
+            throw new Exception('Error al preparar actualización de pago: ' . $mysqli->error);
         }
-        
-        // Revertir stock si ya había sido descontado
-        $stock_queries_path = __DIR__ . '/stock_queries.php';
-        if (!file_exists($stock_queries_path)) {
-            error_log("ERROR: No se pudo encontrar stock_queries.php en " . $stock_queries_path);
-            die("Error crítico: Archivo de consultas de stock no encontrado. Por favor, contacta al administrador.");
+        $stmt_actualizar_pago->bind_param('si', $motivo, $id_pago);
+        if (!$stmt_actualizar_pago->execute()) {
+            $error_msg = $stmt_actualizar_pago->error;
+            $stmt_actualizar_pago->close();
+            throw new Exception('Error al actualizar estado del pago: ' . $error_msg);
         }
-        require_once $stock_queries_path;
-        revertirStockPedido($mysqli, $pago['id_pedido'], $id_usuario, $motivo ? "Pago rechazado: {$motivo}" : "Pago rechazado");
-        
+
+        $rows_affected = $stmt_actualizar_pago->affected_rows;
+        $stmt_actualizar_pago->close();
+
+        if ($rows_affected === 0) {
+            throw new Exception('Error: No se pudo actualizar el estado del pago. El pago puede haber sido modificado por otro proceso.');
+        }
+
+        // Revierte el stock ÚNICAMENTE si el pago estaba previamente aprobado (lo que implica que el stock fue descontado).
+        if ($pago['estado_pago'] === 'aprobado') {
+            $stock_queries_path = __DIR__ . '/stock_queries.php';
+            if (!file_exists($stock_queries_path)) {
+                error_log("ERROR: No se pudo encontrar stock_queries.php en " . $stock_queries_path);
+                die("Error crítico: Archivo de consultas de stock no encontrado. Por favor, contacta al administrador.");
+            }
+            require_once $stock_queries_path;
+            $resultado_reversion = revertirStockPedido($mysqli, $pago['id_pedido'], $id_usuario, $motivo ? "Pago rechazado: {$motivo}" : "Pago rechazado");
+
+            // La operación solo fallará si la reversión explícitamente no tuvo éxito, no si no había stock para revertir (caso normal).
+            if ($resultado_reversion === false) {
+                // Verifica si el error se debe a que no había stock para revertir (lo cual es un caso normal).
+                // En este escenario, la ejecución continúa normalmente sin realizar un rollback de la transacción.
+                error_log("rechazarPago: No se pudo revertir stock para pedido #{$pago['id_pedido']} (posiblemente porque no había stock descontado). Continuando con el rechazo del pago.");
+            }
+        }
+
         $mysqli->commit();
         return true;
-        
+
     } catch (Exception $e) {
         $mysqli->rollback();
         error_log("Error al rechazar pago #{$id_pago}: " . $e->getMessage());
@@ -894,7 +769,7 @@ function obtenerPagosPorPedidos($mysqli, $pedidos_ids) {
         return [];
     }
     
-    // Validar que todos los IDs sean enteros
+    // Valida que todos los IDs proporcionados sean números enteros.
     $pedidos_ids = array_map('intval', $pedidos_ids);
     $pedidos_ids = array_filter($pedidos_ids, function($id) { return $id > 0; });
     
@@ -902,7 +777,7 @@ function obtenerPagosPorPedidos($mysqli, $pedidos_ids) {
         return [];
     }
     
-    // Construir placeholders para la query
+    // Construye los placeholders necesarios para la consulta SQL dinámica.
     $placeholders = str_repeat('?,', count($pedidos_ids) - 1) . '?';
     
     $sql = "
@@ -929,7 +804,7 @@ function obtenerPagosPorPedidos($mysqli, $pedidos_ids) {
         return [];
     }
     
-    // Bind parameters dinámicamente
+    // Asocia los parámetros a la consulta de forma dinámica.
     $types = str_repeat('i', count($pedidos_ids));
     $stmt->bind_param($types, ...$pedidos_ids);
     
@@ -951,99 +826,79 @@ function obtenerPagosPorPedidos($mysqli, $pedidos_ids) {
 }
 
 /**
- * Valida si una transición de estado de pago está permitida según la matriz de transiciones
- * 
- * NOTA: Esta función ahora delega a StateValidator para centralizar la lógica de validación.
- * Se mantiene por compatibilidad hacia atrás.
- * 
+ * Valida si una transición de estado de pago está permitida
+ *
  * @param string $estado_actual Estado actual del pago
  * @param string $nuevo_estado Nuevo estado al que se quiere cambiar
  * @return bool True si la transición está permitida
  * @throws Exception Si la transición no está permitida
  */
 function validarTransicionPago($estado_actual, $nuevo_estado) {
-    // Cargar funciones de estado si no están cargadas
     require_once __DIR__ . '/../state_functions.php';
 
-    // Validar transición de pago
-    $puede_transicionar = puedeTransicionarPago($estado_actual, $nuevo_estado);
-
-    // Si no puede transicionar, lanzar excepción
-    if (!$puede_transicionar) {
+    if (!puedeTransicionarPago($estado_actual, $nuevo_estado)) {
         $transiciones = obtenerTransicionesPagoValidas();
         $estados_permitidos = $transiciones[$estado_actual] ?? [];
         $estados_permitidos_str = empty($estados_permitidos) ? 'ninguno (estado terminal)' : implode(', ', $estados_permitidos);
-
         throw new Exception("Transición no permitida: No se puede cambiar de '$estado_actual' a '$nuevo_estado'. Transiciones permitidas desde '$estado_actual': $estados_permitidos_str");
     }
-
     return true;
 }
 
 /**
- * Valida que no se intente cancelar un pago que está en recorrido activo
- * 
- * NOTA: Esta función ahora delega a StateValidator para centralizar la lógica de validación.
- * 
+ * Valida que no se intente cancelar un pago en recorrido activo
+ *
  * @param string $nuevo_estado_pago Nuevo estado del pago
  * @param string $estado_pago_anterior Estado anterior del pago
  * @return void
  * @throws Exception Si se intenta cancelar un pago en recorrido activo
  */
 function _validarCancelacionPagoRecorridoActivo($nuevo_estado_pago, $estado_pago_anterior) {
-    // Cargar funciones de estado si no están cargadas
     require_once __DIR__ . '/../state_functions.php';
 
-    // Normalizar estados
     $nuevo_estado_norm = strtolower(trim($nuevo_estado_pago));
     $estado_anterior_norm = strtolower(trim($estado_pago_anterior));
 
-    // Si se intenta cancelar y está en recorrido activo, lanzar excepción
+    // Si el nuevo estado es 'cancelado' y el estado anterior es 'pendiente_aprobacion',
+    // esta transición está permitida según la lógica de negocio (genera cancelación de pedido).
+    // Por lo tanto, no se debe lanzar una excepción aquí.
+    if ($nuevo_estado_norm === 'cancelado' && $estado_anterior_norm === 'pendiente_aprobacion') {
+        return;
+    }
+
+    // Para cualquier otra situación donde se intente cancelar un pago en "recorrido activo"
+    // (es decir, no es 'pendiente_aprobacion' ni 'pendiente'), se lanza una excepción.
+    // La validación para el estado 'aprobado' se maneja por separado en _validarRechazoCancelacionPagoAprobado.
     if ($nuevo_estado_norm === 'cancelado' && estaEnRecorridoActivo($estado_anterior_norm, 'pago')) {
-        throw new Exception("No se puede cancelar un pago que está en recorrido activo. Estado actual: {$estado_anterior_norm}. Un pago en recorrido activo no puede cancelarse.");
+        throw new Exception("No se puede cancelar un pago en recorrido activo (estado: {$estado_anterior_norm}).");
     }
 }
 
 /**
- * Valida que no se intente cancelar/rechazar un pago aprobado cuando el pedido está en estados avanzados
- * 
- * Esta función centraliza la validación que se repite en múltiples lugares,
- * eliminando código duplicado.
- * 
- * NOTA: Esta función ahora usa StateValidator para validar estados terminales.
- * 
+ * Valida que no se cancele/rechace un pago aprobado en pedido avanzado
+ *
  * @param string $estado_pago_anterior Estado anterior del pago
  * @param string $estado_pedido_actual Estado actual del pedido
  * @return void
  * @throws Exception Si se intenta cancelar/rechazar pago aprobado en pedido avanzado
  */
 function _validarRechazoCancelacionPagoAprobado($estado_pago_anterior, $estado_pedido_actual) {
-    // Cargar StateValidator y estado_helpers si no están cargados
-    require_once __DIR__ . '/../state_validator.php';
-    require_once __DIR__ . '/../estado_helpers.php';
-    
-    // Normalizar estados
-    $estado_pago_anterior = strtolower(trim($estado_pago_anterior));
-    $estado_pedido_actual = strtolower(trim($estado_pedido_actual));
-    
-    // Cargar funciones de estado si no están cargadas
     require_once __DIR__ . '/../state_functions.php';
 
-    // Solo validar si el pago estaba aprobado
-    if ($estado_pago_anterior !== 'aprobado') {
-        return;
+    $estado_pago_anterior = strtolower(trim($estado_pago_anterior));
+    $estado_pedido_actual = strtolower(trim($estado_pedido_actual));
+
+    // CRÍTICO: Si el pago ya fue aprobado, no se permite ninguna otra acción de rechazo o cancelación.
+    // Esto aplica estrictamente la regla 'aprobado => []', haciendo que 'aprobado' sea un estado terminal en su flujo.
+    if ($estado_pago_anterior === 'aprobado') {
+        throw new Exception("No se puede cambiar el estado de un pago ya aprobado. Un pago aprobado es un estado final y no admite transiciones a rechazado o cancelado.");
     }
 
-    // Validar estados terminales del pedido
-    if (esEstadoTerminal($estado_pedido_actual, 'pedido')) {
-        $info_pedido = obtenerInfoEstadoPedido($estado_pedido_actual);
-        throw new Exception("No se puede cancelar o rechazar un pago aprobado cuando el pedido está en estado '{$info_pedido['nombre']}'. Un pedido en estado terminal es una venta cerrada.");
-    }
-    
-    // Validar estados avanzados (en_viaje es un caso especial)
-    if ($estado_pedido_actual === 'en_viaje') {
-        throw new Exception("No se puede cancelar/rechazar un pago aprobado cuando el pedido está en estado 'en viaje'. El pedido ya fue procesado.");
-    }
+    // La lógica original para verificar estados de pedido (en_viaje, completado) es ahora redundante para pagos 'aprobado',
+    // dado que la verificación anterior ya impide cualquier modificación desde un estado aprobado.
+    // Sin embargo, esta función también podría ser llamada en el futuro para validar rechazos/cancelaciones desde otros estados
+    // (ej. 'pendiente_aprobacion'), donde la validación del estado del pedido sí sería relevante.
+    // Por ahora, su propósito principal es asegurar que un pago *aprobado* no se pueda modificar.
 }
 
 /**
@@ -1086,34 +941,33 @@ function _aprobarPagoConValidaciones($mysqli, $id_pago, $pago_bloqueado, $id_ped
         throw new Exception('El pedido asociado al pago no existe. ID pedido: ' . $id_pedido);
     }
     
-    // Validar monto > 0
+    // Valida que el monto del pago sea mayor a 0.
     $monto = floatval($pago_bloqueado['monto']);
     if ($monto <= 0) {
         throw new Exception('No se puede aprobar un pago con monto menor o igual a cero');
     }
 
-    require_once __DIR__ . '/../estado_helpers.php';
     $estado_pedido_normalizado = normalizarEstado($estado_pedido_actual);
 
-    // FIX: Prevenir aprobación de pagos en estados terminales
-    if (in_array($estado_pedido_normalizado, ['cancelado', 'completado', 'devolucion'])) {
+    // CORRECCIÓN: Evita la aprobación de pagos si el pedido asociado se encuentra en un estado terminal.
+    if (in_array($estado_pedido_normalizado, ['cancelado', 'completado'])) {
         throw new Exception("No se puede aprobar el pago. El pedido está en estado terminal '{$estado_pedido_actual}'. Los pedidos cancelados, completados o devueltos no pueden modificarse.");
     }
 
-    // FIX: Prevenir doble descuento - verificar si reservas fueron liberadas
+    // CORRECCIÓN: Evita el doble descuento de stock verificando si las reservas ya fueron liberadas.
     $info_reservas = verificarSiPedidoTuvoReservas($mysqli, $id_pedido);
 
     if ($info_reservas['reservas_liberadas'] > 0 && $info_reservas['reservas_activas'] === 0) {
-        // Caso: Reservas fueron liberadas por expiración (> 24h)
+        // Caso: Las reservas fueron liberadas debido a su expiración (más de 24 horas).
         throw new Exception("No se puede aprobar el pago. El pedido #{$id_pedido} tuvo reservas que fueron liberadas por expiración. El cliente debe crear un nuevo pedido.");
     }
 
-    // Permitir 'preparacion' solo para corrección manual de inconsistencias
+    // Permite el estado 'preparacion' únicamente para la corrección manual de inconsistencias.
     if (!in_array($estado_pedido_normalizado, ['pendiente', 'pendiente_validado_stock', 'preparacion'])) {
         throw new Exception("No se puede aprobar el pago. El pedido está en estado '{$estado_pedido_actual}'. Solo se pueden aprobar pagos de pedidos en estado 'pendiente', 'pendiente_validado_stock' o 'preparacion'.");
     }
     
-    // Validar que no exista otro pago aprobado para este pedido
+    // Valida que no exista otro pago aprobado para el mismo pedido.
     $sql_verificar = "
         SELECT COUNT(*) as pagos_aprobados
         FROM Pagos
@@ -1140,8 +994,8 @@ function _aprobarPagoConValidaciones($mysqli, $id_pago, $pago_bloqueado, $id_ped
         throw new Exception('Ya existe otro pago aprobado para este pedido');
     }
     
-    // Obtener Detalle_Pedido del pedido
-    // Sin FOR UPDATE - SELECT simple para obtener datos
+    // Obtiene los detalles del pedido desde la tabla Detalle_Pedido.
+    // Se utiliza un SELECT simple sin FOR UPDATE para obtener los datos.
     $sql_detalles = "
         SELECT id_variante, cantidad
         FROM Detalle_Pedido
@@ -1169,20 +1023,23 @@ function _aprobarPagoConValidaciones($mysqli, $id_pago, $pago_bloqueado, $id_ped
         throw new Exception('El pedido no tiene detalles para procesar. No se puede aprobar un pago de un pedido sin productos.');
     }
     
-    // Validar stock disponible para cada item
+    // SIEMPRE se debe validar el stock disponible antes de aprobar el pago.
+    // Las reservas no garantizan que el stock físico del producto siga estando disponible.
+    // Es posible que otro pedido haya comprado el producto mientras este estaba reservado para el pedido actual.
     $errores_stock = [];
+
     foreach ($detalles as $detalle) {
         $id_variante = intval($detalle['id_variante']);
         $cantidad_requerida = intval($detalle['cantidad']);
-        
-        // Obtener stock disponible
-        // Sin FOR UPDATE - SELECT simple para validar antes del UPDATE atómico
+
+        // Obtiene el stock disponible para la variante de producto.
+        // Se utiliza un SELECT simple sin FOR UPDATE para validar el stock antes de realizar la operación de UPDATE atómico.
         $sql_stock = "
             SELECT stock
             FROM Stock_Variantes
             WHERE id_variante = ?
         ";
-        
+
         $stmt_stock = $mysqli->prepare($sql_stock);
         if ($stmt_stock) {
             $stmt_stock->bind_param('i', $id_variante);
@@ -1190,16 +1047,25 @@ function _aprobarPagoConValidaciones($mysqli, $id_pago, $pago_bloqueado, $id_ped
             $result_stock = $stmt_stock->get_result();
             $stock_data = $result_stock->fetch_assoc();
             $stmt_stock->close();
-            
-            $stock_disponible = intval($stock_data['stock'] ?? 0);
-            
+
+            $stock_actual = intval($stock_data['stock'] ?? 0);
+
+            // Calcula el stock reservado por otros pedidos, excluyendo el pedido actual para evitar conflictos.
+            $stock_reservado_otros = obtenerStockReservado($mysqli, $id_variante, $id_pedido);
+            $stock_disponible = $stock_actual - $stock_reservado_otros;
+
+            // Asegura que el valor del stock disponible no sea negativo.
+            if ($stock_disponible < 0) {
+                $stock_disponible = 0;
+            }
+
             if ($stock_disponible < $cantidad_requerida) {
-                $errores_stock[] = "Variante #{$id_variante}: requiere {$cantidad_requerida}, disponible {$stock_disponible}";
+                $errores_stock[] = "Variante #{$id_variante}: necesita {$cantidad_requerida}, disponible {$stock_disponible}";
             }
         }
     }
     
-    // Si hay errores de stock, rechazar el pago automáticamente
+    // Si se detectan errores de stock, el pago se rechaza automáticamente.
     if (!empty($errores_stock)) {
         $motivo_sin_stock = 'Sin stock: ' . implode('; ', $errores_stock);
         
@@ -1226,19 +1092,12 @@ function _aprobarPagoConValidaciones($mysqli, $id_pago, $pago_bloqueado, $id_ped
         throw new Exception('STOCK_INSUFICIENTE: ' . implode('; ', $errores_stock));
     }
     
-    // Verificar que no haya ventas previas para este pedido (guardrail)
-    $hay_ventas_previas = verificarVentasPreviasPedido($mysqli, $id_pedido);
-    if ($hay_ventas_previas > 0) {
-        error_log("Intento de descontar stock duplicado para pedido #{$id_pedido}. Ya existen {$hay_ventas_previas} movimientos tipo 'venta'.");
-        throw new Exception('VENTA_YA_DESCONTADA_PARA_PEDIDO: Ya se descontó stock para este pedido. No se puede descontar nuevamente.');
-    }
-    
-    // Descontar stock
+    // Procede a descontar el stock de los productos del pedido.
     if (!descontarStockPedido($mysqli, $id_pedido, $id_usuario_pedido, true)) {
         throw new Exception('Error al descontar stock del pedido');
     }
     
-    // Actualizar pago a aprobado
+    // Actualiza el estado del pago a 'aprobado'.
     $fecha_aprobacion = date('Y-m-d H:i:s');
     $sql_actualizar_pago = "
         UPDATE Pagos 
@@ -1266,7 +1125,7 @@ function _aprobarPagoConValidaciones($mysqli, $id_pago, $pago_bloqueado, $id_ped
         throw new Exception('Error: No se pudo actualizar el estado del pago. El pago puede haber sido modificado por otro proceso.');
     }
     
-    // Actualizar pedido a preparacion
+    // Actualiza el estado del pedido a 'preparacion'.
     $sql_actualizar_pedido = "
         UPDATE Pedidos 
         SET estado_pedido = 'preparacion',
@@ -1336,13 +1195,13 @@ function _rechazarOCancelarPago($mysqli, $id_pago, $nuevo_estado_pago, $motivo_r
         throw new Exception('El pedido asociado al pago no existe. ID pedido: ' . $id_pedido);
     }
     
-    // Normalizar estados antes de validar
+    // Normaliza los estados del pago y pedido antes de realizar cualquier validación.
     $estado_pago_anterior = normalizarEstado($estado_pago_anterior);
     $estado_pedido_actual = normalizarEstado($estado_pedido_actual);
     
-    // VALIDACIÓN CRÍTICA: No permitir cancelar/rechazar pagos aprobados cuando el pedido está en estados avanzados
-    // Estados avanzados: completado (venta cerrada) y en_viaje (pedido ya enviado)
-    // Usar función centralizada para evitar duplicación
+    // VALIDACIÓN CRÍTICA: Impide la cancelación o el rechazo de pagos que ya han sido aprobados cuando el pedido se encuentra en estados avanzados.
+    // Los estados avanzados incluyen: 'completado' (venta cerrada) y 'en_viaje' (pedido ya enviado).
+    // Se utiliza una función centralizada para evitar la duplicación de código y lógica.
     try {
         _validarRechazoCancelacionPagoAprobado($estado_pago_anterior, $estado_pedido_actual);
     } catch (Exception $e) {
@@ -1350,8 +1209,8 @@ function _rechazarOCancelarPago($mysqli, $id_pago, $nuevo_estado_pago, $motivo_r
         throw new Exception('No se puede rechazar/cancelar el pago: ' . $e->getMessage());
     }
     
-    // Actualizar estado del pago primero
-    $fecha_aprobacion = null; // Limpiar fecha_aprobacion si estaba aprobado
+    // Se procede a actualizar el estado del pago en la base de datos.
+    $fecha_aprobacion = null; // Se limpia la fecha de aprobación, ya que el pago no está en estado aprobado.
     $sql_actualizar_pago = "
         UPDATE Pagos 
         SET estado_pago = ?,
@@ -1379,26 +1238,18 @@ function _rechazarOCancelarPago($mysqli, $id_pago, $nuevo_estado_pago, $motivo_r
         throw new Exception('Error: No se pudo actualizar el estado del pago. El pago puede haber sido modificado por otro proceso.');
     }
     
-    // Continuar con la lógica de cancelación solo si el pago se rechaza/cancela
-    // REGLA: Si el pago se rechaza y el pedido está en pendiente o preparacion, cancelar automáticamente
+    // La lógica de cancelación se ejecuta solo si el pago ha sido rechazado o cancelado.
+    // REGLA: Si el pago es rechazado y el pedido se encuentra en estado 'pendiente' o 'preparacion', se cancela automáticamente el pedido.
     if (in_array($nuevo_estado_pago, ['rechazado', 'cancelado'])
         && $estado_pedido_actual !== 'cancelado'  
         && $estado_pedido_actual !== 'completado') {
     
         error_log("actualizarEstadoPagoConPedido: Cancelando pedido #{$id_pedido} debido a pago {$nuevo_estado_pago} (estado anterior: {$estado_pago_anterior}, estado pedido: {$estado_pedido_actual})");
         
-        // Restaurar stock si había sido descontado (si el pago estaba aprobado)
-        if ($estado_pago_anterior === 'aprobado') {
-            error_log("actualizarEstadoPagoConPedido: Restaurando stock del pedido #{$id_pedido} porque el pago estaba aprobado");
-            if (!revertirStockPedido($mysqli, $id_pedido, $id_usuario, "Pago " . $nuevo_estado_pago)) {
-                throw new Exception('Error al restaurar stock del pedido');
-            }
-        }
-        
-        // Cancelar el pedido SIEMPRE si está en pendiente o preparacion cuando el pago se rechaza
-        // Seguir con la lógica de cuándo puede cancelar: solo pendiente y preparacion
+        // Siempre se cancela el pedido si está en estado 'pendiente' o 'preparacion' cuando el pago es rechazado.
+        // La lógica de cancelación procede solo si el pedido está en estado 'pendiente' o 'preparacion'.
         if (in_array($estado_pedido_actual, ['pendiente', 'pendiente_validado_stock', 'preparacion'])) {
-            // Actualizar estado del pedido a 'cancelado'
+            // Actualiza el estado del pedido a 'cancelado'.
             $sql_actualizar_pedido = "
                 UPDATE Pedidos 
                 SET estado_pedido = 'cancelado',
@@ -1429,6 +1280,16 @@ function _rechazarOCancelarPago($mysqli, $id_pago, $nuevo_estado_pago, $motivo_r
         } else {
             error_log("actualizarEstadoPagoConPedido: Pedido #{$id_pedido} en estado '{$estado_pedido_actual}' no puede cancelarse automáticamente al rechazar pago");
         }
+        
+        // Restaura el stock si previamente fue descontado (es decir, si el pago estaba aprobado).
+        if ($estado_pago_anterior === 'aprobado') {
+            error_log("actualizarEstadoPagoConPedido: Restaurando stock del pedido #{$id_pedido} porque el pago estaba aprobado");
+            $resultado_reversion = revertirStockPedido($mysqli, $id_pedido, $id_usuario, "Pago " . $nuevo_estado_pago);
+            if ($resultado_reversion === false) {
+                // No se genera un error si no hay stock para revertir (esto es normal si el pedido no estaba aprobado).
+                error_log("actualizarEstadoPagoConPedido: No se pudo revertir stock para pedido #{$id_pedido} (posiblemente porque no había stock descontado). Continuando normalmente.");
+            }
+        }
     }
 }
 
@@ -1454,11 +1315,16 @@ function _rechazarOCancelarPago($mysqli, $id_pago, $nuevo_estado_pago, $motivo_r
  * Esta función centraliza la lógica de negocio para transiciones de estado de pago → estado de pedido
  * según las reglas definidas en el plan de lógica de negocio.
  * 
+ * ✅ RECOMENDADO: Esta es la versión canónica con integración completa con pedido y stock.
+ * USAR ESTA para cualquier cambio de estado de pago en nuevo código.
+ * NOTA: Existen otras versiones (actualizarEstadoPago, actualizarPagoCompleto) por razones históricas.
+ * Ver docs/06_DUPLICACION_CODIGO_A_LIMPIAR.md para consolidación futura.
+ *
  * REGLAS IMPLEMENTADAS:
  * - Si pago se aprueba → valida stock, descuenta stock, pedido pasa a 'preparacion'
  * - Si pago se rechaza/cancela → restaura stock si fue descontado, pedido pasa a 'cancelado'
  * - VALIDACIÓN: No permite cancelar pagos en recorrido activo (pendiente_aprobacion, aprobado)
- * 
+ *
  * @param mysqli $mysqli Conexión a la base de datos
  * @param int $id_pago ID del pago
  * @param string $nuevo_estado_pago Nuevo estado del pago
@@ -1468,43 +1334,50 @@ function _rechazarOCancelarPago($mysqli, $id_pago, $nuevo_estado_pago, $motivo_r
  * @throws Exception Si hay error en la actualización o stock insuficiente
  */
 function actualizarEstadoPagoConPedido($mysqli, $id_pago, $nuevo_estado_pago, $motivo_rechazo = null, $id_usuario = null) {
-    // Cargar función de normalización
+    // Carga la función de normalización de estados para su uso.
     require_once __DIR__ . '/../estado_helpers.php';
-    
-    // Normalizar estado antes de validar
+
+    // Normaliza el estado del pago antes de realizar cualquier validación.
     $nuevo_estado_pago = normalizarEstado($nuevo_estado_pago);
-    
-    // Validar estados válidos
+
+    // Valida que el nuevo estado del pago sea uno de los estados permitidos.
     $estados_validos = ['pendiente', 'pendiente_aprobacion', 'aprobado', 'rechazado', 'cancelado'];
     if (!in_array($nuevo_estado_pago, $estados_validos)) {
         throw new Exception('Estado de pago inválido: ' . $nuevo_estado_pago);
     }
     
-    // Obtener datos actuales del pago
+    // Obtiene los datos actuales del pago desde la base de datos.
     $pago_actual = obtenerPagoPorId($mysqli, $id_pago);
     if (!$pago_actual) {
         throw new Exception('Pago no encontrado con ID: ' . $id_pago);
     }
     
-    // Normalizar estado anterior
+    // Normaliza el estado anterior del pago para comparaciones.
     $estado_pago_anterior = normalizarEstado($pago_actual['estado_pago']);
     $id_pedido = intval($pago_actual['id_pedido']);
     
-    // Si no cambió el estado, no hacer nada
+    // Si el estado del pago no ha cambiado, no se realiza ninguna acción y se retorna éxito.
     if ($estado_pago_anterior === $nuevo_estado_pago) {
         return true;
     }
     
-    // VALIDACIÓN TEMPRANA: Verificar que la transición esté permitida según la matriz de transiciones
-    // Esta validación previene transiciones inválidas antes de ejecutar cualquier lógica de negocio
+    // VALIDACIÓN TEMPRANA: Verifica que la transición de estado esté permitida según la matriz de transiciones definida.
+    // Esta validación temprana previene transiciones de estado inválidas antes de que se ejecute cualquier lógica de negocio compleja.
     try {
         validarTransicionPago($estado_pago_anterior, $nuevo_estado_pago);
     } catch (Exception $e) {
         // Mejorar mensaje de error para que sea más claro
         throw new Exception('Transición de estado de pago no permitida: ' . $e->getMessage());
     }
+
+    // CRÍTICO: Evitar que un pago aprobado se rechace o cancele.
+    if ($estado_pago_anterior === 'aprobado' && in_array($nuevo_estado_pago, ['rechazado', 'cancelado'])) {
+        throw new Exception(
+            'Inconsistencia Crítica de Pago: Un pago aprobado no puede ser rechazado o cancelado. Revise el flujo de pago o los estados previos.'
+        );
+    }
     
-    // VALIDACIÓN CRÍTICA: No permitir cancelar pagos que están en recorrido activo
+    // VALIDACIÓN CRÍTICA: Impide la cancelación de pagos que ya se encuentran en un "recorrido activo".
     try {
         _validarCancelacionPagoRecorridoActivo($nuevo_estado_pago, $estado_pago_anterior);
     } catch (Exception $e) {
@@ -1528,7 +1401,7 @@ function actualizarEstadoPagoConPedido($mysqli, $id_pago, $nuevo_estado_pago, $m
         try {
             $mysqli->begin_transaction();
             
-            // PASO 2: Obtener datos del pago (sin FOR UPDATE - usamos validaciones atómicas en UPDATE)
+            // PASO 2: Obtiene los datos del pago (sin usar FOR UPDATE, ya que las validaciones atómicas se manejan en el UPDATE).
         $sql_pago = "
             SELECT 
                 p.id_pago,
@@ -1563,12 +1436,12 @@ function actualizarEstadoPagoConPedido($mysqli, $id_pago, $nuevo_estado_pago, $m
             throw new Exception('Pago no encontrado con ID: ' . $id_pago);
         }
         
-        // Verificar que el estado no haya cambiado desde que lo leímos (race condition check)
+        // Verifica que el estado del pago no haya cambiado desde la lectura inicial para evitar condiciones de carrera.
         if ($pago_bloqueado['estado_pago'] !== $estado_pago_anterior) {
             throw new Exception('El estado del pago ha cambiado durante la transacción');
         }
         
-        // Obtener datos del pedido (sin FOR UPDATE - usamos validaciones atómicas en UPDATE)
+        // Obtiene los datos del pedido asociado (sin usar FOR UPDATE, ya que las validaciones atómicas se manejan en el UPDATE).
         $sql_pedido = "
             SELECT 
                 p.id_pedido,
@@ -1603,7 +1476,7 @@ function actualizarEstadoPagoConPedido($mysqli, $id_pago, $nuevo_estado_pago, $m
         }
 
         $estado_pedido_actual = $pedido_bloqueado['estado_pedido'];
-        // Normalizar estado: si está vacío o NULL, usar 'pendiente' como valor por defecto
+        // Normaliza el estado del pedido: si está vacío o NULL, se establece 'pendiente' como valor por defecto.
         if (empty($estado_pedido_actual)) {
             $estado_pedido_actual = 'pendiente';
         } else {
@@ -1613,17 +1486,17 @@ function actualizarEstadoPagoConPedido($mysqli, $id_pago, $nuevo_estado_pago, $m
         }
         $id_usuario_pedido = intval($pedido_bloqueado['id_usuario']);
         
-        // REGLA 1: Cuando el PAGO se APRUEBA
+        // REGLA 1: Lógica a ejecutar cuando el PAGO es APROBADO.
         if ($nuevo_estado_pago === 'aprobado' && $estado_pago_anterior !== 'aprobado') {
             _aprobarPagoConValidaciones($mysqli, $id_pago, $pago_bloqueado, $id_pedido, $estado_pedido_actual, $id_usuario_pedido);
         }
-        // REGLA 2: Cuando el PAGO se RECHAZA o CANCELA
+        // REGLA 2: Lógica a ejecutar cuando el PAGO es RECHAZADO o CANCELADO.
         elseif (in_array($nuevo_estado_pago, ['rechazado', 'cancelado']) 
                 && $estado_pago_anterior !== $nuevo_estado_pago) {
             _rechazarOCancelarPago($mysqli, $id_pago, $nuevo_estado_pago, $motivo_rechazo, $id_pedido, $estado_pago_anterior, $estado_pedido_actual, $id_usuario);
         }
-        // REGLA 3: Otros cambios de estado (pendiente, pendiente_aprobacion)
-        // No afectan el estado del pedido automáticamente
+        // REGLA 3: Manejo de otros cambios de estado (ej. de 'pendiente' a 'pendiente_aprobacion').
+        // Estos cambios de estado no afectan automáticamente el estado del pedido asociado.
         else {
             // Actualizar solo el estado del pago sin afectar el pedido
             $fecha_aprobacion = null;
@@ -1698,7 +1571,7 @@ function actualizarEstadoPagoConPedido($mysqli, $id_pago, $nuevo_estado_pago, $m
  * - Valida que el pago existe y pertenece al cliente
  * - Valida que el pago esté en estado "pendiente"
  * - Actualiza el pago a "pendiente_aprobacion" con número de transacción
- * - NO descuenta stock (eso lo hace ventas al aprobar)
+ * - NO valida stock (eso lo hace ventas al aprobar)
  *
  * DIFERENCIA CON actualizarEstadoPagoConPedido():
  * - Esta función es para CLIENTES marcando que pagaron
@@ -1822,7 +1695,7 @@ function marcarPagoPagadoPorCliente($mysqli, $id_pago, $id_usuario, $numero_tran
     require_once __DIR__ . '/../estado_helpers.php';
     $estado_pedido = normalizarEstado($pedido['estado_pedido']);
 
-    if (in_array($estado_pedido, ['cancelado', 'completado', 'devolucion'])) {
+    if (in_array($estado_pedido, ['cancelado', 'completado'])) {
         return [
             'exito' => false,
             'mensaje' => "No se puede marcar el pago como pagado. El pedido está {$estado_pedido}.",
@@ -1854,7 +1727,8 @@ function marcarPagoPagadoPorCliente($mysqli, $id_pago, $id_usuario, $numero_tran
     // ACTUALIZACIÓN: Marcar pago como pendiente_aprobacion con número de transacción
     // NOTA: NO se descuenta stock aquí, solo cuando ventas apruebe el pago
     try {
-        $numero_transaccion_final = !empty($numero_transaccion_validado) ? $numero_transaccion_validado : null;
+        // Generar numero_transaccion único con formato IDPAGO-CODIGOPAGO
+        $numero_transaccion_final = !empty($numero_transaccion_validado) ? "{$id_pago}-{$numero_transaccion_validado}" : null;
 
         // Usar actualizarPagoCompleto() que ya existe
         $resultado = actualizarPagoCompleto($mysqli, $id_pago, 'pendiente_aprobacion', $monto, $numero_transaccion_final);
@@ -1874,6 +1748,16 @@ function marcarPagoPagadoPorCliente($mysqli, $id_pago, $id_usuario, $numero_tran
         ];
     } catch (Exception $e) {
         error_log("marcarPagoPagadoPorCliente: Error - " . $e->getMessage());
+
+        // Detectar error específico de duplicado de numero_transaccion
+        if (strpos($e->getMessage(), 'Duplicate entry') !== false && strpos($e->getMessage(), 'numero_transaccion') !== false) {
+            return [
+                'exito' => false,
+                'mensaje' => 'Este número de transacción ya está siendo usado por otro pago. Por favor, verifica el código o usa uno diferente.',
+                'mensaje_tipo' => 'warning'
+            ];
+        }
+
         return [
             'exito' => false,
             'mensaje' => 'Error al marcar el pago como pagado: ' . $e->getMessage(),

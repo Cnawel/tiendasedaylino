@@ -154,26 +154,19 @@ if (!function_exists('render_footer')) {
 
         <!-- Bootstrap JS -->
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="js/hero-carousel.js"></script>
         <!-- Funciones JavaScript Comunes (debe incluirse antes de otros scripts específicos) -->
-        <!-- Proporciona: togglePassword, validateEmail, validateEmailInput, validarCodigoPostal, etc. -->
         <?php include_once __DIR__ . '/common_js_functions.php'; ?>
         <!-- UX Mejoras Simples (usa funciones de common_js_functions.php si es necesario) -->
         <script src="js/ux-mejoras.js"></script>
         <!-- Bloqueo de botones (para operaciones críticas) -->
         <script src="js/button-lock.js"></script>
-        <!-- 
-        NOTA: Otros scripts específicos de página deben incluirse después de este punto:
-        - js/login.js, js/register.js, js/perfil.js: Dependen de common_js_functions.php
-        - js/detalle-producto.js: Depende de detalle_producto_data.php y common_js_functions.php
-        - js/detalle_producto_image_navigation.js: Depende de js/detalle-producto.js (función cambiarImagenPrincipal)
-        - js/admin_validation.js: Depende de common_js_functions.php
-        - js/checkout.js: Depende de common_js_functions.php
-        - js/formulario-contacto.js: Depende de common_js_functions.php (validateEmail)
-        -->
+        <script src="js/formulario-contacto.js"></script>
+        <!-- Scripts específicos de página (el resto) -->
         <?php
         // Cargar scripts específicos de página según el archivo actual
         $current_page = basename($_SERVER['PHP_SELF']);
-        
+
         // Scripts por página
         $page_scripts = [
             'perfil.php' => ['js/perfil.js'],
@@ -182,22 +175,18 @@ if (!function_exists('render_footer')) {
             'marketing.php' => ['js/marketing_forms.js', 'js/table-sort.js'],
             'marketing-editar-producto.php' => ['js/marketing_forms.js', 'js/marketing_editar_producto.js'],
             'checkout.php' => ['js/checkout.js'],
-            'detalle-producto.php' => ['js/detalle-producto.js', 'js/detalle_producto_image_navigation.js'],
-            'formulario-contacto.php' => ['js/formulario-contacto.js'],
+            // 'detalle-producto.php' => ['js/detalle-producto.js', 'js/detalle_producto_image_navigation.js'],
+            // 'formulario-contacto.php' => ['js/formulario-contacto.js'], // Ya se incluyó de forma estática
             'login.php' => ['js/login.js'],
             'register.php' => ['js/register.js'],
             'admin.php' => ['js/admin_validation.js', 'js/table-sort.js'],
             'ventas.php' => ['js/ventas.js?v=' . time(), 'js/table-sort.js']
         ];
-        
+
         if (isset($page_scripts[$current_page])) {
             foreach ($page_scripts[$current_page] as $script) {
                 echo '<script src="' . htmlspecialchars($script, ENT_QUOTES, 'UTF-8') . '"></script>' . "\n";
             }
         }
-        ?>
-        <?php
     }
-}
-
-
+}?>
