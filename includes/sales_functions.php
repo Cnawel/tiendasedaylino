@@ -393,14 +393,31 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
         if ($nuevo_estado === 'cancelado' && $pago_actual && $estado_pago_anterior_real !== 'cancelado' && $estado_pago_anterior_real !== 'rechazado') {
             try {
                 // El stock ya fue restaurado por actualizarEstadoPedidoConValidaciones() cuando canceló el pedido
-                // Solo necesitamos actualizar el estado del pago sin afectar el pedido
-                // NOTA: actualizarEstadoPago() maneja su propia transacción
+                // O por la llamada a _rechazarOCancelarPago() si el pago se rechazó/canceló primero.
+                // Ahora, llamamos a revertirStockPedido de forma explícita si el pago no estaba aprobado
+                // y no se pasó por la rama de actualización de pago.
+
+                // Verificar si el stock ya fue revertido por _rechazarOCancelarPago
+                // Si el pago no fue aprobado previamente, asumimos que no se descontó stock, solo se reservó.
+                // revertirStockPedido es idempotente, así que no hay problema en llamarla dos veces.
+                error_log("procesarActualizacionPedidoPago: Pedido #{$pedido_id} - Llamando a revertirStockPedido debido a cancelación de pedido (estado pago anterior: {$estado_pago_anterior_real})");
+                $resultado_reversion = revertirStockPedido($mysqli, $pedido_id, $id_usuario, "Pedido cancelado");
+                // BUG FIX: Lanzar excepción si la restauración falla
+                // Anterior comportamiento: Solo registraba log y continuaba, dejando stock sin restaurar
+                // Nuevo comportamiento: Rechaza la cancelación del pedido si no se puede restaurar el stock
+                if ($resultado_reversion === false) {
+                    throw new Exception("Error crítico al restaurar stock al cancelar el pedido #{$pedido_id}. La cancelación ha sido cancelada. Verifique los logs para más detalles.");
+                }
+
+                // Actualizar el estado del pago a 'cancelado' si no está ya en ese estado o rechazado.
+                // NOTA: actualizarEstadoPago() maneja su propia transacción.
                 if (!actualizarEstadoPago($mysqli, $pago_actual['id_pago'], 'cancelado', null, null)) {
                     throw new Exception('Error al cancelar el pago');
                 }
             } catch (Exception $e) {
                 // No fallar la operación completa si solo falla cancelar el pago
                 // El pedido ya fue cancelado exitosamente
+                error_log("procesarActualizacionPedidoPago: Error al intentar cancelar pago #{$pago_actual['id_pago']} tras cancelación de pedido #{$pedido_id}: " . $e->getMessage());
             }
         }
         

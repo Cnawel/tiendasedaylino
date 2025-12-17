@@ -739,11 +739,11 @@ function rechazarPago($mysqli, $id_pago, $id_usuario = null, $motivo = null) {
             require_once $stock_queries_path;
             $resultado_reversion = revertirStockPedido($mysqli, $pago['id_pedido'], $id_usuario, $motivo ? "Pago rechazado: {$motivo}" : "Pago rechazado");
 
-            // La operación solo fallará si la reversión explícitamente no tuvo éxito, no si no había stock para revertir (caso normal).
+            // BUG FIX: Lanzar excepción si la restauración falla
+            // Anterior comportamiento: Solo registraba log y continuaba, dejando stock sin restaurar
+            // Nuevo comportamiento: Rechaza el cambio de pago si no se puede restaurar el stock
             if ($resultado_reversion === false) {
-                // Verifica si el error se debe a que no había stock para revertir (lo cual es un caso normal).
-                // En este escenario, la ejecución continúa normalmente sin realizar un rollback de la transacción.
-                error_log("rechazarPago: No se pudo revertir stock para pedido #{$pago['id_pedido']} (posiblemente porque no había stock descontado). Continuando con el rechazo del pago.");
+                throw new Exception("Error crítico al restaurar stock del pago #{$pago['id_pago']} (pedido #{$pago['id_pedido']}). No se puede completar el rechazo del pago.");
             }
         }
 
@@ -1281,14 +1281,15 @@ function _rechazarOCancelarPago($mysqli, $id_pago, $nuevo_estado_pago, $motivo_r
             error_log("actualizarEstadoPagoConPedido: Pedido #{$id_pedido} en estado '{$estado_pedido_actual}' no puede cancelarse automáticamente al rechazar pago");
         }
         
-        // Restaura el stock si previamente fue descontado (es decir, si el pago estaba aprobado).
-        if ($estado_pago_anterior === 'aprobado') {
-            error_log("actualizarEstadoPagoConPedido: Restaurando stock del pedido #{$id_pedido} porque el pago estaba aprobado");
-            $resultado_reversion = revertirStockPedido($mysqli, $id_pedido, $id_usuario, "Pago " . $nuevo_estado_pago);
-            if ($resultado_reversion === false) {
-                // No se genera un error si no hay stock para revertir (esto es normal si el pedido no estaba aprobado).
-                error_log("actualizarEstadoPagoConPedido: No se pudo revertir stock para pedido #{$id_pedido} (posiblemente porque no había stock descontado). Continuando normalmente.");
-            }
+        // Restaura el stock si previamente fue descontado (es decir, si el pago estaba aprobado, o si había reservas).
+        // La función revertirStockPedido es idempotente y manejará si hay o no stock que revertir.
+        error_log("actualizarEstadoPagoConPedido: Intentando restaurar stock del pedido #{$id_pedido} debido a pago {$nuevo_estado_pago}");
+        $resultado_reversion = revertirStockPedido($mysqli, $id_pedido, $id_usuario, "Pago " . $nuevo_estado_pago);
+        if ($resultado_reversion === false) {
+            // BUG FIX: Lanzar excepción para detener la transacción si la restauración falla
+            // Anterior comportamiento: Solo registraba log y continuaba, dejando stock sin restaurar
+            // Nuevo comportamiento: Rechaza el cambio de pago si no se puede restaurar el stock
+            throw new Exception("Error crítico al restaurar stock del pedido #{$id_pedido}. No se puede completar la cancelación/rechazo del pago. Verifique los logs para más detalles.");
         }
     }
 }

@@ -12,10 +12,7 @@
 # Archivos con Credenciales Locales (NO SUBIR)
 # ==============================
 
-composer.phar
-
 rules.md
-docs/
 
 # Configuración local de base de datos con credenciales
 config/database.php
@@ -52,6 +49,7 @@ settings_local.json
 
 # Carpeta marcada como privada
 NOSUBIR/
+rules.md
 README_me.md
 
 # Testing

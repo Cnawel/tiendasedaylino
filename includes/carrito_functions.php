@@ -88,7 +88,7 @@ function validarEstructuraItemCarrito($item) {
  * @param string $modo Modo de procesamiento: 'preliminar' (checkout) o 'definitivo' (procesar-pedido)
  * @return array|false Array con datos del producto procesado o false si hay error, o array con 'error' => true si hay error de validación
  */
-function procesarItemCarrito($mysqli, $item, $clave, $modo = 'preliminar') {
+function procesarItemCarrito($mysqli, $item, $clave, $modo = 'preliminar', $usar_lock = false) {
     // Validar estructura del item
     if (!validarEstructuraItemCarrito($item)) {
         return false;
@@ -121,7 +121,8 @@ function procesarItemCarrito($mysqli, $item, $clave, $modo = 'preliminar') {
             $item['color'], 
             $cantidad_solicitada, 
             $modo,
-            0 // cantidad_actual_carrito = 0 porque ya estamos procesando el item completo
+            0, // cantidad_actual_carrito = 0 porque ya estamos procesando el item completo
+            ($modo === 'definitivo') // $usar_lock = true solo en modo definitivo
         );
     } catch (Exception $e) {
         // En modo definitivo, retornar error estructurado

@@ -82,30 +82,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $es_stock_maximo = ($stock_disponible == $cantidad_total_solicitada);
             $cantidad_a_agregar = $cantidad;
         } catch (Exception $e) {
+            // SEGURIDAD: Registrar excepción pero no exponerla al usuario
+            $mensaje_tecnico = $e->getMessage();
+            error_log("[CARRITO EXCEPTION] " . $mensaje_tecnico);
+
             // Cuando hay stock insuficiente, extraer la cantidad disponible y agregarla automáticamente
             // Esto facilita la compra en lugar de bloquearla
-            $mensaje_error = $e->getMessage();
             $cantidad_disponible_para_agregar = 0;
             $stock_disponible = 0;
 
-            // Extraer stock disponible del mensaje de error
+            // Extraer stock disponible del mensaje de error (usando mensaje técnico internamente)
             // Buscar diferentes patrones posibles
-            if (preg_match('/Solo quedan (\d+) unidades/', $mensaje_error, $matches)) {
+            if (preg_match('/Solo quedan (\d+) unidades/', $mensaje_tecnico, $matches)) {
                 $stock_disponible = intval($matches[1]);
-            } elseif (preg_match('/Disponible: (\d+) unidades/', $mensaje_error, $matches)) {
+            } elseif (preg_match('/Disponible: (\d+) unidades/', $mensaje_tecnico, $matches)) {
                 $stock_disponible = intval($matches[1]);
-            } elseif (preg_match('/stock máximo disponible \((\d+) unidades\)/', $mensaje_error, $matches)) {
+            } elseif (preg_match('/stock máximo disponible \((\d+) unidades\)/', $mensaje_tecnico, $matches)) {
                 $stock_disponible = intval($matches[1]);
             }
 
             // Extraer cantidad disponible para agregar del mensaje de error
-            if (preg_match('/Puedes agregar hasta (\d+) unidades más/', $mensaje_error, $matches)) {
+            if (preg_match('/Puedes agregar hasta (\d+) unidades más/', $mensaje_tecnico, $matches)) {
                 $cantidad_disponible_para_agregar = intval($matches[1]);
             } elseif ($stock_disponible > 0) {
                 // Si no hay patrón específico, calcular la cantidad disponible
                 $cantidad_disponible_para_agregar = $stock_disponible - $cantidad_actual_carrito;
             }
-            
+
             // Si hay cantidad disponible para agregar, agregarla automáticamente
             if ($cantidad_disponible_para_agregar > 0) {
                 $cantidad_a_agregar = $cantidad_disponible_para_agregar;
@@ -114,14 +117,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // No hacer exit aquí, permitir que el código continúe
             } else {
                 // No hay stock disponible para agregar
+                // SEGURIDAD: Usar mensaje genérico en lugar de exponer la excepción
+                $mensaje_usuario = 'Stock insuficiente. Intenta con una cantidad menor.';
                 if ($es_ajax) {
-                    enviarRespuestaAjaxError($mensaje_error, [
+                    enviarRespuestaAjaxError($mensaje_usuario, [
                         'stock_disponible' => $stock_disponible,
                         'cantidad_actual' => $cantidad_actual_carrito,
                         'cantidad_disponible_para_agregar' => 0
                     ]);
                 } else {
-                    redirigirConMensaje('carrito.php', $mensaje_error);
+                    redirigirConMensaje('carrito.php', $mensaje_usuario);
                 }
                 exit;
             }
@@ -234,20 +239,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         } catch (Exception $e) {
+            // SEGURIDAD: Registrar excepción pero no exponerla al usuario
+            $mensaje_tecnico = $e->getMessage();
+            error_log("[CARRITO UPDATE EXCEPTION] " . $mensaje_tecnico);
+
             // Manejar error de stock insuficiente o producto inactivo
-            $mensaje_error = $e->getMessage();
-            
-            if (strpos($mensaje_error, 'inactivo') !== false || strpos($mensaje_error, 'no está disponible') !== false) {
+            if (strpos($mensaje_tecnico, 'inactivo') !== false || strpos($mensaje_tecnico, 'no está disponible') !== false) {
                 unset($_SESSION['carrito'][$clave]);
                 $producto_eliminado = true;
                 $mensaje = "El producto ya no está disponible y fue removido del carrito.";
             } else {
                 // Stock insuficiente - ajustar a máximo disponible
                 $stock_disponible = 0;
-                if (preg_match('/Disponible: (\d+)/', $mensaje_error, $matches)) {
+                if (preg_match('/Disponible: (\d+)/', $mensaje_tecnico, $matches)) {
                     $stock_disponible = intval($matches[1]);
                 }
-                
+
                 if ($stock_disponible > 0) {
                     $_SESSION['carrito'][$clave]['cantidad'] = $stock_disponible;
                     $mensaje = "Cantidad ajustada a stock disponible: {$stock_disponible} unidades.";

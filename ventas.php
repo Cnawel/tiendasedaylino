@@ -881,14 +881,13 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                     <?php
                                                     // Obtener información del estado usando función centralizada
                                                     $info_estado = obtenerInfoEstadoPedido($pedido_tiempo['estado_pedido'] ?? '');
-                                                    $horas = floatval($pedido_tiempo['horas_en_estado'] ?? 0);
-                                                    $dias = intval($pedido_tiempo['dias_en_estado'] ?? 0);
-                                                    if ($dias > 0) {
-                                                        $tiempo_formato = $dias . ' día' . ($dias > 1 ? 's' : '');
-                                                    } else {
-                                                        $horas_redondeadas = round($horas, 1);
-                                                        $tiempo_formato = number_format($horas_redondeadas, 1, ',', '.') . ' hora' . ($horas_redondeadas != 1 ? 's' : '');
-                                                    }
+                                                    // Usar nueva función de formateo de tiempo
+                                                    $tiempo_formato = formatearTiempoEstado($pedido_tiempo['tiempo_detallado'] ?? [
+                                                        'dias' => intval($pedido_tiempo['dias_en_estado'] ?? 0),
+                                                        'horas' => 0,
+                                                        'minutos' => 0,
+                                                        'segundos' => 0
+                                                    ]);
                                                     ?>
                                                     <tr>
                                                         <td>#<?= $pedido_tiempo['id_pedido'] ?></td>

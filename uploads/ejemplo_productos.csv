@@ -1,6 +1,6 @@
 nombre_producto,descripcion_producto,precio_actual,categoria,genero,talle,color,stock,foto_prod_miniatura,foto1_prod,foto2_prod,foto3_prod
-Blusa Manga Larga,Blusa de seda elegante y versátil,20000.00,Blusas,mujer,M,azul,10,blusa_mujer_mangalarga_azul.webp,blusa_azul_modelo.webp,blusa_mujer_mangalarga_azul - Copy.webp,blusa_mujer_modelogrupal_oficina.webp
-Pantalón Lino Regular,Pantalón de lino fresco y cómodo,25000.00,Pantalones,hombre,L,azul,15,pantalon_hombre_lino_azul.webp,pantalon_hombre_lino_azul_modelo2.webp,pantalon_hombre_lino_azul_modelo3.webp,pantalon_lino_grupal_oficina.webp
-Camisa Lino,Camisa de lino ideal para el verano,22000.00,Camisas,hombre,M,natural,12,camisa_hombre_lino_modelocerca.webp,camisa_hombre_lino_modelo.webp,,camisa_grupal.webp
-Short Lino Bermuda,Short de lino casual,16000.00,Shorts,hombre,S,marrón,8,short_hombre_marron_mini.jpg.webp,short_hombre_marron.webp,short_hombre_marron1.jpg.webp,
-Pantalón Lino Slim,Pantalón de lino corte recto,18000.00,Pantalones,mujer,S,crema,10,pantalon_mujer_crema_mini.webp,pantalon_mujer_crema_modelo.webp,pantalon_mujer_crema.webp,pantalon_mujer_grupal_noche.webp
+Blusa Manga Larga,Blusa de seda elegante y versátil,20000,Blusas,mujer,M,azul,10,blusa_mujer_mangalarga_azul.webp,blusa_azul_modelo.webp,blusa_mujer_mangalarga_azul - Copy.webp,blusa_mujer_modelogrupal_oficina.webp
+Pantalón Lino Regular,Pantalón de lino fresco y cómodo,25000,Pantalones,hombre,L,azul,15,pantalon_hombre_lino_azul.webp,pantalon_hombre_lino_azul_modelo2.webp,pantalon_hombre_lino_azul_modelo3.webp,pantalon_lino_grupal_oficina.webp
+Camisa Lino,Camisa de lino ideal para el verano,22000,Camisas,hombre,M,natural,12,camisa_hombre_lino_modelocerca.webp,camisa_hombre_lino_modelo.webp,camisa_hombre_lino_modelocerca.webp,camisa_grupal.webp
+Short Lino Bermuda,Short de lino casual,16000,Shorts,hombre,S,marron,8,short_hombre_marron_mini.jpg.webp,short_hombre_marron.webp,short_hombre_marron1.jpg.webp,short_hombre_marron2.jpg.webp
+Pantalón Lino Slim,Pantalón de lino corte recto,18000,Pantalones,mujer,S,crema,10,pantalon_mujer_crema_mini.webp,pantalon_mujer_crema_modelo.webp,pantalon_mujer_crema.webp,pantalon_mujer_grupal_noche.webp

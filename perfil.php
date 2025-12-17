@@ -202,12 +202,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
                 
             } catch (Exception $e) {
-                // Loggear error MySQL si existe
+                // SEGURIDAD: Registrar error técnico en logs pero no exponerlo al usuario
+                error_log("[CANCELAR PEDIDO EXCEPTION] " . $e->getMessage());
                 if ($mysqli && $mysqli->error) {
                     error_log("MySQL Error: {$mysqli->error} (Errno: {$mysqli->errno})");
                 }
-                
-                $_SESSION['mensaje'] = 'Error al cancelar el pedido: ' . $e->getMessage();
+
+                $_SESSION['mensaje'] = 'Error al cancelar el pedido. Por favor, inténtalo nuevamente.';
                 $_SESSION['mensaje_tipo'] = 'danger';
                 header('Location: perfil.php?tab=pedidos');
                 exit;

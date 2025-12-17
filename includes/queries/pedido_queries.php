@@ -685,6 +685,39 @@ function actualizarPedidoCompleto($mysqli, $id_pedido, $estado_pedido, $direccio
  * @param int $limite Cantidad de pedidos a retornar (default: 10)
  * @return array Array de pedidos con información de tiempo en estado
  */
+/**
+ * Formatea tiempo en estado de manera legible
+ *
+ * @param array $tiempo_detallado Array con dias, horas, minutos, segundos
+ * @return string Tiempo formateado (ej: "2h 30m 15s", "1 día 2h", "45m 30s")
+ */
+function formatearTiempoEstado($tiempo_detallado) {
+    $partes = [];
+
+    if ($tiempo_detallado['dias'] > 0) {
+        $partes[] = $tiempo_detallado['dias'] . ' día' . ($tiempo_detallado['dias'] > 1 ? 's' : '');
+    }
+
+    if ($tiempo_detallado['horas'] > 0) {
+        $partes[] = $tiempo_detallado['horas'] . 'h';
+    }
+
+    if ($tiempo_detallado['minutos'] > 0) {
+        $partes[] = $tiempo_detallado['minutos'] . 'm';
+    }
+
+    if ($tiempo_detallado['segundos'] > 0 && empty($partes)) {
+        // Solo mostrar segundos si no hay unidades mayores
+        $partes[] = $tiempo_detallado['segundos'] . 's';
+    }
+
+    if (empty($partes)) {
+        return 'recién creado';
+    }
+
+    return implode(' ', $partes);
+}
+
 function obtenerPedidosTiempoEstado($mysqli, $limite = 10) {
     // ESTRATEGIA DE MÚLTIPLES QUERIES SIMPLES:
     // Query 1: Obtener pedidos básicos con información de usuario
@@ -764,13 +797,26 @@ function obtenerPedidosTiempoEstado($mysqli, $limite = 10) {
         // Calcular fecha base para tiempo en estado
         $fecha_base = $pedido['fecha_actualizacion'] ?? $pedido['fecha_pedido'];
         
-        // Calcular horas y días en estado (en PHP usando DateTime)
+        // Calcular tiempo en estado (en PHP usando DateTime)
         $fecha_base_obj = new DateTime($fecha_base);
         $ahora = new DateTime();
         $diferencia = $ahora->diff($fecha_base_obj);
-        // Incluir minutos para precisión decimal (1/2 hora = 0.5)
-        $horas_en_estado = ($diferencia->days * 24) + $diferencia->h + ($diferencia->i / 60);
+
+        // Calcular tiempo total en segundos para mayor precisión
+        $segundos_totales = ($diferencia->days * 24 * 60 * 60) + ($diferencia->h * 60 * 60) + ($diferencia->i * 60) + $diferencia->s;
+
+        // Mantener compatibilidad con código existente
+        $horas_en_estado = $segundos_totales / 3600; // Para compatibilidad
         $dias_en_estado = $diferencia->days;
+
+        // Agregar información detallada del tiempo
+        $tiempo_detallado = [
+            'dias' => $diferencia->days,
+            'horas' => $diferencia->h,
+            'minutos' => $diferencia->i,
+            'segundos' => $diferencia->s,
+            'segundos_totales' => $segundos_totales
+        ];
         
         // Solo incluir si tiene horas en estado > 0
         if ($horas_en_estado > 0) {
@@ -784,7 +830,8 @@ function obtenerPedidosTiempoEstado($mysqli, $limite = 10) {
                 'email' => $pedido['email'],
                 'total_pedido' => $total_pedido,
                 'horas_en_estado' => $horas_en_estado,
-                'dias_en_estado' => $dias_en_estado
+                'dias_en_estado' => $dias_en_estado,
+                'tiempo_detallado' => $tiempo_detallado
             ];
         }
     }
@@ -1323,11 +1370,18 @@ function _cancelarPedidoConValidaciones($mysqli, $id_pedido, $estado_pedido_ante
         }
     }
     
-    // CASO A: Cancelar antes de descontar stock
-    // Condición: Pago NO está aprobado (pendiente, pendiente_aprobacion, cancelado, rechazado)
-    // Acción: Solo actualizar estados, NO revertir stock (no hay stock descontado)
-    if ($pago_actual && !in_array($estado_pago_norm, ['aprobado'])) {
-        // No hay stock descontado, solo actualizar estados
+    // CASO A: Cancelar pedido sin pago aprobado
+    // Condición: No hay pago O pago no está aprobado
+    // Acción: Revertir stock si fue reservado (pedidos en estado pendiente tienen reservas)
+    if (!$pago_actual || !in_array($estado_pago_norm, ['aprobado'])) {
+        error_log("_cancelarPedidoConValidaciones: CASO A - Sin pago aprobado. Estado pedido: {$estado_pedido_anterior}, Estado pago: " . ($estado_pago_norm ?: 'null'));
+        // CORRECCIÓN: Los pedidos pendientes pueden tener stock reservado que debe restaurarse
+        if (in_array($estado_pedido_anterior, ['pendiente', 'pendiente_validado_stock'])) {
+            error_log("_cancelarPedidoConValidaciones: Restaurando stock reservado para pedido pendiente");
+            if (!revertirStockPedido($mysqli, $id_pedido, $id_usuario, "Pedido cancelado - restaurando reserva de stock")) {
+                throw new Exception('Error al restaurar stock reservado del pedido');
+            }
+        }
     }
     // CASO B: Cancelar con pago aprobado (pero no enviado)
     // Condición: Pago está aprobado Y pedido NO está en_viaje
@@ -1354,17 +1408,21 @@ function _cancelarPedidoConValidaciones($mysqli, $id_pedido, $estado_pedido_ante
         throw new Exception('Error al actualizar estado del pedido a cancelado. Puede que el pedido haya sido modificado por otro proceso.');
     }
     
-    // Cancelar el pago si existe y no está cancelado
-    // IMPORTANTE: Cancelación forzada por cancelación de pedido - se cancela SIEMPRE
-    // incluso si el pago está en recorrido activo (aprobado, pendiente_aprobacion)
+    // Cancelar el pago si existe y no está cancelado/rechazado
+    // IMPORTANTE: NO se puede cancelar un pago que ya está aprobado (estado terminal)
+    // Solo cancelar pagos en estados: pendiente, pendiente_aprobacion
     // Nota: pago_queries.php ya está cargado al inicio de la función
-    if ($pago_actual && $estado_pago_norm !== 'cancelado' && $estado_pago_norm !== 'rechazado') {
-        // Cancelar el pago SIEMPRE cuando se cancela el pedido (forzar cancelación)
-        // Esto asegura consistencia: pedido cancelado → pago cancelado
-        error_log("_cancelarPedidoConValidaciones: Cancelando pago #{$pago_actual['id_pago']} forzadamente por cancelación de pedido (estado pago anterior: {$estado_pago_norm})");
+    if ($pago_actual && $estado_pago_norm !== 'cancelado' && $estado_pago_norm !== 'rechazado' && $estado_pago_norm !== 'aprobado') {
+        // Cancelar el pago solo si está en estado cancelable (no aprobado)
+        // Esto asegura consistencia: pedido cancelado → pago cancelado (cuando es posible)
+        error_log("_cancelarPedidoConValidaciones: Cancelando pago #{$pago_actual['id_pago']} por cancelación de pedido (estado pago anterior: {$estado_pago_norm})");
         if (!actualizarEstadoPago($mysqli, $pago_actual['id_pago'], 'cancelado')) {
             throw new Exception('Error al cancelar el pago');
         }
+    } elseif ($pago_actual && $estado_pago_norm === 'aprobado') {
+        // Pago aprobado no se puede cancelar (estado terminal)
+        // Solo registrar en log, no es error
+        error_log("_cancelarPedidoConValidaciones: Pago #{$pago_actual['id_pago']} permanece aprobado (estado terminal) aunque pedido fue cancelado");
     }
 }
 

@@ -163,18 +163,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['validar_datos'])) {
     
     // Si todas las validaciones pasan, verificar en base de datos
     if (empty($mensaje)) {
+        // ========================================================================
+        // SEGURIDAD: Mensaje genérico para prevenir enumeración de usuarios
+        // ========================================================================
+        // Usamos el mismo mensaje para:
+        // - Email no registrado
+        // - Datos correctos pero inválidos (fecha, pregunta, respuesta incorrectos)
+        // Esto evita que los atacantes enumeren usuarios válidos del sistema
+        $mensaje_generico_error = 'Los datos proporcionados no coinciden con nuestros registros. Por favor, verifica tu información e inténtalo nuevamente.';
+
         // PASO 1: Buscar usuario por email
         $usuario = obtenerUsuarioPorEmailRecupero($mysqli, $email);
 
         // Si usuario no existe, mostrar error genérico
         if (!$usuario) {
-            $mensaje = 'El correo electrónico no está registrado en el sistema.';
+            $mensaje = $mensaje_generico_error;
         } else {
             // PASO 2-4: Validar fecha, pregunta y respuesta usando función centralizada
             $validacion = validarDatosRecuperacionAvanzada($usuario, $fecha_nacimiento, $pregunta_recupero_id, $respuesta_recupero);
 
             if (!$validacion['valido']) {
-                $mensaje = $validacion['error'];
+                // SEGURIDAD: Mostrar el mismo mensaje genérico en lugar del específico
+                $mensaje = $mensaje_generico_error;
             } else {
                 // Validación exitosa - limpiar intentos y guardar en sesión
                 limpiarIntentosFormulario($email, 'recupero');

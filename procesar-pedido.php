@@ -232,7 +232,7 @@ try {
         }
         
         // Procesar item usando función helper (modo definitivo)
-        $resultado = procesarItemCarrito($mysqli, $item, $clave, 'definitivo');
+        $resultado = procesarItemCarrito($mysqli, $item, $clave, 'definitivo', true);
         
         // Si hay error, construir estructura de error usando función helper
         $error_checkout = construirErrorCheckout($resultado, $item, $clave);
@@ -419,9 +419,13 @@ try {
      * Al aprobar el pago, la reserva se convierte en venta
      * Si se cancela el pedido, la reserva se libera
      */
-    if (!reservarStockPedido($mysqli, $id_pedido, $id_usuario, true)) {
-        throw new Exception("Error al reservar stock del pedido");
+    // Validar y reservar stock. Si falla, lanzar excepción con mensaje específico.
+    // El mensaje de error detallado se loguea, el usuario ve un mensaje genérico.
+    $resultado_reserva = reservarStockPedido($mysqli, $id_pedido, $id_usuario, true);
+    if ($resultado_reserva === false) {
+        throw new Exception("Error al intentar reservar stock del pedido #{$id_pedido}. Es posible que no haya suficiente stock disponible o que la variante esté inactiva. Detalles en logs.");
     }
+
     
     /**
      * Calcular costo de envío
@@ -569,21 +573,20 @@ try {
     
     /**
      * Redirigir con mensaje de error
-     * En modo debug, mostrar más detalles del error
+     * SEGURIDAD: Nunca mostrar detalles técnicos a los usuarios
+     * Los detalles se registran en logs del servidor para debugging
      */
-    $debug_mode = (ini_get('display_errors') == 1);
-    
-    if ($debug_mode) {
-        $_SESSION['mensaje_error'] = "Ocurrió un error al procesar tu pedido.<br><br>" .
-            "<strong>Error:</strong> " . htmlspecialchars($error_message) . "<br>" .
-            "<strong>Archivo:</strong> " . htmlspecialchars($error_file) . "<br>" .
-            "<strong>Línea:</strong> " . $error_line . "<br>" .
-            "<strong>Trace:</strong><pre style='font-size: 0.85rem; max-height: 200px; overflow-y: auto;'>" . htmlspecialchars($error_trace) . "</pre>";
-    } else {
-        // Mensaje mejorado con acciones sugeridas
-        $_SESSION['mensaje_error'] = "Ocurrió un error al procesar tu pedido. Por favor, verifica que todos los datos estén correctos e intenta nuevamente. Si el problema persiste, contacta al administrador con los detalles de tu pedido.";
-    }
-    
+    // SEGURIDAD: Registrar detalles técnicos en logs NUNCA en la UI
+    $log_mensaje = "[PROCESAR-PEDIDO ERROR] " .
+                   "Archivo: {$error_file} (línea {$error_line}) | " .
+                   "Error: {$error_message} | " .
+                   "Trace: {$error_trace}";
+    error_log($log_mensaje);
+
+    // SEGURIDAD: Mostrar siempre mensaje genérico al usuario
+    // No exponer detalles técnicos incluso en modo debug
+    $_SESSION['mensaje_error'] = "Ocurrió un error al procesar tu pedido. Por favor, verifica que todos los datos estén correctos e intenta nuevamente. Si el problema persiste, contacta al administrador con los detalles de tu pedido.";
+
     header('Location: checkout.php');
     exit;
 }

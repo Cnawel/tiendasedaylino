@@ -859,15 +859,21 @@ if (!empty($todas_variantes)) {
     $colores_temp = array_filter($colores_temp, function($color) {
         return $color !== null && $color !== '';
     });
-    $colores_variantes = array_unique($colores_temp);
+    // CORRECCIÓN: Normalizar colores al obtenerlos para el array de variantes existentes
+    $colores_variantes = array_unique(array_map(function($color) {
+        return ucfirst(strtolower(trim($color)));
+    }, $colores_temp));
     sort($colores_variantes);
 }
 
 // Talles disponibles - Origen centralizado
 $talles_disponibles = obtenerTallesEstandar();
 
-// Colores disponibles
-$colores_disponibles = ['Negro', 'Blanco', 'Azul', 'Rojo', 'Verde', 'Amarillo', 'Rosa', 'Gris', 'Marrón', 'Beige', 'Celeste', 'Naranja', 'Violeta', 'Turquesa'];
+    // Colores disponibles - Generar dinámicamente incluyendo colores existentes en DB
+    $colores_base = ['Negro', 'Blanco', 'Azul', 'Rojo', 'Verde', 'Amarillo', 'Rosa', 'Gris', 'Marrón', 'Beige', 'Celeste', 'Naranja', 'Violeta', 'Turquesa', 'Natural', 'Crema'];
+    $colores_db = obtenerColoresUnicosActivos($mysqli); // Nueva función
+    $colores_disponibles = array_unique(array_merge($colores_base, $colores_db));
+    sort($colores_disponibles);
 
 // Obtener nombres únicos de productos para el SELECT
 $nombres_productos = obtenerNombresProductosUnicos($mysqli);
@@ -1249,9 +1255,9 @@ $fotos_temporales = obtenerFotosTemporales();
                                 $foto_color_actual = !empty($fotos_color) ? $fotos_color[0] : null;
                                 ?>
                                 <tr>
-                                    <td>
-                                        <strong><?= htmlspecialchars($color_variante) ?></strong>
-                                    </td>
+                                        <td>
+                                            <strong><?= htmlspecialchars($color_variante) ?></strong>
+                                        </td>
                                     <td>
                                         <?php if (!empty($foto_color_actual['foto1_prod'])): ?>
                                         <div class="mb-2">

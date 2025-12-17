@@ -210,10 +210,14 @@ try {
     } catch (Exception $e) {
         // Rollback en caso de error
         $mysqli->rollback();
-        responder(false, 'Error al procesar el cambio de estado: ' . $e->getMessage());
+        // SEGURIDAD: Registrar excepción pero no exponerla al usuario
+        error_log("[PAGO ESTADO EXCEPTION] " . $e->getMessage());
+        responder(false, 'Error al procesar el cambio de estado. Por favor, inténtalo nuevamente.');
     }
 
 } catch (Exception $e) {
-    responder(false, 'Error del sistema: ' . $e->getMessage());
+    // SEGURIDAD: Registrar excepción pero no exponerla al usuario
+    error_log("[PAGO ESTADO OUTER EXCEPTION] " . $e->getMessage());
+    responder(false, 'Error del sistema. Por favor, inténtalo nuevamente.');
 }
 ?>

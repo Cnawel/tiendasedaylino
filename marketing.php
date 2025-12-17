@@ -142,7 +142,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['subir_foto_temporal']
                     subirFotoTemporal($archivo);
                     $fotos_subidas++;
                 } catch (Exception $e) {
-                    $errores_subida[] = $_FILES['foto_temporal']['name'][$i] . ': ' . $e->getMessage();
+                    // SEGURIDAD: Registrar excepción pero no exponerla al usuario
+                    error_log("[IMAGE UPLOAD ERROR] " . $e->getMessage());
+                    $errores_subida[] = $_FILES['foto_temporal']['name'][$i] . ': Error al procesar la imagen.';
                 }
             }
         }
@@ -152,7 +154,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['subir_foto_temporal']
             subirFotoTemporal($_FILES['foto_temporal']);
             $fotos_subidas++;
         } catch (Exception $e) {
-            $errores_subida[] = $_FILES['foto_temporal']['name'] . ': ' . $e->getMessage();
+            // SEGURIDAD: Registrar excepción pero no exponerla al usuario
+            error_log("[IMAGE UPLOAD ERROR] " . $e->getMessage());
+            $errores_subida[] = $_FILES['foto_temporal']['name'] . ': Error al procesar la imagen.';
         }
     }
     
@@ -595,7 +599,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                     <td>
                                         <?php if (!empty($producto['colores_array'])): ?>
                                             <div class="d-flex flex-wrap gap-2">
-                                                <?php foreach ($producto['colores_array'] as $color): 
+                                                <?php foreach ($producto['colores_array'] as $color):
                                                     // Normalizar el nombre del color para la clase CSS
                                                     $color_clase = strtolower(trim($color));
                                                 ?>

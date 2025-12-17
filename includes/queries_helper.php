@@ -31,18 +31,28 @@ function cargarArchivoQueries($nombre_archivo, $directorio = null) {
     if (empty($nombre_archivo) || !is_string($nombre_archivo)) {
         throw new Exception('Nombre de archivo de queries inválido');
     }
-    
+
     // Sanitizar nombre de archivo para prevenir path traversal
     $nombre_archivo = basename($nombre_archivo);
-    
+
     // Determinar directorio base
     if ($directorio === null) {
         $directorio = __DIR__ . '/queries/';
+    } else {
+        // Si se especifica un directorio, verificar si ya incluye /queries/
+        $directorio = rtrim($directorio, '/');
+        if (strpos($directorio, '/queries') === false && strpos($directorio, '\\queries') === false) {
+            // No incluye /queries, añadirlo
+            $directorio .= '/queries/';
+        } else {
+            // Ya incluye /queries, asegurar que termine con /
+            $directorio .= '/';
+        }
     }
-    
+
     // Construir ruta completa
     $ruta_archivo = rtrim($directorio, '/') . '/' . $nombre_archivo . '.php';
-    
+
     // Verificar que el archivo existe
     if (!file_exists($ruta_archivo)) {
         error_log("ERROR: No se pudo encontrar {$nombre_archivo}.php en " . $ruta_archivo);

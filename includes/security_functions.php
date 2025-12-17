@@ -222,4 +222,81 @@ if (!function_exists('redirigirConMensaje')) {
     }
 }
 
+/**
+ * ========================================================================
+ * MANEJO SEGURO DE ERRORES
+ * ========================================================================
+ * Funciones para registrar errores en logs y mostrar mensajes genéricos
+ * al usuario, previniendo information disclosure
+ */
+
+if (!function_exists('manejarErrorExcepcion')) {
+    /**
+     * Maneja errores de excepción de forma segura
+     * Registra detalles técnicos en logs y muestra mensaje genérico al usuario
+     *
+     * @param Exception $excepcion Excepción capturada
+     * @param string $contexto Contexto del error (ej: 'registro', 'login', 'carrito', 'checkout', 'pago')
+     * @param string $datos_usuario Datos no sensibles para debugging (opcional)
+     * @return string Mensaje genérico para mostrar al usuario
+     */
+    function manejarErrorExcepcion($excepcion, $contexto = 'sistema', $datos_usuario = '') {
+        $timestamp = date('Y-m-d H:i:s');
+        $ip_cliente = $_SERVER['REMOTE_ADDR'] ?? 'desconocida';
+        $usuario_id = $_SESSION['id_usuario'] ?? 'anonimo';
+
+        $log_mensaje = "[$timestamp] [ERROR EN " . strtoupper($contexto) . "] IP: $ip_cliente | Usuario: $usuario_id";
+        if ($datos_usuario) {
+            $log_mensaje .= " | Contexto: $datos_usuario";
+        }
+        $log_mensaje .= "\nMensaje: " . $excepcion->getMessage() . "\n" .
+                       "Archivo: " . $excepcion->getFile() . " (línea " . $excepcion->getLine() . ")\n" .
+                       "Trace: " . $excepcion->getTraceAsString() . "\n---\n";
+
+        error_log($log_mensaje);
+
+        $mensajes_usuario = [
+            'registro' => 'Error al procesar tu registro. Por favor, inténtalo nuevamente.',
+            'login' => 'Error al iniciar sesión. Por favor, verifica tus credenciales.',
+            'recupero' => 'Error al procesar tu solicitud de recuperación. Por favor, inténtalo nuevamente.',
+            'carrito' => 'Error al procesar tu carrito. Por favor, recarga la página.',
+            'checkout' => 'Error al procesar tu pedido. Por favor, inténtalo nuevamente.',
+            'pago' => 'Error al procesar el pago. Por favor, inténtalo nuevamente.',
+            'perfil' => 'Error al actualizar tu perfil. Por favor, inténtalo nuevamente.',
+            'imagen' => 'Error al procesar la imagen. Verifica que sea JPG, PNG o GIF.',
+            'default' => 'Ha ocurrido un error. Por favor, inténtalo nuevamente.'
+        ];
+
+        return $mensajes_usuario[$contexto] ?? $mensajes_usuario['default'];
+    }
+}
+
+if (!function_exists('manejarErrorBD')) {
+    /**
+     * Maneja errores de base de datos de forma segura
+     * Registra detalles técnicos en logs y muestra mensaje genérico al usuario
+     *
+     * @param mysqli $mysqli Conexión de base de datos
+     * @param string $contexto Contexto del error
+     * @param string $query Consulta que causó el error (opcional)
+     * @return string Mensaje genérico para mostrar al usuario
+     */
+    function manejarErrorBD($mysqli, $contexto = 'sistema', $query = '') {
+        $timestamp = date('Y-m-d H:i:s');
+        $ip_cliente = $_SERVER['REMOTE_ADDR'] ?? 'desconocida';
+        $usuario_id = $_SESSION['id_usuario'] ?? 'anonimo';
+
+        $log_mensaje = "[$timestamp] [ERROR BD EN " . strtoupper($contexto) . "] IP: $ip_cliente | Usuario: $usuario_id\n" .
+                       "Error MySQL: " . $mysqli->error . " (Código: " . $mysqli->errno . ")\n";
+        if ($query) {
+            $log_mensaje .= "Consulta: $query\n";
+        }
+        $log_mensaje .= "---\n";
+
+        error_log($log_mensaje);
+
+        return 'Error al acceder a la base de datos. Por favor, inténtalo nuevamente.';
+    }
+}
+
 

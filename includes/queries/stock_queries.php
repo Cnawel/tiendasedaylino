@@ -29,6 +29,7 @@
  *   } catch (Exception $e) {
  *       $mysqli->rollback();
  *   }
+ * 
  */
 
 /*
@@ -47,7 +48,7 @@
  * - includes/queries/pedido_queries.php (usa: revertirStockPedido, registrarMovimientoStock)
  * 
  * ÍNDICE DE FUNCIONES:
- *
+ * 
  * === VALIDACIONES DE STOCK ===
  * - validarAjusteStock() - Valida que ajustes negativos no causen stock negativo
  * - validarStockDisponible() - Función unificada para validar stock (preliminar o definitivo)
@@ -66,6 +67,7 @@
  * 
  * === CONSULTAS DE STOCK ===
  * - obtenerMovimientosStockRecientes() - Obtiene movimientos recientes para métricas
+ * - obtenerColoresUnicosActivos() - Obtiene todos los colores únicos y activos de Stock_Variantes, normalizados.
  * 
  * === GESTIÓN DE VARIANTES ===
  * - insertarVarianteStock() - Inserta nueva variante de stock
@@ -247,7 +249,7 @@ function validarStockDisponibleVenta($mysqli, $id_variante, $cantidad, $id_pedid
  * @return array Array con 'stock_disponible', 'variante_activa', 'producto_activo', 'id_variante', 'precio_actual', 'nombre_producto', 'talle', 'color'
  * @throws Exception Si la variante no existe, está inactiva o no hay stock suficiente
  */
-function validarStockDisponible($mysqli, $id_producto, $talle, $color, $cantidad_solicitada, $modo = 'preliminar', $cantidad_actual_carrito = 0) {
+function validarStockDisponible($mysqli, $id_producto, $talle, $color, $cantidad_solicitada, $modo = 'preliminar', $cantidad_actual_carrito = 0, $usar_lock = false) {
     // Liberar reservas expiradas antes de validar stock (solo en modo definitivo para no afectar rendimiento)
     if ($modo === 'definitivo') {
         liberarReservasExpiradas($mysqli);
@@ -310,7 +312,12 @@ function validarStockDisponible($mysqli, $id_producto, $talle, $color, $cantidad
         INNER JOIN Productos p ON sv.id_producto = p.id_producto
         WHERE sv.id_producto = ?
           AND sv.talle = ?
-          AND sv.color = ?";
+          AND sv.color = ?
+    ";
+
+    if ($modo === 'definitivo' && $usar_lock) {
+        $sql .= " FOR UPDATE";
+    }
     
     $stmt = $mysqli->prepare($sql);
     if (!$stmt) {
@@ -1053,21 +1060,21 @@ function verificarCoherenciaStockDespuesDescuento($mysqli, $id_pedido, $stock_an
  * 
  * Al aprobar el pago, las reservas se convierten en ventas (solo cambia observaciones, NO descuenta stock nuevamente).
  * Si el pedido se cancela, el stock se restaura mediante movimientos tipo 'ingreso'.
- *
+ * 
  * DIFERENCIAS CON descontarStockPedido():
  * - reservarStockPedido(): Descuenta stock físicamente al crear pedido (movimientos con observaciones "RESERVA:")
  * - descontarStockPedido(): Convierte reservas en ventas (solo actualiza observaciones) o crea ventas directas si no hay reservas
- *
+ * 
  * IDEMPOTENCIA: Esta función es idempotente. Si se llama múltiples veces para el mismo pedido,
  * solo reservará stock la primera vez. Llamadas subsecuentes retornarán true sin hacer nada.
- *
+ * 
  * VALIDACIÓN DE STOCK:
  * NO se re-valida stock aquí porque:
  * 1. Ya se validó en procesarItemCarrito() en modo 'definitivo' dentro de la misma transacción
  * 2. La transacción garantiza atomicidad (nadie puede cambiar stock entre validación y reserva)
  * 3. La re-validación causaba falsos positivos al contar reservas de otros pedidos creados simultáneamente
  * 4. registrarMovimientoStock() detecta observaciones "RESERVA:" y omite la validación para evitar double-check
- *
+ * 
  * @param mysqli $mysqli Conexión a la base de datos
  * @param int $id_pedido ID del pedido
  * @param int $id_usuario ID del usuario del pedido (opcional)
@@ -1584,18 +1591,24 @@ function revertirStockPedido($mysqli, $id_pedido, $id_usuario = null, $motivo = 
     $estado_pedido = strtolower(trim($estado_data['estado_pedido'] ?? ''));
     $estado_pago = strtolower(trim($estado_data['estado_pago'] ?? ''));
     
-    // Validar que el pedido esté cancelado antes de revertir stock
-    // Solo revertir si el pedido está cancelado para evitar reversiones en pedidos activos
-    // El estado del pago se usa solo para logging, no como condición de validación
+    // Validar que se pueda revertir stock
+    // Se permite revertir stock si:
+    // 1. El pedido está cancelado (caso normal)
+    // 2. El pedido está siendo cancelado desde un estado válido (pendiente, pendiente_validado_stock, preparacion)
     $puede_revertir = false;
-    
-    // Solo revertir si el pedido está cancelado
+
+    // Caso 1: Pedido ya cancelado
     if ($estado_pedido === 'cancelado') {
         $puede_revertir = true;
     }
-    
+    // Caso 2: Pedido siendo cancelado desde estado válido (durante la transacción de cancelación)
+    elseif (in_array($estado_pedido, ['pendiente', 'pendiente_validado_stock', 'preparacion', 'en_viaje'])) {
+        $puede_revertir = true;
+        error_log("revertirStockPedido: Revirtiendo stock durante cancelación del pedido #{$id_pedido} en estado '{$estado_pedido}'");
+    }
+
     if (!$puede_revertir) {
-        error_log("No se puede revertir stock del pedido #{$id_pedido}: Estado pedido='{$estado_pedido}', Estado pago='{$estado_pago}'. Solo se permite revertir si el pedido está cancelado.");
+        error_log("No se puede revertir stock del pedido #{$id_pedido}: Estado pedido='{$estado_pedido}', Estado pago='{$estado_pago}'. Estados permitidos: cancelado, pendiente, pendiente_validado_stock, preparacion, en_viaje.");
         return false; // No revertir si el estado no lo permite
     }
     
@@ -1800,6 +1813,30 @@ function obtenerMovimientosStockRecientes($mysqli, $limite = 50) {
     return $movimientos;
 }
 
+/**
+ * Obtiene todos los colores únicos y activos de Stock_Variantes, normalizados.
+ *
+ * @param mysqli $mysqli Objeto de conexión a la base de datos.
+ * @return array Array de strings con los colores únicos y normalizados.
+ */
+function obtenerColoresUnicosActivos($mysqli) {
+    $sql = "SELECT DISTINCT color FROM Stock_Variantes WHERE activo = 1 AND color IS NOT NULL AND color != ''";
+    $result = $mysqli->query($sql);
+
+    $colores = [];
+    if ($result) {
+        while ($row = $result->fetch_assoc()) {
+            $colores[] = ucfirst(strtolower(trim($row['color'])));
+        }
+    }
+
+    // Asegurar unicidad y ordenar alfabéticamente
+    $colores = array_unique($colores);
+    sort($colores);
+
+    return $colores;
+}
+
 // ============================================================================
 // SECCIÓN 5: GESTIÓN DE VARIANTES DE STOCK
 // ============================================================================
@@ -1823,7 +1860,12 @@ function insertarVarianteStock($mysqli, $id_producto, $talle, $color, $stock_ini
     // El stock debe manejarse únicamente a través de movimientos (registrarMovimientoStock)
     // para mantener la trazabilidad y consistencia del sistema
     $stock_inicial = 0;
-    
+
+    // CORRECCIÓN: Normalizar el talle y color antes de insertar para asegurar consistencia
+    // Esto previene problemas donde 'blanco' se guarde como 'negro' por errores de normalización
+    $talle = strtoupper(trim($talle));
+    $color = ucfirst(strtolower(trim($color)));
+
     // Validar rango de stock (0-10000)
     validarRangoStock($stock_inicial);
     
@@ -1916,15 +1958,13 @@ function verificarVarianteExistente($mysqli, $nombre_producto, $id_categoria, $g
         return false;
     }
     
-    if ($excluir_id_variante !== null) {
-        // bind_param: 'sissii' = 6 parámetros: nombre_producto(s), id_categoria(i), genero(s), talle(s), color(s), excluir_id_variante(i)
-        $stmt->bind_param('sissii', $nombre_producto, $id_categoria, $genero, $talle, $color, $excluir_id_variante);
-    } else {
-        // bind_param: 'sissi' = 5 parámetros: nombre_producto(s), id_categoria(i), genero(s), talle(s), color(s)
-        $stmt->bind_param('sissi', $nombre_producto, $id_categoria, $genero, $talle, $color);
+    $stmt->bind_param('sissii', $nombre_producto, $id_categoria, $genero, $talle, $color, $excluir_id_variante);
+    if (!$stmt->execute()) {
+        error_log("ERROR verificarVarianteExistente - execute falló: " . $stmt->error);
+        $stmt->close();
+        return false;
     }
     
-    $stmt->execute();
     $result = $stmt->get_result();
     $existe = $result->num_rows > 0;
     $stmt->close();
@@ -1992,6 +2032,10 @@ function verificarVarianteExistentePorProducto($mysqli, $id_producto, $talle, $c
  * @return bool True si se actualizó correctamente, false en caso contrario
  */
 function actualizarVarianteStock($mysqli, $id_variante, $talle, $color) {
+    // CORRECCIÓN: Normalizar el talle y color antes de actualizar para asegurar consistencia
+    $talle = strtoupper(trim($talle));
+    $color = ucfirst(strtolower(trim($color)));
+
     $sql = "UPDATE Stock_Variantes SET talle = ?, color = ?, fecha_actualizacion = NOW() WHERE id_variante = ?";
     
     $stmt = $mysqli->prepare($sql);
@@ -2037,5 +2081,3 @@ function desactivarVarianteStock($mysqli, $id_variante) {
     $stmt->close();
     return true;
 }
-
-

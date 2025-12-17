@@ -631,7 +631,7 @@ function validarFechaNacimientoRecupero($usuario, $fecha_nacimiento) {
     }
     
     if ($fecha_bd_obj->format('Y-m-d') !== $fecha_input_obj->format('Y-m-d')) {
-        return ['valido' => false, 'error' => 'La fecha de nacimiento no coincide con nuestros registros.'];
+        return ['valido' => false, 'error' => 'Los datos proporcionados no coinciden con nuestros registros. Por favor, verifica tu información e inténtalo nuevamente.'];
     }
 
     return ['valido' => true, 'error' => ''];
@@ -665,12 +665,12 @@ function validarPreguntaRespuestaRecupero($usuario, $pregunta_id, $respuesta) {
 
     // Comparar pregunta
     if ((int)$pregunta_id !== (int)$pregunta_bd) {
-        return ['valido' => false, 'error' => 'La pregunta de seguridad no coincide con nuestros registros.'];
+        return ['valido' => false, 'error' => 'Los datos proporcionados no coinciden con nuestros registros. Por favor, verifica tu información e inténtalo nuevamente.'];
     }
 
     // Comparar la respuesta usando el hash almacenado
     if (!verificarRespuestaRecupero($respuesta, $respuesta_bd)) {
-        return ['valido' => false, 'error' => 'La respuesta de seguridad es incorrecta.'];
+        return ['valido' => false, 'error' => 'Los datos proporcionados no coinciden con nuestros registros. Por favor, verifica tu información e inténtalo nuevamente.'];
     }
 
     return ['valido' => true, 'error' => ''];

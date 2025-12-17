@@ -179,6 +179,9 @@ function obtenerCategoriasConProductosStock($mysqli) {
  * @return int|false ID de la categoría creada o false en caso de error
  */
 function crearCategoria($mysqli, $nombre_categoria) {
+    // CORRECCIÓN: Normalizar nombre de categoría antes de insertar
+    $nombre_categoria = ucfirst(strtolower(trim($nombre_categoria)));
+
     $sql = "INSERT INTO Categorias (nombre_categoria, activo, fecha_creacion) VALUES (?, 1, NOW())";
     
     $stmt = $mysqli->prepare($sql);

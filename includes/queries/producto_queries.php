@@ -113,6 +113,7 @@ function obtenerTodasVariantesProducto($mysqli, $id_producto) {
     
     $variantes = [];
     while ($row = $result->fetch_assoc()) {
+        $row['color'] = ucfirst(strtolower(trim($row['color'])));
         $variantes[] = $row;
     }
     
@@ -2901,8 +2902,10 @@ function obtenerProductosMarketing($mysqli, $limite = 0, $incluir_inactivos = fa
             if (!isset($colores_data[$row['id_producto']])) {
                 $colores_data[$row['id_producto']] = [];
             }
-            if (!in_array($row['color'], $colores_data[$row['id_producto']])) {
-                $colores_data[$row['id_producto']][] = $row['color'];
+            // CORRECCIÓN: Normalizar colores al obtenerlos para consistencia
+            $color_normalizado = ucfirst(strtolower(trim($row['color'])));
+            if (!in_array($color_normalizado, $colores_data[$row['id_producto']])) {
+                $colores_data[$row['id_producto']][] = $color_normalizado;
             }
         }
         $stmt_colores->close();
@@ -2935,8 +2938,10 @@ function obtenerProductosMarketing($mysqli, $limite = 0, $incluir_inactivos = fa
             if (!isset($talles_data[$row['id_producto']])) {
                 $talles_data[$row['id_producto']] = [];
             }
-            if (!in_array($row['talle'], $talles_data[$row['id_producto']])) {
-                $talles_data[$row['id_producto']][] = $row['talle'];
+            // CORRECCIÓN: Normalizar talles a mayúsculas para consistencia
+            $talle_normalizado = strtoupper(trim($row['talle']));
+            if (!in_array($talle_normalizado, $talles_data[$row['id_producto']])) {
+                $talles_data[$row['id_producto']][] = $talle_normalizado;
             }
         }
         $stmt_talles->close();
@@ -3149,6 +3154,9 @@ function obtenerProductosSinMovimiento($mysqli, $dias_sin_ventas = 30) {
  * @return int ID del producto creado o 0 si falló
  */
 function crearProducto($mysqli, $nombre_producto, $descripcion_producto, $precio_actual, $id_categoria, $genero, $sku = null) {
+    // CORRECCIÓN: Normalizar capitalización del nombre del producto
+    $nombre_producto = ucwords(strtolower(trim($nombre_producto)));
+
     // Validar que la categoría existe y está activa (reemplaza trg_validar_categoria_activa_producto)
     $sql_validar = "SELECT activo FROM Categorias WHERE id_categoria = ?";
     $stmt_validar = $mysqli->prepare($sql_validar);
@@ -3209,6 +3217,9 @@ function crearProducto($mysqli, $nombre_producto, $descripcion_producto, $precio
  * @return bool True si se actualizó correctamente, false en caso contrario
  */
 function actualizarProducto($mysqli, $id_producto, $nombre_producto, $descripcion_producto, $precio_actual, $id_categoria, $genero) {
+    // CORRECCIÓN: Normalizar capitalización del nombre del producto
+    $nombre_producto = ucwords(strtolower(trim($nombre_producto)));
+
     $sql = "UPDATE Productos SET nombre_producto = ?, descripcion_producto = ?, precio_actual = ?, id_categoria = ?, genero = ?, fecha_actualizacion = NOW() WHERE id_producto = ?";
     
     $stmt = $mysqli->prepare($sql);
@@ -3310,7 +3321,9 @@ function obtenerNombresProductosUnicos($mysqli) {
     
     $nombres = [];
     while ($row = $result->fetch_assoc()) {
-        $nombres[] = $row['nombre_producto'];
+        // CORRECCIÓN: Normalizar capitalización de nombres de productos para consistencia
+        // Convertir primera letra de cada palabra a mayúscula
+        $nombres[] = ucwords(strtolower(trim($row['nombre_producto'])));
     }
     
     $stmt->close();
