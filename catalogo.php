@@ -284,7 +284,7 @@ if ($categoria_nombre === 'todos' || $categoria_id !== null) {
                                         );
                                         ?>
                                         <div class="card-img-container position-relative catalogo-card-img-container">
-                                            <img src="<?= htmlspecialchars($imagen) ?>" class="card-img-top w-100 h-100 img-hover catalogo-card-img" alt="<?= htmlspecialchars($producto['nombre_producto']) ?> - <?= htmlspecialchars($producto['color']) ?>">
+                                            <img src="<?= htmlspecialchars($imagen) ?>" class="card-img-top img-hover catalogo-card-img" alt="<?= htmlspecialchars($producto['nombre_producto']) ?> - <?= htmlspecialchars($producto['color']) ?>">
                                         </div>
                                         
                                         <div class="card-body text-center p-2 catalogo-card-body">

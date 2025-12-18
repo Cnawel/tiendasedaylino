@@ -490,27 +490,63 @@ function validarObservaciones($valor, $longitud_maxima = 500, $campo = 'campo') 
  * @return array ['valido' => bool, 'valor' => string, 'error' => string]
  */
 function validarNumeroTransaccion($valor, $longitud_minima = 0, $longitud_maxima = 100) {
+    // ========================================================================
+    // VALIDACIÓN DE NÚMERO DE TRANSACCIÓN
+    // Según diccionario de datos: varchar(100), UNIQUE, NULL permitido
+    // Caracteres permitidos: [A-Z, a-z, 0-9, -, _]
+    // Formato: puede ser cualquier combinación de los caracteres permitidos
+    // ========================================================================
+
     // Normalizar: remover espacios al inicio y final
     $valor = trim($valor);
-    
+
     // Si está vacío, es válido (campo opcional según diccionario)
     if (empty($valor)) {
         return ['valido' => true, 'valor' => '', 'error' => ''];
     }
-    
-    // VALIDACIÓN 1: Longitud máxima
+
+    // VALIDACIÓN 1: Longitud mínima (si se proporciona)
+    if ($longitud_minima > 0 && strlen($valor) < $longitud_minima) {
+        return [
+            'valido' => false,
+            'valor' => '',
+            'error' => "El número de transacción debe tener al menos $longitud_minima caracteres."
+        ];
+    }
+
+    // VALIDACIÓN 2: Longitud máxima
     if (strlen($valor) > $longitud_maxima) {
-        return ['valido' => false, 'valor' => '', 'error' => "El número de transacción no puede exceder $longitud_maxima caracteres."];
+        return [
+            'valido' => false,
+            'valor' => '',
+            'error' => "El número de transacción no puede exceder $longitud_maxima caracteres."
+        ];
     }
-    
-    // VALIDACIÓN 3: Caracteres permitidos según diccionario: [A-Z, a-z, 0-9, -, _]
+
+    // VALIDACIÓN 3: Caracteres permitidos según diccionario
+    // Permitidos: A-Z, a-z, 0-9, -, _
     if (!preg_match('/^[A-Za-z0-9\-_]+$/', $valor)) {
-        return ['valido' => false, 'valor' => '', 'error' => 'El número de transacción solo puede contener letras, números, guiones y guiones bajos.'];
+        return [
+            'valido' => false,
+            'valor' => '',
+            'error' => 'El número de transacción solo puede contener letras (A-Z, a-z), números (0-9), guiones (-) y guiones bajos (_).'
+        ];
     }
-    
-    // NOTA: NO sanitizar aquí con htmlspecialchars() - los datos deben guardarse en BD sin sanitizar
-    // La sanitización debe hacerse solo al mostrar en HTML usando htmlspecialchars() en los templates
-    
+
+    // VALIDACIÓN 4: Verificar que no contenga solo caracteres especiales
+    // (al menos debe tener un carácter alfanumérico)
+    if (!preg_match('/[A-Za-z0-9]/', $valor)) {
+        return [
+            'valido' => false,
+            'valor' => '',
+            'error' => 'El número de transacción debe contener al menos un carácter alfanumérico (letra o número).'
+        ];
+    }
+
+    // NOTA: NO sanitizar aquí con htmlspecialchars()
+    // Los datos deben guardarse en BD sin sanitizar
+    // La sanitización se hace solo al mostrar en HTML
+
     return ['valido' => true, 'valor' => $valor, 'error' => ''];
 }
 
@@ -556,29 +592,41 @@ function normalizarEmail($email_raw) {
  * @return array ['valido' => bool, 'valor' => string, 'error' => string]
  */
 function validarRespuestaRecupero($respuesta_recupero) {
+    /**
+     * VALIDACIÓN DE RESPUESTA DE RECUPERO SEGÚN DICCIONARIO DE DATOS
+     *
+     * Especificación (diccionario_datos_tiendasedaylino.md):
+     * - respuesta_recupero = varchar(255)
+     * - Respuesta a la pregunta de seguridad, almacenada como hash
+     * - Longitud: 4-20 caracteres (NOTA: fue 6, corregido a 4 según diccionario)
+     * - Caracteres permitidos: [A-Z, a-z, 0-9, espacios]
+     */
+
     // Normalizar: remover espacios al inicio y final
     $respuesta = trim($respuesta_recupero);
-    
+
     // VALIDACIÓN 1: Campo obligatorio
     if (empty($respuesta)) {
         return ['valido' => false, 'valor' => '', 'error' => 'La respuesta de recupero es obligatoria.'];
     }
-    
-    // VALIDACIÓN 2: Longitud mínima (4 caracteres)
+
+    // VALIDACIÓN 2: Longitud mínima (4 caracteres según diccionario de datos)
+    // CORRECCIÓN: Era 6, ahora es 4 según especificación oficial
     if (strlen($respuesta) < 4) {
         return ['valido' => false, 'valor' => '', 'error' => 'La respuesta de recupero debe tener al menos 4 caracteres.'];
     }
-    
+
     // VALIDACIÓN 3: Longitud máxima (20 caracteres)
     if (strlen($respuesta) > 20) {
         return ['valido' => false, 'valor' => '', 'error' => 'La respuesta de recupero no puede exceder 20 caracteres.'];
     }
-    
+
     // VALIDACIÓN 4: Formato válido (solo letras, números y espacios)
+    // REGLA DE NEGOCIO: Según diccionario, solo [A-Z, a-z, 0-9, espacios]
     if (!preg_match('/^[a-zA-Z0-9 ]+$/', $respuesta)) {
         return ['valido' => false, 'valor' => '', 'error' => 'La respuesta de recupero solo puede contener letras, números y espacios.'];
     }
-    
+
     // NOTA: NO sanitizar aquí con htmlspecialchars() - los datos deben guardarse en BD sin sanitizar
     // La sanitización debe hacerse solo al mostrar en HTML usando htmlspecialchars() en los templates
 
@@ -723,8 +771,24 @@ function validarDatosRecuperacionAvanzada($usuario, $fecha_nacimiento, $pregunta
  * @return array ['valido' => bool, 'valor' => string, 'error' => string]
  */
 function validarEmail($valor) {
-    // LÓGICA DE NEGOCIO: Valida y sanitiza emails según estándares internacionales.
-    // REGLAS: Obligatorio, máximo 150 caracteres, formato válido según RFC, prevenir XSS.
+    /**
+     * VALIDACIÓN DE EMAIL SEGÚN DICCIONARIO DE DATOS
+     *
+     * Especificación (diccionario_datos_tiendasedaylino.md):
+     * - email = varchar(100)
+     * - Dirección de correo electrónico del usuario
+     * - Longitud: 6-100 caracteres
+     * - Caracteres permitidos: [A-Z, a-z, 0-9, @, _, -, ., +]
+     * - UNIQUE (no duplicados)
+     * - Identificador de login principal
+     *
+     * Validaciones:
+     * 1. Obligatorio
+     * 2. Longitud mínima: 6 caracteres
+     * 3. Longitud máxima: 100 caracteres
+     * 4. Formato válido según RFC 5322 (estructura usuario@dominio)
+     * 5. Caracteres permitidos: [A-Za-z0-9_\-\.+@] en parte local, [A-Za-z0-9_\-\.] en dominio
+     */
 
     // Normalizar: remover espacios al inicio y final
     // LÓGICA: Los espacios en emails son inválidos y pueden causar errores de autenticación
@@ -759,26 +823,38 @@ function validarEmail($valor) {
     }
 
     // VALIDACIÓN 5: Caracteres permitidos según diccionario de datos
-    // REGLA DE NEGOCIO: Según diccionario, solo se permiten: [A-Z, a-z, 0-9, @, _, -, ., +]
-    // LÓGICA: Restringir caracteres especiales no permitidos como %, $, #, etc.
-    // Validar parte local (antes del @) y dominio (después del @) por separado
+    // REGLA DE NEGOCIO: Según diccionario de datos, solo se permiten: [A-Z, a-z, 0-9, @, _, -, ., +]
+    // LÓGICA: Restringir caracteres especiales no permitidos como %, $, #, &, etc.
+    // Validar parte local (antes del @) y dominio (después del @) por separado para mayor precisión
     $partes = explode('@', $valor);
     if (count($partes) !== 2) {
-        return ['valido' => false, 'valor' => '', 'error' => 'El formato del correo electrónico no es válido.'];
+        return ['valido' => false, 'valor' => '', 'error' => 'El formato del correo electrónico no es válido (debe contener exactamente un @).'];
     }
 
     $parte_local = $partes[0];
     $dominio = $partes[1];
 
-    // Validar parte local: solo [A-Z, a-z, 0-9, _, -, ., +]
+    // Validar parte local: solo [A-Za-z0-9_\-\.+]
+    // LÓGICA: La parte local (antes del @) permite: letras, números, guion bajo, guion, punto, signo más
     if (!preg_match('/^[A-Za-z0-9_\-\.+]+$/', $parte_local)) {
-        return ['valido' => false, 'valor' => '', 'error' => 'El correo electrónico contiene caracteres no permitidos. Solo se permiten letras, números, guion bajo, guion, punto y signo más.'];
+        return ['valido' => false, 'valor' => '', 'error' => 'La parte local del correo contiene caracteres no permitidos. Se permiten: letras, números, guion bajo (_), guion (-), punto (.) y signo más (+).'];
     }
 
-    // Validar dominio: solo [A-Z, a-z, 0-9, _, -, .]
-    // Nota: El dominio no puede tener + según estándares, pero permitimos los mismos caracteres básicos
+    // Validar dominio: solo [A-Za-z0-9_\-\.]
+    // LÓGICA: El dominio (después del @) permite: letras, números, guion bajo, guion, punto
+    // Nota: El signo más (+) NO se permite en dominios según estándares internacionales
     if (!preg_match('/^[A-Za-z0-9_\-\.]+$/', $dominio)) {
-        return ['valido' => false, 'valor' => '', 'error' => 'El dominio del correo electrónico contiene caracteres no permitidos.'];
+        return ['valido' => false, 'valor' => '', 'error' => 'El dominio del correo contiene caracteres no permitidos. Se permiten: letras, números, guion bajo (_), guion (-) y punto (.).'];
+    }
+
+    // Validar que la parte local no esté vacía (después de validar caracteres)
+    if (strlen($parte_local) === 0) {
+        return ['valido' => false, 'valor' => '', 'error' => 'El correo electrónico debe tener una parte local válida.'];
+    }
+
+    // Validar que el dominio tenga al menos un punto (debe tener una extensión válida)
+    if (strpos($dominio, '.') === false) {
+        return ['valido' => false, 'valor' => '', 'error' => 'El dominio debe tener una extensión válida (ej: .com, .ar, .org).'];
     }
 
     // SANITIZACIÓN: Prevenir ataques XSS
@@ -821,15 +897,10 @@ function validarPassword($password, $requiere_complejidad = true) {
         return ['valido' => false, 'error' => 'La contraseña no puede exceder 20 caracteres.'];
     }
 
-    // VALIDACIÓN 4: Caracteres permitidos - símbolos típicos comunes en contraseñas
-    // REGLA DE NEGOCIO: Permitir símbolos típicos comunes para mayor seguridad, pero no son requeridos
-    // LÓGICA: Permitir caracteres comunes en contraseñas: letras, números, y símbolos típicos (@, _, -, ., !, $, %, *, ?, &, #, etc.)
-    // No se restringen caracteres especiales comunes para permitir mayor seguridad
-    // Solo se bloquean caracteres de control y caracteres que puedan causar problemas de seguridad
-    // Permitir: letras, números, espacios, y símbolos comunes: @_\-.!$%*?&#^~|\/{}[]()<>:;"'=+
-    if (!preg_match('/^[A-Za-z0-9@_\-.!$%*?&#^~|\\\\\\/{}[]()<>:;"\'=+\s]+$/', $password)) {
-        return ['valido' => false, 'error' => 'La contraseña contiene caracteres no permitidos.'];
-    }
+    // VALIDACIÓN 4: Caracteres permitidos
+    // REGLA DE NEGOCIO: Permitir cualquier carácter en la contraseña para máxima compatibilidad
+    // LÓGICA: Las contraseñas se almacenan hasheadas, por lo que los caracteres específicos no son un riesgo
+    // No hay restricción de caracteres - se permiten todos
 
     // VALIDACIÓN 5: Complejidad (solo si se requiere)
     // REGLA DE SEGURIDAD: Requiere combinación de tipos de caracteres para mayor seguridad
@@ -850,4 +921,63 @@ function validarPassword($password, $requiere_complejidad = true) {
 
     // Si pasa todas las validaciones, la contraseña es válida
     return ['valido' => true, 'error' => ''];
+}
+
+/**
+ * Valida una descripción de categoría según reglas de negocio
+ *
+ * REGLAS DE VALIDACIÓN (según diccionario_datos_tiendasedaylino.md):
+ * - Campo: descripcion_categoria (varchar(255))
+ * - Longitud: 0-255 caracteres (opcional)
+ * - Caracteres permitidos: A-Z, a-z, á, é, í, ó, ú, Á, É, Í, Ó, Ú, ñ, Ñ, ü, Ü, 0-9, espacios, ., -, ,, :, ;
+ * - Caracteres bloqueados: < > { } [ ] | \ / &
+ *
+ * VALIDACIÓN CLIENTE (JavaScript):
+ * - common_js_functions.php:validarDescripcionCategoria() - Mismas reglas
+ *
+ * VALIDACIÓN SERVIDOR (PHP):
+ * - Esta función es la validación definitiva de seguridad
+ * - Siempre validar en servidor, JavaScript es solo UX
+ *
+ * @param string $descripcion Descripción a validar
+ * @param bool $es_opcional Si es true, permite campo vacío (opcional). Por defecto true.
+ * @return array ['valido' => bool, 'valor' => string, 'error' => string]
+ */
+function validarDescripcionCategoria($descripcion, $es_opcional = true) {
+    // Normalizar: remover espacios al inicio y final
+    $descripcion = trim($descripcion);
+
+    // Si es opcional y está vacío, es válido
+    if ($es_opcional && empty($descripcion)) {
+        return ['valido' => true, 'valor' => '', 'error' => ''];
+    }
+
+    // Si no es opcional y está vacío, es inválido
+    if (!$es_opcional && empty($descripcion)) {
+        return ['valido' => false, 'valor' => '', 'error' => 'La descripción de la categoría es requerida.'];
+    }
+
+    // VALIDACIÓN 1: Longitud máxima (255 caracteres)
+    if (strlen($descripcion) > 255) {
+        return ['valido' => false, 'valor' => '', 'error' => 'La descripción no puede exceder 255 caracteres.'];
+    }
+
+    // VALIDACIÓN 2: Caracteres permitidos
+    // Permitir: A-Z, a-z, á, é, í, ó, ú, Á, É, Í, Ó, Ú, ñ, Ñ, ü, Ü, 0-9, espacios, ., -, ,, :, ;
+    // Patrón regex que permite solo los caracteres especificados
+    // \p{L} es demasiado permisivo, usar caracteres específicos
+    if (!preg_match('/^[A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9\s\.\,\-\:\;]*$/', $descripcion)) {
+        return ['valido' => false, 'valor' => '', 'error' => 'La descripción contiene caracteres no permitidos. Solo se permiten letras, números, espacios y los símbolos: . , - : ;'];
+    }
+
+    // VALIDACIÓN 3: Verificar caracteres bloqueados explícitamente (< > { } [ ] | \ / &)
+    // Esta validación es adicional para mayor seguridad contra inyección
+    if (preg_match('/[<>{}[\]|\\\/&]/', $descripcion)) {
+        return ['valido' => false, 'valor' => '', 'error' => 'La descripción contiene caracteres bloqueados: &lt; &gt; { } [ ] | \\ / &'];
+    }
+
+    // NOTA: NO sanitizar aquí con htmlspecialchars() - los datos deben guardarse en BD sin sanitizar
+    // La sanitización debe hacerse solo al mostrar en HTML usando htmlspecialchars() en los templates
+
+    return ['valido' => true, 'valor' => $descripcion, 'error' => ''];
 }

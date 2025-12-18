@@ -27,15 +27,16 @@ if (!function_exists('renderFormularioMarcarPago')) {
         ?>
         <form method="POST" action="" class="d-inline-flex align-items-center gap-2 form-marcar-pago" data-id-pago="<?= $id_pago ?>">
             <input type="hidden" name="id_pago" value="<?= $id_pago ?>">
-            <input type="text" 
-                   class="form-control form-control-sm" 
-                   name="numero_transaccion" 
-                   placeholder="Código de pago" 
+            <input type="text"
+                   class="form-control form-control-sm"
+                   id="numero_transaccion_modal"
+                   name="numero_transaccion"
+                   placeholder="Código de pago (opcional)"
                    maxlength="100"
                    size="15"
-                   pattern="[A-Za-z0-9\-_]+"
-                   title="Solo letras, números, guiones y guiones bajos"
-                   required>
+                   pattern="[A-Za-z0-9\-_]*"
+                   title="Solo letras (A-Z, a-z), números (0-9), guiones (-) y guiones bajos (_). Máximo 100 caracteres. Campo opcional."
+                   inputmode="text">
             <button type="submit" name="marcar_pago_pagado" class="btn btn-sm btn-success">
                 <i class="fas fa-check-circle me-1"></i>Marcar Pago
             </button>

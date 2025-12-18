@@ -32,6 +32,11 @@ ini_set('log_errors', 1);
 
 session_start();
 
+// DEBUG MODE - Mostrar TODOS los errores
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+
 // Cargar funciones de contraseñas
 $password_functions_path = __DIR__ . '/includes/password_functions.php';
 if (!file_exists($password_functions_path)) {
@@ -127,21 +132,37 @@ if (empty($preguntas_recupero) && isset($mysqli) && $mysqli instanceof mysqli) {
 
 // Procesar formulario de registro
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // DEBUG: Mostrar POST recibido
+    echo "<hr><pre style='background:#fffacd; padding:10px; border:2px solid #ff0000;'>";
+    echo "<strong>DEBUG: POST RECIBIDO</strong>\n";
+    echo "Total campos: " . count($_POST) . "\n";
+    echo "Contenido POST:\n";
+    foreach ($_POST as $key => $value) {
+        if ($key !== 'password' && $key !== 'password_confirm') {
+            echo "  $key = " . htmlspecialchars(substr($value, 0, 50)) . "\n";
+        } else {
+            echo "  $key = [ESCONDIDO POR SEGURIDAD]\n";
+        }
+    }
+    echo "</pre><hr>\n";
+
     // Iniciar output buffering para prevenir errores de headers ya enviados
     ob_start();
+
+    try {
+        // Verificar que la conexión a la base de datos esté disponible
+        if (!isset($mysqli) || !($mysqli instanceof mysqli)) {
+            throw new Exception('Error de conexión a la base de datos. Por favor, intenta nuevamente.');
+        }
+
+        echo "<pre style='background:#e8f4f8; padding:10px;'><strong>DEBUG: BD conectada correctamente</strong></pre>\n";
     
-    // Verificar que la conexión a la base de datos esté disponible
-    if (!isset($mysqli) || !($mysqli instanceof mysqli)) {
-        error_log("ERROR: Conexión a base de datos no disponible en procesamiento POST");
-        $errores['general'] = 'Error de conexión a la base de datos. Por favor, intenta nuevamente.';
-    } else {
-    
-    // Inicializar variables para evitar errores de "undefined variable"
-    $nombre = null;
-    $apellido = null;
-    $email = null;
-    $fecha_nacimiento = null;
-    $respuesta_recupero = null;
+        // Inicializar variables para evitar errores de "undefined variable"
+        $nombre = null;
+        $apellido = null;
+        $email = null;
+        $fecha_nacimiento = null;
+        $respuesta_recupero = null;
     
     // ========================================================================
     // SANITIZACIÓN Y VALIDACIÓN DE ENTRADA - PREVENCIÓN XSS Y SQL INJECTION
@@ -330,14 +351,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($errores['email'])) {
         $email_busqueda = normalizarEmail($email_raw);
         if (verificarEmailExistente($mysqli, $email_busqueda)) {
-            $errores['email'] = 'Verifique nuevamente el email ingresado';
+            $errores['email'] = 'Este correo electrónico ya se encuentra registrado.';
         }
     }
     
     // ========================================================================
     // PROCESAR REGISTRO SI TODAS LAS VALIDACIONES PASAN
     // ========================================================================
-    
+
+    // DEBUG: Estado de validaciones
+    echo "<pre style='background:#fff0f5; padding:10px;'><strong>DEBUG: VALIDACIONES COMPLETADAS</strong>\n";
+    echo "Total de errores: " . count($errores) . "\n";
+    if (!empty($errores)) {
+        echo "Errores encontrados:\n";
+        foreach ($errores as $campo => $error) {
+            echo "  $campo: $error\n";
+        }
+    } else {
+        echo "✓ SIN ERRORES - Procederá a crear usuario\n";
+    }
+    echo "</pre>\n";
+
     if (empty($errores)) {
         // ========================================================================
         // CONEXIÓN SEGURA A BASE DE DATOS - PREVENCIÓN SQL INJECTION
@@ -434,9 +468,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $errores['respuesta_recupero'] = 'Error al procesar la respuesta de recupero. Inténtalo de nuevo.';
                     } else {
                         // La fecha ya está validada y en formato YYYY-MM-DD
+                        // DEBUG: Antes de insertar
+                        echo "<pre style='background:#f0fff0; padding:10px;'><strong>DEBUG: ANTES DE INSERTAR EN BD</strong>\n";
+                        echo "Nombre: " . htmlspecialchars($nombre) . "\n";
+                        echo "Apellido: " . htmlspecialchars($apellido) . "\n";
+                        echo "Email: " . htmlspecialchars($email) . "\n";
+                        echo "Fecha nacimiento: $fecha_nacimiento\n";
+                        echo "Pregunta ID: $pregunta_id\n";
+                        echo "Hash password length: " . strlen($hash_password) . "\n";
+                        echo "Hash respuesta length: " . strlen($hash_respuesta_recupero) . "\n";
+                        echo "</pre>\n";
+
                         // Crear usuario cliente usando función centralizada con el ID ya validado
                         $id_usuario_nuevo = crearUsuarioCliente($mysqli, $nombre, $apellido, $email, $hash_password, $fecha_nacimiento, $pregunta_id, $hash_respuesta_recupero);
-                        
+
+                        // DEBUG: Después de insertar
+                        echo "<pre style='background:#fff8dc; padding:10px;'><strong>DEBUG: DESPUÉS DE INSERTAR EN BD</strong>\n";
+                        echo "ID usuario nuevo: " . var_export($id_usuario_nuevo, true) . "\n";
+                        echo "Inserción exitosa: " . ($id_usuario_nuevo > 0 ? '✓ SÍ' : '✗ NO') . "\n";
+                        echo "</pre>\n";
+
                         if ($id_usuario_nuevo > 0) {
                             // Verificar que el hash se guardó correctamente
                             if (verificarHashContrasena($mysqli, $id_usuario_nuevo, $password)) {
@@ -499,13 +550,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         // El error ya fue registrado en crearUsuarioCliente()
                         $errores['general'] = 'Error al crear la cuenta. Por favor, verifica que todos los datos sean correctos e inténtalo de nuevo. Si el problema persiste, contacta al administrador.';
                     }
-                    } // Cierre del else que verifica hash de respuesta
-                } // Cierre del else que verifica pregunta en BD
-            }
+                } // Cierre del else que verifica hash de respuesta
+            } // Cierre del else que verifica pregunta en BD
         }
     }
-    } // Cierre del else que verifica la conexión $mysqli
+    } // Cierre del try block
+} catch (Exception $e) {
+    echo "<pre style='background:#ffe4e1; border:3px solid red; padding:10px;'><strong>⚠️ EXCEPTION CAPTURADA:</strong>\n";
+    echo "Mensaje: " . htmlspecialchars($e->getMessage()) . "\n";
+    echo "Archivo: " . htmlspecialchars($e->getFile()) . "\n";
+    echo "Línea: " . $e->getLine() . "\n";
+    echo "Trace:\n" . htmlspecialchars($e->getTraceAsString()) . "\n";
+    echo "</pre>\n";
+    error_log("Error en registro: " . $e->getMessage());
+    $errores['general'] = $e->getMessage();
+} catch (Error $e) {
+    echo "<pre style='background:#ffe4e1; border:3px solid red; padding:10px;'><strong>⚠️ ERROR FATAL CAPTURADO:</strong>\n";
+    echo "Mensaje: " . htmlspecialchars($e->getMessage()) . "\n";
+    echo "Archivo: " . htmlspecialchars($e->getFile()) . "\n";
+    echo "Línea: " . $e->getLine() . "\n";
+    echo "Trace:\n" . htmlspecialchars($e->getTraceAsString()) . "\n";
+    echo "</pre>\n";
+    error_log("Error fatal en registro: " . $e->getMessage());
+    $errores['general'] = "Ocurrió un error inesperado al procesar tu registro. Por favor, intenta más tarde.";
 }
+} // Cierre del if ($_SERVER['REQUEST_METHOD'] === 'POST')
 
 // Incluir header solo si no se hizo redirección (es decir, si hay errores o es GET)
 include 'includes/header.php';
@@ -648,12 +717,12 @@ include 'includes/header.php';
                         <label for="respuesta_recupero" class="form-label">
                             <i class="fas fa-key me-1"></i>Respuesta de Recupero <span class="text-danger">*</span>
                         </label>
-                        <input type="text" 
-                               class="form-control <?= isset($errores['respuesta_recupero']) ? 'is-invalid' : '' ?>" 
-                               name="respuesta_recupero" 
-                               id="respuesta_recupero" 
+                        <input type="text"
+                               class="form-control <?= isset($errores['respuesta_recupero']) ? 'is-invalid' : '' ?>"
+                               name="respuesta_recupero"
+                               id="respuesta_recupero"
                                value="<?= htmlspecialchars($valores_form['respuesta_recupero'] ?? '') ?>"
-                               placeholder="Tu respuesta (entre 4 y 255 caracteres)" 
+                               placeholder="Tu respuesta (entre 4 y 255 caracteres)"
                                required
                                minlength="4"
                                maxlength="255"

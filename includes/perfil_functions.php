@@ -402,9 +402,9 @@ function procesarCambioContrasena($mysqli, $id_usuario, $post) {
             // Validar longitud mínima
             $mensaje = 'La nueva contraseña debe tener al menos 6 caracteres';
             $mensaje_tipo = 'danger';
-        } elseif (strlen($nueva_contrasena) > 32) {
+        } elseif (strlen($nueva_contrasena) > 20) {
             // Validar longitud máxima
-            $mensaje = 'La nueva contraseña no puede exceder 32 caracteres';
+            $mensaje = 'La nueva contraseña no puede exceder 20 caracteres';
             $mensaje_tipo = 'danger';
         } elseif (verificarHashContrasena($mysqli, $id_usuario, $nueva_contrasena)) {
             // La nueva contraseña no puede ser igual a la actual (validación estricta)

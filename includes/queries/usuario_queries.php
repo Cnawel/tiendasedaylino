@@ -952,31 +952,44 @@ function crearUsuarioCliente($mysqli, $nombre, $apellido, $email, $hash_password
         $sql = "INSERT INTO Usuarios (nombre, apellido, email, contrasena, rol, fecha_nacimiento, pregunta_recupero, respuesta_recupero, fecha_registro) VALUES (?, ?, ?, ?, 'cliente', NULL, ?, ?, NOW())";
         $stmt = $mysqli->prepare($sql);
         if (!$stmt) {
+            echo "<pre style='background:#ffe4e1;'><strong>DEBUG SQL PREPARE FAILED (sin fecha):</strong> " . htmlspecialchars($mysqli->error) . "</pre>\n";
             error_log("ERROR crearUsuarioCliente: No se pudo preparar consulta - " . $mysqli->error . " (Código: " . $mysqli->errno . ")");
             return 0;
         }
+        echo "<pre style='background:#e8f4f8;'><strong>DEBUG SQL (sin fecha):</strong>\n$sql\nParámetros: nombre=$nombre, apellido=$apellido, email=$email, hash_len=" . strlen($hash_password) . ", pregunta=$pregunta_recupero_id, respuesta_len=" . strlen($respuesta_recupero) . "</pre>\n";
         $stmt->bind_param('ssssis', $nombre, $apellido, $email, $hash_password, $pregunta_recupero_id, $respuesta_recupero);
     } else {
         $sql = "INSERT INTO Usuarios (nombre, apellido, email, contrasena, rol, fecha_nacimiento, pregunta_recupero, respuesta_recupero, fecha_registro) VALUES (?, ?, ?, ?, 'cliente', ?, ?, ?, NOW())";
         $stmt = $mysqli->prepare($sql);
         if (!$stmt) {
+            echo "<pre style='background:#ffe4e1;'><strong>DEBUG SQL PREPARE FAILED (con fecha):</strong> " . htmlspecialchars($mysqli->error) . "</pre>\n";
             error_log("ERROR crearUsuarioCliente: No se pudo preparar consulta - " . $mysqli->error . " (Código: " . $mysqli->errno . ")");
             return 0;
         }
+        echo "<pre style='background:#e8f4f8;'><strong>DEBUG SQL (con fecha):</strong>\n$sql\nParámetros: nombre=$nombre, apellido=$apellido, email=$email, hash_len=" . strlen($hash_password) . ", fecha=$fecha_nacimiento, pregunta=$pregunta_recupero_id, respuesta_len=" . strlen($respuesta_recupero) . "</pre>\n";
         $stmt->bind_param('sssssis', $nombre, $apellido, $email, $hash_password, $fecha_nacimiento, $pregunta_recupero_id, $respuesta_recupero);
     }
-    
+
     $resultado = $stmt->execute();
-    
+
+    echo "<pre style='background:#f5f5dc;'><strong>DEBUG EXECUTE RESULT:</strong> " . ($resultado ? 'SUCCESS' : 'FAILED') . "\n";
+    if (!$resultado) {
+        echo "Error: " . htmlspecialchars($stmt->error) . "\n";
+        echo "Errno: " . $stmt->errno . "\n";
+    }
+    echo "</pre>\n";
+
     if ($resultado) {
         $id_usuario = $mysqli->insert_id;
-        
+        echo "<pre style='background:#f0fff0;'><strong>DEBUG INSERT SUCCESS:</strong> Nuevo ID = $id_usuario</pre>\n";
+
         // Verificar que el hash se guardó correctamente
         _verificarHashGuardado($mysqli, $id_usuario, $hash_password);
-        
+
         $stmt->close();
         return $id_usuario;
     } else {
+        echo "<pre style='background:#ffe4e1;'><strong>DEBUG INSERT FAILED</strong></pre>\n";
         error_log("ERROR crearUsuarioCliente: No se pudo ejecutar consulta - " . $stmt->error . " (Código: " . $stmt->errno . ")");
         $stmt->close();
         return 0;

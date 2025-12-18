@@ -763,7 +763,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                             <label class="form-label">Seleccionar archivo CSV</label>
                             <input type="file" class="form-control" name="archivo_csv" accept=".csv" required>
                             <small class="text-secondary">
-                                <a href="marketing-descargar-template.php" target="_blank">Descargar plantilla CSV</a>
+                                <a href="uploads/ejemplo_productos.csv" target="_blank">Descargar plantilla CSV</a>
                             </small>
                         </div>
                         
@@ -998,11 +998,38 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                     <td>#<?= $cat['id_categoria'] ?></td>
                                     <td><strong><?= htmlspecialchars($cat['nombre_categoria']) ?></strong></td>
                                     <td>
-                                        <?php if (!empty($cat['descripcion_categoria'])): ?>
-                                            <?= htmlspecialchars($cat['descripcion_categoria']) ?>
-                                        <?php else: ?>
-                                            <span class="text-secondary"><em>Sin descripción</em></span>
-                                        <?php endif; ?>
+                                        <div class="categoria-descripcion-container" data-id-categoria="<?= $cat['id_categoria'] ?>">
+                                            <span class="categoria-descripcion-text">
+                                                <?php if (!empty($cat['descripcion_categoria'])): ?>
+                                                    <?= htmlspecialchars($cat['descripcion_categoria']) ?>
+                                                <?php else: ?>
+                                                    <em class="text-secondary">Sin descripción</em>
+                                                <?php endif; ?>
+                                            </span>
+                                            <button type="button" class="btn btn-sm btn-link p-0 ms-2 editar-descripcion-btn"
+                                                    title="Editar descripción" data-id-categoria="<?= $cat['id_categoria'] ?>">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                        </div>
+
+                                        <!-- Formulario de edición inline -->
+                                        <div class="categoria-descripcion-editor d-none" data-id-categoria="<?= $cat['id_categoria'] ?>">
+                                            <div class="input-group input-group-sm">
+                                                <input type="text"
+                                                       class="form-control descripcion-input"
+                                                       maxlength="255"
+                                                       placeholder="Descripción (máximo 255 caracteres)"
+                                                       value="<?= htmlspecialchars($cat['descripcion_categoria'] ?? '') ?>">
+                                                <button type="button" class="btn btn-success guardar-descripcion-btn" title="Guardar">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-secondary cancelar-descripcion-btn" title="Cancelar">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </div>
+                                            <small class="text-muted d-block mt-1">Máximo 255 caracteres. Solo letras, números y símbolos: . , - : ;</small>
+                                            <div class="contador-caracteres" style="font-size: 0.85rem; color: #666;"></div>
+                                        </div>
                                     </td>
                                     <td>
                                         <?php
@@ -1423,5 +1450,8 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
         </div>
     </div>
 </div>
+
+<!-- Script para edición inline de descripciones de categoría -->
+<script src="js/marketing_categoria_editar.js"></script>
 
 <?php include 'includes/footer.php'; render_footer(); ?>

@@ -475,7 +475,7 @@ function renderFormularioEstadoPedido($estado_actual_modal, $estado_pago = null)
         </div>
         <?php endif; ?>
         
-        <select class="form-select" name="nuevo_estado" <?= $select_pedido_disabled ? 'disabled' : 'required' ?>>
+        <select class="form-select" name="nuevo_estado" id="nuevo_estado_pedido_<?= $id_pedido ?>" <?= $select_pedido_disabled ? 'disabled' : 'required' ?>>
             <?php
             $orden_estados = ['pendiente', 'preparacion', 'en_viaje', 'completado', 'cancelado'];
             $estados_ordenados = [];
@@ -600,7 +600,9 @@ function renderFormularioEstadoPago($id_pedido, $estado_pago_actual_modal, $info
         $puede_aprobar_stock = true;
         $errores_stock = [];
 
-        if (in_array('aprobado', $transiciones_validas)) {
+        // Solo validar stock si se puede aprobar el pago Y el pago NO está aprobado actualmente
+        // (cuando el pago ya está aprobado, no necesitamos validar stock para mostrar mensajes)
+        if (in_array('aprobado', $transiciones_validas) && $estado_pago_actual_modal !== 'aprobado') {
             global $mysqli;
             require_once __DIR__ . '/queries_helper.php';
             try {
@@ -688,7 +690,7 @@ function renderFormularioEstadoPago($id_pedido, $estado_pago_actual_modal, $info
             ?>
         </select>
         <?php if ($select_disabled): ?>
-        <small class="text-warning d-block mt-1">
+        <small class="text-dark d-block mt-1">
             <i class="fas fa-lock me-1"></i>
             <?php if ($pago_es_terminal): ?>
                 El pago está en estado terminal (<?= htmlspecialchars($estado_pago_actual_modal) ?>) y no puede modificarse.
@@ -700,7 +702,17 @@ function renderFormularioEstadoPago($id_pedido, $estado_pago_actual_modal, $info
                 El pedido completado no permite cambios en el estado del pago.
             <?php endif; ?>
         </small>
-        <?php if (!$puede_aprobar_stock && !empty($errores_stock)): ?>
+        <?php
+        // Solo mostrar alerta de stock si:
+        // 1. Hay errores de stock
+        // 2. El pago NO está aprobado (no es un estado terminal - validación histórica no aplicable)
+        // 3. El pedido NO está en estado terminal (preparacion, en_viaje, completado, cancelado)
+        // NOTA: Si el pago ya está aprobado, nunca mostrar alertas de stock (es información histórica)
+        $mostrar_alerta_stock = (!$puede_aprobar_stock && !empty($errores_stock)
+                                && $estado_pago_actual_modal !== 'aprobado'
+                                && !in_array($estado_pedido_norm, ['preparacion', 'en_viaje', 'completado', 'cancelado']));
+        ?>
+        <?php if ($mostrar_alerta_stock): ?>
         <div class="alert alert-danger mt-2 mb-0" role="alert">
             <i class="fas fa-exclamation-circle me-1"></i>
             <strong>⚠️ Stock insuficiente</strong>

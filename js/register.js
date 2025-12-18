@@ -141,10 +141,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 return { valido: true, mensaje: '' };
 
             case 'respuesta_recupero':
+                // NOTA: Según diccionario de datos, longitud: 4-20 [A-Z, a-z, 0-9, espacios]
                 const respuestaPattern = /^[a-zA-Z0-9 ]+$/;
                 if (!valorTrimmed) {
                     return { valido: false, mensaje: 'La respuesta de recupero es obligatoria.' };
                 } else if (valorTrimmed.length < 4) {
+                    // CORRECCIÓN: Mínimo 4 caracteres según diccionario (fue 6 por error)
                     return { valido: false, mensaje: 'La respuesta de recupero debe tener al menos 4 caracteres.' };
                 } else if (valorTrimmed.length > 20) {
                     return { valido: false, mensaje: 'La respuesta de recupero no puede exceder 20 caracteres.' };

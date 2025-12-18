@@ -804,34 +804,49 @@ function inicializarPerfil() {
                 const inputCodigo = formulario.querySelector('[name="numero_transaccion"]');
                 const codigoPago = inputCodigo ? inputCodigo.value.trim() : '';
 
-                // Validar que el código no esté vacío
-                if (!codigoPago) {
-                    inputCodigo.classList.add('is-invalid');
-                    inputCodigo.focus();
-                    return false;
-                }
+                // ========================================================================
+                // VALIDACIÓN DE CÓDIGO DE PAGO (CAMPO OPCIONAL)
+                // Según diccionario de datos:
+                // - Tipo: varchar(100)
+                // - Caracteres permitidos: [A-Z, a-z, 0-9, -, _]
+                // - NULL permitido: Sí (campo opcional)
+                // ========================================================================
 
-                // Validar longitud máxima: 100 caracteres (sin mínimo)
-                if (codigoPago.length > 100) {
-                    inputCodigo.classList.add('is-invalid');
-                    mostrarFeedbackValidacion(inputCodigo, false, 'El número de transacción no puede exceder 100 caracteres');
-                    inputCodigo.focus();
-                    return false;
-                }
+                if (codigoPago) {
+                    // VALIDACIÓN 1: Longitud máxima
+                    if (codigoPago.length > 100) {
+                        inputCodigo.classList.add('is-invalid');
+                        mostrarFeedbackValidacion(inputCodigo, false, 'Error: El código de pago no puede exceder 100 caracteres. Caracteres ingresados: ' + codigoPago.length);
+                        inputCodigo.focus();
+                        return false;
+                    }
 
-                // Validar caracteres permitidos según diccionario: [A-Z, a-z, 0-9, -, _]
-                if (!/^[A-Za-z0-9\-_]+$/.test(codigoPago)) {
-                    inputCodigo.classList.add('is-invalid');
-                    mostrarFeedbackValidacion(inputCodigo, false, 'El número de transacción solo puede contener letras, números, guiones y guiones bajos');
-                    inputCodigo.focus();
-                    return false;
+                    // VALIDACIÓN 2: Caracteres permitidos según diccionario
+                    // Permitidos: A-Z, a-z, 0-9, -, _
+                    if (!/^[A-Za-z0-9\-_]+$/.test(codigoPago)) {
+                        inputCodigo.classList.add('is-invalid');
+                        const caracteresInvalidos = codigoPago.replace(/[A-Za-z0-9\-_]/g, '').split('').filter((v, i, a) => a.indexOf(v) === i).join(', ');
+                        mostrarFeedbackValidacion(inputCodigo, false, 'Error: El código solo puede contener letras (A-Z, a-z), números (0-9), guiones (-) y guiones bajos (_). Caracteres inválidos detectados: ' + caracteresInvalidos);
+                        inputCodigo.focus();
+                        return false;
+                    }
+
+                    // VALIDACIÓN 3: Al menos un carácter alfanumérico
+                    if (!/[A-Za-z0-9]/.test(codigoPago)) {
+                        inputCodigo.classList.add('is-invalid');
+                        mostrarFeedbackValidacion(inputCodigo, false, 'Error: El código debe contener al menos un carácter alfanumérico (letra o número)');
+                        inputCodigo.focus();
+                        return false;
+                    }
                 }
 
                 // Limpiar errores previos
                 inputCodigo.classList.remove('is-invalid');
 
-                // Mostrar confirmación simple con el código
-                const mensaje = 'Por favor, verifica que el código de pago sea correcto:\n\nCódigo: ' + codigoPago + '\n\n¿Confirmas que el código es correcto?';
+                // Mostrar confirmación con el código (si está vacío, mostrar que es opcional)
+                const mensaje = codigoPago
+                    ? 'Por favor, verifica que el código de pago sea correcto:\n\nCódigo: ' + codigoPago + '\n\n¿Confirmas que el código es correcto?'
+                    : '¿Confirmas que deseas marcar este pago sin proporcionar un código de transacción?';
 
                 if (!confirm(mensaje)) {
                     return false;

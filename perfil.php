@@ -53,7 +53,7 @@ require_once __DIR__ . '/includes/queries/usuario_queries.php'; // Necesario par
 require_once __DIR__ . '/includes/queries/perfil_queries.php';
 require_once __DIR__ . '/includes/queries/pedido_queries.php';
 require_once __DIR__ . '/includes/queries/stock_queries.php';
-require_once __DIR__ . '/includes/queries/pago_queries.php'; // Necesario para actualizarPagoCompleto()
+require_once __DIR__ . '/includes/queries/pago_queries.php'; // Necesario para marcarPagoPagadoPorCliente()
 require_once __DIR__ . '/includes/queries/detalle_pedido_queries.php'; // Necesario para obtenerDetallesPedido() en operaciones de stock
 require_once __DIR__ . '/includes/sales_functions.php';
 require_once __DIR__ . '/includes/estado_helpers.php';
@@ -720,7 +720,7 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                                     $hay_inconsistencia = in_array($estado_pedido, ['completado', 'en_viaje']) 
                                                                           && in_array($estado_pago_actual, ['rechazado', 'cancelado']);
                                                     ?>
-                                                    <span class="badge <?= htmlspecialchars($info_estado_pedido['clase']) ?> text-white">
+                                                    <span class="badge <?= htmlspecialchars($info_estado_pedido['clase']) ?>">
                                                         <?= htmlspecialchars($info_estado_pedido['texto']) ?>
                                                     </span>
                                                     <?php if ($hay_inconsistencia): ?>
@@ -731,7 +731,7 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                                 </td>
                                                 <td>
                                                     <?php if ($pago_pedido): ?>
-                                                        <span class="badge bg-<?= htmlspecialchars($info_estado_pago['color']) ?> text-white">
+                                                        <span class="badge bg-<?= htmlspecialchars($info_estado_pago['color']) ?>">
                                                             <?= htmlspecialchars($info_estado_pago['nombre']) ?>
                                                         </span>
                                                         <?php 
@@ -744,7 +744,7 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                                         }
                                                         ?>
                                                     <?php else: ?>
-                                                        <span class="badge bg-secondary text-white">Sin pago</span>
+                                                        <span class="badge bg-warning">Pendiente</span>
                                                     <?php endif; ?>
                                                 </td>
                                                 <td class="text-end">
@@ -839,11 +839,11 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                                 <i class="fas fa-key me-1"></i>Respuesta de Recupero
                                             </label>
                                             <div class="password-input-wrapper">
-                                                <input type="password" 
-                                                       class="form-control" 
-                                                       id="respuesta_recupero" 
-                                                       name="respuesta_recupero" 
-                                                       value="<?php 
+                                                <input type="password"
+                                                       class="form-control"
+                                                       id="respuesta_recupero"
+                                                       name="respuesta_recupero"
+                                                       value="<?php
                                                            // No mostrar el hash, solo mostrar si es texto plano (menos de 20 caracteres)
                                                            $respuesta = $usuario['respuesta_recupero'] ?? '';
                                                            echo (strlen($respuesta) > 20) ? '' : htmlspecialchars($respuesta);
@@ -897,21 +897,21 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                                 <i class="fas fa-key me-1"></i>Nueva Contraseña
                                             </label>
                                             <div class="password-input-wrapper">
-                                                <input type="password" 
-                                                       class="form-control" 
-                                                       id="nueva_contrasena" 
-                                                       name="nueva_contrasena" 
+                                                <input type="password"
+                                                       class="form-control"
+                                                       id="nueva_contrasena"
+                                                       name="nueva_contrasena"
                                                        required
                                                        minlength="6"
-                                                       maxlength="32"
+                                                       maxlength="20"
                                                        autocomplete="new-password"
-                                                       title="Mínimo 6 caracteres, máximo 32 caracteres">
+                                                       title="Mínimo 6 caracteres, máximo 20 caracteres">
                                                 <button type="button" class="btn-toggle-password" data-input-id="nueva_contrasena" aria-label="Mostrar contraseña">
                                                     <i class="fas fa-eye"></i>
                                                 </button>
                                             </div>
                                             <small class="text-muted">
-                                                <i class="fas fa-info-circle me-1"></i>Mínimo 6 caracteres, máximo 32 caracteres
+                                                <i class="fas fa-info-circle me-1"></i>Mínimo 6 caracteres, máximo 20 caracteres
                                             </small>
                                         </div>
                                         
@@ -920,13 +920,13 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                                 <i class="fas fa-key me-1"></i>Confirmar Nueva Contraseña
                                             </label>
                                             <div class="password-input-wrapper">
-                                                <input type="password" 
-                                                       class="form-control" 
-                                                       id="confirmar_contrasena" 
-                                                       name="confirmar_contrasena" 
+                                                <input type="password"
+                                                       class="form-control"
+                                                       id="confirmar_contrasena"
+                                                       name="confirmar_contrasena"
                                                        required
                                                        minlength="6"
-                                                       maxlength="32"
+                                                       maxlength="20"
                                                        autocomplete="new-password">
                                                 <button type="button" class="btn-toggle-password" data-input-id="confirmar_contrasena" aria-label="Mostrar contraseña">
                                                     <i class="fas fa-eye"></i>

@@ -253,8 +253,8 @@ function procesarCreacionUsuarioStaff($mysqli, $post) {
     } elseif (strlen($password_temporal) < 6) {
         // Mínimo 6 caracteres para contraseña temporal
         return ['mensaje' => 'La contraseña temporal debe tener al menos 6 caracteres.', 'mensaje_tipo' => 'danger'];
-    } elseif (strlen($password_temporal) > 32) {
-        return ['mensaje' => 'La contraseña temporal no puede exceder 32 caracteres.', 'mensaje_tipo' => 'danger'];
+    } elseif (strlen($password_temporal) > 20) {
+        return ['mensaje' => 'La contraseña temporal no puede exceder 20 caracteres.', 'mensaje_tipo' => 'danger'];
     }
     
     // Generar hash usando función centralizada
@@ -418,8 +418,8 @@ function procesarActualizacionUsuario($mysqli, $post, $id_usuario_actual) {
         } elseif (strlen($nueva_contrasena) < 6) {
             // Mínimo 6 caracteres según diccionario de datos
             return ['mensaje' => 'La contraseña debe tener al menos 6 caracteres', 'mensaje_tipo' => 'danger'];
-        } elseif (strlen($nueva_contrasena) > 32) {
-            return ['mensaje' => 'La contraseña no puede exceder 32 caracteres', 'mensaje_tipo' => 'danger'];
+        } elseif (strlen($nueva_contrasena) > 20) {
+            return ['mensaje' => 'La contraseña no puede exceder 20 caracteres', 'mensaje_tipo' => 'danger'];
         } else {
             $cambiar_contrasena = true;
         }

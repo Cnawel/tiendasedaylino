@@ -160,6 +160,9 @@ if ($primer_color && !empty($fotos_por_color[$primer_color])) {
     if (!empty($fotos_color['foto2_prod']) && verificarArchivoExiste($fotos_color['foto2_prod'])) {
         $imagenes[] = $fotos_color['foto2_prod'];
     }
+    if (!empty($fotos_color['foto3_prod']) && verificarArchivoExiste($fotos_color['foto3_prod'])) {
+        $imagenes[] = $fotos_color['foto3_prod'];
+    }
     
     // Si el producto prioritario no tiene fotos, usar las del siguiente como fallback
     if (empty($imagenes) && count($fotos_por_color[$primer_color]) > 1) {
@@ -171,6 +174,9 @@ if ($primer_color && !empty($fotos_por_color[$primer_color])) {
             if (!empty($foto_fallback['foto2_prod']) && verificarArchivoExiste($foto_fallback['foto2_prod'])) {
                 $imagenes[] = $foto_fallback['foto2_prod'];
             }
+            if (!empty($foto_fallback['foto3_prod']) && verificarArchivoExiste($foto_fallback['foto3_prod'])) {
+                $imagenes[] = $foto_fallback['foto3_prod'];
+            }
             // Solo usar el primer fallback que tenga fotos
             if (!empty($imagenes)) {
                 break;
@@ -179,11 +185,15 @@ if ($primer_color && !empty($fotos_por_color[$primer_color])) {
     }
 }
 
-// Si no hay fotos por color, usar fotos generales
-if (empty($imagenes) && $fotos_generales) {
-    if (!empty($fotos_generales['foto3_prod']) && verificarArchivoExiste($fotos_generales['foto3_prod'])) {
+// Agregar foto grupal general si existe y no está ya en la lista
+if ($fotos_generales && !empty($fotos_generales['foto3_prod']) && verificarArchivoExiste($fotos_generales['foto3_prod'])) {
+    if (!in_array($fotos_generales['foto3_prod'], $imagenes)) {
         $imagenes[] = $fotos_generales['foto3_prod'];
     }
+}
+
+// Si aún no hay fotos (ni por color ni la grupal), usar miniatura como fallback
+if (empty($imagenes) && $fotos_generales) {
     if (!empty($fotos_generales['foto_prod_miniatura']) && verificarArchivoExiste($fotos_generales['foto_prod_miniatura'])) {
         $imagenes[] = $fotos_generales['foto_prod_miniatura'];
     }
@@ -557,7 +567,7 @@ $stockPorTalleColor = generarStockPorTalleYColor($variantes_con_stock_disponible
                                 <a href="detalle-producto.php?id=<?= $variante['id_producto'] ?>" class="text-decoration-none">
                                     <div class="card-img-container card-img-container-variante position-relative">
                                         <img src="<?= htmlspecialchars($imagen_variante) ?>" 
-                                             class="card-img-top w-100 h-100 img-hover" 
+                                             class="card-img-top img-hover catalogo-card-img" 
                                              alt="<?= htmlspecialchars($variante['nombre_producto']) ?> - <?= htmlspecialchars($variante['color']) ?>">
                                     </div>
                                     <div class="card-body card-body-white text-center p-2">

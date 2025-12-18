@@ -445,8 +445,12 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                     <?= htmlspecialchars($info_estado_pago['nombre']) ?>
                                                 </span>
                                             <?php else: ?>
-                                                <span class="badge bg-warning text-dark" title="Pago no registrado - estado esperado: pendiente">
-                                                    <i class="fas fa-exclamation-circle me-1"></i>Sin Pago
+                                                <?php
+                                                // Obtener información del estado de pago por defecto (pendiente) cuando no hay pago registrado
+                                                $info_estado_pago = obtenerInfoEstadoPago(null);
+                                                ?>
+                                                <span class="badge bg-<?= htmlspecialchars($info_estado_pago['color']) ?>">
+                                                    <?= htmlspecialchars($info_estado_pago['nombre']) ?>
                                                 </span>
                                             <?php endif; ?>
                                         </td>

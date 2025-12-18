@@ -367,22 +367,18 @@ function procesarCSV($archivo_temporal, $mysqli) {
             if (empty($nombre_categoria_raw) && isset($producto['id_categoria'])) {
                 $id_cat = intval($producto['id_categoria']);
                 // Buscar nombre de categoría por ID
-                    foreach ($categorias_disponibles as $cat) {
-                        if ($cat['id_categoria'] == $id_cat) {
-                            $nombre_categoria_raw = $cat['nombre_categoria'];
-                            break;
-                        }
+                foreach ($categorias_disponibles as $cat) {
+                    if ($cat['id_categoria'] == $id_cat) {
+                        $nombre_categoria_raw = $cat['nombre_categoria'];
+                        break;
                     }
-                    if (empty($nombre_categoria_raw)) {
-                        $errores[] = "Línea $linea: ID de categoría '$id_cat' no existe en la base de datos. Usa el nombre de la categoría en lugar del ID.";
-                        continue;
-                    }
-                } else {
-                    // No es numérico, asumir que es el NOMBRE de la categoría
-                    $nombre_categoria_raw = trim($valor_id_cat);
+                }
+                if (empty($nombre_categoria_raw)) {
+                    $errores[] = "Línea $linea: ID de categoría '$id_cat' no existe en la base de datos. Usa el nombre de la categoría en lugar del ID.";
+                    continue;
                 }
             }
-            
+
             // Validar categoría usando función de validación
             $validacion_categoria = validarCategoria($nombre_categoria_raw);
             if (!$validacion_categoria['valido']) {

@@ -136,7 +136,7 @@ function procesarErrorStock($error_message, $contexto = []) {
         }
         $tipo_mensaje = 'danger';
     }
-    
+
     return ['mensaje' => $mensaje_usuario, 'mensaje_tipo' => $tipo_mensaje];
 }
 

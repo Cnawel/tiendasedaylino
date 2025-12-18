@@ -303,46 +303,106 @@ function eliminarCategoriaPermanentemente($mysqli, $id_categoria) {
 
 /**
  * Obtiene categorías activas, únicas y con productos disponibles
- * 
+ *
  * Combina la lógica de obtenerCategorias() y obtenerCategoriasConProductosStock()
  * para devolver una lista limpia y lista para usar en el frontend.
- * 
+ *
  * @param mysqli $mysqli Conexión a la base de datos
  * @return array Array de categorías filtradas
  */
 function obtenerCategoriasActivasConProductos($mysqli) {
     // 1. Obtener todas las categorías activas
     $categorias_activas_temp = obtenerCategorias($mysqli);
-    
+
     // 2. Eliminar duplicados por nombre (mantener primera ocurrencia)
     $categorias_unicas = [];
     $nombres_vistos = [];
-    
+
     foreach ($categorias_activas_temp as $cat) {
         // Doble verificación de activo
         if (isset($cat['activo']) && $cat['activo'] != 1) {
             continue;
         }
-        
+
         $nombre_normalizado = strtolower(trim($cat['nombre_categoria']));
         if (!in_array($nombre_normalizado, $nombres_vistos)) {
             $categorias_unicas[] = $cat;
             $nombres_vistos[] = $nombre_normalizado;
         }
     }
-    
+
     // 3. Si hay categorías, filtrar las que tienen productos con stock
     if (empty($categorias_unicas)) {
         return [];
     }
-    
+
     $categorias_con_productos_ids = obtenerCategoriasConProductosStock($mysqli);
-    
+
     $categorias_finales = array_filter($categorias_unicas, function($cat) use ($categorias_con_productos_ids) {
         return in_array((int)$cat['id_categoria'], $categorias_con_productos_ids);
     });
-    
+
     // Re-indexar array
     return array_values($categorias_finales);
+}
+
+/**
+ * Actualiza la descripción de una categoría existente
+ *
+ * VALIDACIÓN:
+ * - El caller debe validar la descripción usando validarDescripcionCategoria()
+ * - Esta función solo realiza el UPDATE en la base de datos
+ * - La descripción puede ser una cadena vacía (campo opcional)
+ *
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param int $id_categoria ID de la categoría a actualizar
+ * @param string $descripcion Nueva descripción (puede estar vacía)
+ * @return bool True si se actualizó correctamente, false en caso contrario
+ */
+function actualizarDescripcionCategoria($mysqli, $id_categoria, $descripcion) {
+    // Validar que id_categoria es un número entero
+    $id_categoria = (int)$id_categoria;
+
+    if ($id_categoria <= 0) {
+        error_log("ERROR actualizarDescripcionCategoria - ID de categoría inválido: " . $id_categoria);
+        return false;
+    }
+
+    // Preparar la descripción (trim para consistencia)
+    $descripcion = trim($descripcion);
+
+    // SQL para actualizar la descripción
+    $sql = "
+        UPDATE Categorias
+        SET descripcion_categoria = ?,
+            fecha_actualizacion = NOW()
+        WHERE id_categoria = ? AND activo = 1
+    ";
+
+    $stmt = $mysqli->prepare($sql);
+    if (!$stmt) {
+        error_log("ERROR actualizarDescripcionCategoria - prepare falló: " . $mysqli->error);
+        return false;
+    }
+
+    // Bind parameters: descripción (string) e id_categoria (integer)
+    $stmt->bind_param('si', $descripcion, $id_categoria);
+
+    if (!$stmt->execute()) {
+        error_log("ERROR actualizarDescripcionCategoria - execute falló: " . $stmt->error);
+        $stmt->close();
+        return false;
+    }
+
+    // Verificar que se actualizó al menos una fila
+    $affected_rows = $stmt->affected_rows;
+    $stmt->close();
+
+    if ($affected_rows <= 0) {
+        error_log("ERROR actualizarDescripcionCategoria - La categoría con ID {$id_categoria} no existe o no está activa");
+        return false;
+    }
+
+    return true;
 }
 

@@ -51,38 +51,6 @@ function validarNombreProducto($valor) {
     return ['valido' => true, 'valor' => $valor, 'error' => ''];
 }
 
-/**
- * Valida descripción de categoría
- * Permite: letras, números, espacios, acentos, guiones, puntos, comas, dos puntos, punto y coma
- * Bloquea: símbolos peligrosos (< > { } [ ] | \ / &)
- * 
- * NOTA: Existe versión JavaScript equivalente en marketing_forms.js
- * Ambas versiones deben mantener la misma lógica de validación.
- * 
- * @param string $valor Valor a validar
- * @return array ['valido' => bool, 'valor' => string, 'error' => string]
- */
-function validarDescripcionCategoria($valor) {
-    $valor = trim($valor);
-    
-    // La descripción es opcional, si está vacía es válida
-    if (empty($valor)) {
-        return ['valido' => true, 'valor' => '', 'error' => ''];
-    }
-    
-    // Validar caracteres permitidos: letras, números, espacios, acentos, guiones, puntos, comas, dos puntos, punto y coma
-    // Bloquear símbolos peligrosos: < > { } [ ] | \ / &
-    if (preg_match('/[<>{}\[\]|\\\\\/&]/', $valor)) {
-        return ['valido' => false, 'valor' => $valor, 'error' => 'La descripción contiene caracteres no permitidos. No se permiten los símbolos: < > { } [ ] | \\ / &'];
-    }
-    
-    // Validar longitud máxima (VARCHAR(255) en BD)
-    if (strlen($valor) > 255) {
-        return ['valido' => false, 'valor' => $valor, 'error' => 'La descripción no puede exceder 255 caracteres.'];
-    }
-    
-    return ['valido' => true, 'valor' => $valor, 'error' => ''];
-}
 
 /**
  * Valida descripción de producto

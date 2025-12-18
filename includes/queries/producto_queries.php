@@ -530,7 +530,8 @@ function obtenerTodasFotosProducto($mysqli, $id_producto) {
             $fotos_por_color[$row['color']][] = [
                 'id_foto' => $row['id_foto'],
                 'foto1_prod' => $row['foto1_prod'],
-                'foto2_prod' => $row['foto2_prod']
+                'foto2_prod' => $row['foto2_prod'],
+                'foto3_prod' => $row['foto3_prod']
             ];
         }
     }
@@ -3575,12 +3576,13 @@ function obtenerFotosGrupoProducto($mysqli, $nombre_producto, $id_categoria, $ge
                 }
                 
                 // Solo agregar si tiene al menos una foto válida
-                if (!empty($row_foto['foto1_prod']) || !empty($row_foto['foto2_prod'])) {
+                if (!empty($row_foto['foto1_prod']) || !empty($row_foto['foto2_prod']) || !empty($row_foto['foto3_prod'])) {
                     $foto_item = [
                         'id_foto' => $row_foto['id_foto'],
                         'id_producto' => $row_foto['id_producto'],
                         'foto1_prod' => !empty($row_foto['foto1_prod']) ? $row_foto['foto1_prod'] : null,
-                        'foto2_prod' => !empty($row_foto['foto2_prod']) ? $row_foto['foto2_prod'] : null
+                        'foto2_prod' => !empty($row_foto['foto2_prod']) ? $row_foto['foto2_prod'] : null,
+                        'foto3_prod' => !empty($row_foto['foto3_prod']) ? $row_foto['foto3_prod'] : null
                     ];
                     
                     if ($foto_existe) {

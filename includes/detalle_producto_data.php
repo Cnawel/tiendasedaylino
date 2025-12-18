@@ -88,8 +88,18 @@ foreach ($fotos_por_color as $color => $fotos_array) {
         if (!empty($foto_prioritaria['foto2_prod']) && verificarArchivoExisteData($foto_prioritaria['foto2_prod'])) {
             $fotos_color_array[] = $foto_prioritaria['foto2_prod'];
         }
+        if (!empty($foto_prioritaria['foto3_prod']) && verificarArchivoExisteData($foto_prioritaria['foto3_prod'])) {
+            $fotos_color_array[] = $foto_prioritaria['foto3_prod'];
+        }
         
-        // Si el producto prioritario no tiene fotos, usar las del siguiente como fallback
+        // Si no tiene foto3 específica de color, intentar usar la grupal general
+        if (empty($foto_prioritaria['foto3_prod']) && $fotos_generales && !empty($fotos_generales['foto3_prod'])) {
+            if (verificarArchivoExisteData($fotos_generales['foto3_prod'])) {
+                $fotos_color_array[] = $fotos_generales['foto3_prod'];
+            }
+        }
+        
+        // Si el producto prioritario no tiene fotos (foto1 ni foto2), usar las del siguiente como fallback
         if (empty($fotos_color_array) && count($fotos_array) > 1) {
             foreach ($fotos_array as $foto_item) {
                 if (!empty($foto_item['foto1_prod']) && verificarArchivoExisteData($foto_item['foto1_prod'])) {
@@ -97,6 +107,9 @@ foreach ($fotos_por_color as $color => $fotos_array) {
                 }
                 if (!empty($foto_item['foto2_prod']) && verificarArchivoExisteData($foto_item['foto2_prod'])) {
                     $fotos_color_array[] = $foto_item['foto2_prod'];
+                }
+                if (!empty($foto_item['foto3_prod']) && verificarArchivoExisteData($foto_item['foto3_prod'])) {
+                    $fotos_color_array[] = $foto_item['foto3_prod'];
                 }
                 // Solo usar el primer fallback que tenga fotos
                 if (!empty($fotos_color_array)) {

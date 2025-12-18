@@ -475,11 +475,93 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // NOTA: Se eliminó la delegación de eventos a nivel del documento para evitar conflictos
     // El listener del submit del formulario es suficiente y más confiable
-    
+
     // NOTA: Se eliminó la reinicialización de listeners al abrir modales para evitar conflictos
     // El listener del submit del formulario funciona correctamente sin necesidad de reinicialización
 });
 
+/**
+ * Valida el formulario de edición de estado antes de enviarlo
+ * Incluye confirmación especial para cambios a estados terminales (pedido y pago)
+ * @param {number} pedidoId ID del pedido
+ * @return {boolean} true si puede continuar, false si se cancela
+ */
+function validarFormularioEstado(pedidoId) {
+    const selectEstadoPedido = document.getElementById('nuevo_estado_pedido_' + pedidoId);
+    const estadoAnteriorPedido = document.querySelector('#formEditarEstado' + pedidoId + ' [name="estado_anterior"]');
+    const selectEstadoPago = document.getElementById('nuevo_estado_pago_' + pedidoId);
+    const estadoAnteriorPago = document.querySelector('#formEditarEstado' + pedidoId + ' [name="estado_pago_anterior"]');
+
+    // Verificar cambios en estado del pedido
+    if (selectEstadoPedido && estadoAnteriorPedido) {
+        const estadoNuevoPedido = selectEstadoPedido.value.toLowerCase().trim();
+        const estadoActualPedido = estadoAnteriorPedido.value.toLowerCase().trim();
+
+        // Estados terminales del pedido que requieren confirmación especial
+        const estadosTerminalesPedido = ['completado', 'cancelado'];
+
+        if (estadosTerminalesPedido.includes(estadoNuevoPedido) && estadoActualPedido !== estadoNuevoPedido) {
+            const nombresEstadosPedido = {
+                'completado': 'Completado',
+                'cancelado': 'Cancelado'
+            };
+
+            const nombreEstadoPedido = nombresEstadosPedido[estadoNuevoPedido] || estadoNuevoPedido;
+
+            const confirmacionPedido = confirm(
+                `⚠️ ATENCIÓN: Está a punto de cambiar el PEDIDO a estado "${nombreEstadoPedido}".\n\n` +
+                `Esto marcará el pedido como definitivamente ${estadoNuevoPedido === 'completado' ? 'cerrado' : 'cancelado'}.\n\n` +
+                `¿Está completamente seguro de que desea continuar?\n\n` +
+                `Esta acción puede afectar el inventario y no se puede deshacer fácilmente.`
+            );
+
+            if (!confirmacionPedido) {
+                return false; // Cancelar el envío
+            }
+        }
+    }
+
+    // Verificar cambios en estado del pago
+    if (selectEstadoPago && estadoAnteriorPago) {
+        const estadoNuevoPago = selectEstadoPago.value.toLowerCase().trim();
+        const estadoActualPago = estadoAnteriorPago.value.toLowerCase().trim();
+
+        // Estados terminales del pago que requieren confirmación especial
+        const estadosTerminalesPago = ['aprobado', 'rechazado', 'cancelado'];
+
+        if (estadosTerminalesPago.includes(estadoNuevoPago) && estadoActualPago !== estadoNuevoPago) {
+            const nombresEstadosPago = {
+                'aprobado': 'Pago Aprobado',
+                'rechazado': 'Pago Rechazado',
+                'cancelado': 'Pago Cancelado'
+            };
+
+            const nombreEstadoPago = nombresEstadosPago[estadoNuevoPago] || estadoNuevoPago;
+
+            let mensajeAdicional = '';
+            if (estadoNuevoPago === 'aprobado') {
+                mensajeAdicional = 'Esto descontará el stock del inventario y marcará el pago como definitivamente aprobado.';
+            } else if (estadoNuevoPago === 'rechazado') {
+                mensajeAdicional = 'Esto rechazará definitivamente el pago y podrá afectar el estado del pedido.';
+            } else if (estadoNuevoPago === 'cancelado') {
+                mensajeAdicional = 'Esto cancelará definitivamente el pago y podrá restaurar el stock si ya fue descontado.';
+            }
+
+            const confirmacionPago = confirm(
+                `⚠️ ATENCIÓN: Está a punto de cambiar el PAGO a estado "${nombreEstadoPago}".\n\n` +
+                `${mensajeAdicional}\n\n` +
+                `¿Está completamente seguro de que desea continuar?\n\n` +
+                `Esta acción puede afectar el inventario y el estado del pedido. No se puede deshacer fácilmente.`
+            );
+
+            if (!confirmacionPago) {
+                return false; // Cancelar el envío
+            }
+        }
+    }
+
+    return true; // Continuar con el envío
+}
 
 
 

@@ -509,31 +509,31 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                                             <label class="form-label text-dark"><strong>Cambiar Contraseña:</strong></label>
                                                             <div class="row g-2">
                                                                 <div class="col-md-6">
-                                                                    <input type="password" 
-                                                                           class="form-control edit-field" 
-                                                                           name="nueva_contrasena" 
+                                                                    <input type="password"
+                                                                           class="form-control edit-field"
+                                                                           name="nueva_contrasena"
                                                                            id="nueva_contrasena_<?= $user['id_usuario'] ?>"
-                                                                           placeholder="Nueva contraseña" 
+                                                                           placeholder="Nueva contraseña"
                                                                            minlength="6"
-                                                                           maxlength="32">
-                                                                    <div class="invalid-feedback">La contraseña debe tener entre 6 y 32 caracteres.</div>
+                                                                           maxlength="20">
+                                                                    <div class="invalid-feedback">La contraseña debe tener entre 6 y 20 caracteres.</div>
                                                                     <div class="valid-feedback">¡Contraseña válida!</div>
                                                                 </div>
                                                                 <div class="col-md-6">
-                                                                    <input type="password" 
-                                                                           class="form-control edit-field" 
-                                                                           name="confirmar_contrasena" 
+                                                                    <input type="password"
+                                                                           class="form-control edit-field"
+                                                                           name="confirmar_contrasena"
                                                                            id="confirmar_contrasena_<?= $user['id_usuario'] ?>"
-                                                                           placeholder="Confirmar contraseña" 
+                                                                           placeholder="Confirmar contraseña"
                                                                            minlength="6"
-                                                                           maxlength="32">
+                                                                           maxlength="20">
                                                                     <div class="invalid-feedback" id="password-match-feedback-<?= $user['id_usuario'] ?>" style="display: none;">Las contraseñas no coinciden.</div>
                                                                     <div class="valid-feedback" id="password-match-success-<?= $user['id_usuario'] ?>" style="display: none;">¡Las contraseñas coinciden!</div>
                                                                 </div>
                                                             </div>
                                                             <small class="text-secondary">
                                                                 <i class="fas fa-info-circle me-1"></i>
-                                                                Deja en blanco si no quieres cambiar la contraseña. Mínimo 6 caracteres, máximo 32 caracteres.
+                                                                Deja en blanco si no quieres cambiar la contraseña. Mínimo 6 caracteres, máximo 20 caracteres.
                                                             </small>
                                                         </div>
                                                         
@@ -736,12 +736,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                     <i class="fas fa-key me-1"></i>Contraseña Temporal
                                 </label>
                                 <div class="password-input-wrapper">
-                                    <input type="password" 
-                                           class="form-control" 
-                                           name="password_temporal" 
+                                    <input type="password"
+                                           class="form-control"
+                                           name="password_temporal"
                                            id="password_temporal"
                                            minlength="6"
-                                           maxlength="255"
+                                           maxlength="20"
                                            placeholder="Mínimo 6 caracteres (opcional)"
                                            autocomplete="new-password">
                                     <button type="button" class="btn-toggle-password" data-toggle-password="password_temporal" aria-label="Mostrar contraseña">
@@ -758,12 +758,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                     <i class="fas fa-key me-1"></i>Confirmar Contraseña Temporal
                                 </label>
                                 <div class="password-input-wrapper">
-                                    <input type="password" 
-                                           class="form-control" 
-                                           name="confirmar_password_temporal" 
+                                    <input type="password"
+                                           class="form-control"
+                                           name="confirmar_password_temporal"
                                            id="confirmar_password_temporal"
                                            minlength="6"
-                                           maxlength="255"
+                                           maxlength="20"
                                            placeholder="Repite la contraseña temporal (opcional)"
                                            autocomplete="new-password">
                                     <button type="button" class="btn-toggle-password" data-toggle-password="confirmar_password_temporal" aria-label="Mostrar contraseña">

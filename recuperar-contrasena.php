@@ -236,8 +236,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cambiar_contrasena'])
             $mensaje = 'La nueva contraseña es obligatoria.';
         } elseif (strlen($nueva_contrasena) < 6) {
             $mensaje = 'La contraseña debe tener al menos 6 caracteres.';
-        } elseif (strlen($nueva_contrasena) > 32) {
-            $mensaje = 'La contraseña no puede exceder 32 caracteres.';
+        } elseif (strlen($nueva_contrasena) > 20) {
+            $mensaje = 'La contraseña no puede exceder 20 caracteres.';
         } elseif ($nueva_contrasena !== $confirmar_contrasena) {
             $mensaje = 'Las contraseñas no coinciden.';
         } else {
@@ -370,18 +370,18 @@ if (isset($_SESSION['recuperar_contrasena_id'])) {
                             <label for="respuesta_recupero" class="form-label">
                                 <i class="fas fa-key me-1"></i>Respuesta de Recupero <span class="text-danger">*</span>
                             </label>
-                            <input type="text" 
-                                   class="form-control" 
-                                   name="respuesta_recupero" 
-                                   id="respuesta_recupero" 
-                                   placeholder="Tu respuesta (mínimo 6 caracteres)" 
+                            <input type="text"
+                                   class="form-control"
+                                   name="respuesta_recupero"
+                                   id="respuesta_recupero"
+                                   placeholder="Tu respuesta (mínimo 4 caracteres)"
                                    required
-                                   minlength="6"
+                                   minlength="4"
                                    maxlength="255"
                                    pattern="[a-zA-Z0-9 ]+"
-                                   title="Letras, números y espacios, mínimo 6 caracteres, máximo 255 caracteres"
+                                   title="Letras, números y espacios, mínimo 4 caracteres, máximo 255 caracteres"
                                    value="<?= isset($_POST['respuesta_recupero']) ? htmlspecialchars($_POST['respuesta_recupero']) : '' ?>">
-                            <div class="invalid-feedback">La respuesta debe contener letras, números y espacios, mínimo 6 caracteres, máximo 255 caracteres.</div>
+                            <div class="invalid-feedback">La respuesta debe contener letras, números y espacios, mínimo 4 caracteres, máximo 255 caracteres.</div>
                             <small class="form-text text-muted">
                                 <i class="fas fa-info-circle me-1"></i>Ingresa la respuesta que registraste cuando creaste tu cuenta
                             </small>
@@ -422,14 +422,14 @@ if (isset($_SESSION['recuperar_contrasena_id'])) {
                                 <i class="fas fa-lock me-1"></i>Nueva Contraseña <span class="text-danger">*</span>
                             </label>
                             <div class="password-input-wrapper">
-                                <input type="password" 
-                                       class="form-control" 
-                                       name="nueva_contrasena" 
-                                       id="nueva_contrasena" 
-                                       placeholder="Mínimo 6 caracteres" 
-                                       required 
+                                <input type="password"
+                                       class="form-control"
+                                       name="nueva_contrasena"
+                                       id="nueva_contrasena"
+                                       placeholder="Mínimo 6 caracteres"
+                                       required
                                        minlength="6"
-                                       maxlength="32"
+                                       maxlength="20"
                                        autocomplete="new-password"
                                        autofocus>
                                 <button type="button" class="btn-toggle-password" data-input-id="nueva_contrasena" id="togglePasswordNueva" aria-label="Mostrar contraseña">
@@ -447,14 +447,14 @@ if (isset($_SESSION['recuperar_contrasena_id'])) {
                                 <i class="fas fa-lock me-1"></i>Confirmar Contraseña <span class="text-danger">*</span>
                             </label>
                             <div class="password-input-wrapper">
-                                <input type="password" 
-                                       class="form-control" 
-                                       name="confirmar_contrasena" 
-                                       id="confirmar_contrasena" 
-                                       placeholder="Repite tu contraseña" 
-                                       required 
+                                <input type="password"
+                                       class="form-control"
+                                       name="confirmar_contrasena"
+                                       id="confirmar_contrasena"
+                                       placeholder="Repite tu contraseña"
+                                       required
                                        minlength="6"
-                                       maxlength="32"
+                                       maxlength="20"
                                        autocomplete="new-password">
                                 <button type="button" class="btn-toggle-password" data-input-id="confirmar_contrasena" id="togglePasswordConfirmar" aria-label="Mostrar contraseña">
                                     <i class="fas fa-eye"></i>

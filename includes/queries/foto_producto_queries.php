@@ -78,7 +78,7 @@ function obtenerFotoProductoGeneral($mysqli, $id_producto) {
  * @return array|null Array con id_foto, foto1_prod, foto2_prod o null si no existe
  */
 function obtenerFotoProductoPorProducto($mysqli, $id_producto, $color) {
-    $sql = "SELECT id_foto, foto1_prod, foto2_prod FROM Fotos_Producto WHERE id_producto = ? AND color = ? LIMIT 1";
+    $sql = "SELECT id_foto, foto1_prod, foto2_prod, foto3_prod FROM Fotos_Producto WHERE id_producto = ? AND color = ? LIMIT 1";
     
     $stmt = $mysqli->prepare($sql);
     if (!$stmt) {

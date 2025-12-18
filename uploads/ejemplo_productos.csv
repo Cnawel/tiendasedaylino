@@ -1,6 +1,23 @@
 nombre_producto,descripcion_producto,precio_actual,categoria,genero,talle,color,stock,foto_prod_miniatura,foto1_prod,foto2_prod,foto3_prod
-Blusa Manga Larga,Blusa de seda elegante y versátil,20000,Blusas,mujer,M,azul,10,blusa_mujer_mangalarga_azul.webp,blusa_azul_modelo.webp,blusa_mujer_mangalarga_azul - Copy.webp,blusa_mujer_modelogrupal_oficina.webp
-Pantalón Lino Regular,Pantalón de lino fresco y cómodo,25000,Pantalones,hombre,L,azul,15,pantalon_hombre_lino_azul.webp,pantalon_hombre_lino_azul_modelo2.webp,pantalon_hombre_lino_azul_modelo3.webp,pantalon_lino_grupal_oficina.webp
-Camisa Lino,Camisa de lino ideal para el verano,22000,Camisas,hombre,M,natural,12,camisa_hombre_lino_modelocerca.webp,camisa_hombre_lino_modelo.webp,camisa_hombre_lino_modelocerca.webp,camisa_grupal.webp
-Short Lino Bermuda,Short de lino casual,16000,Shorts,hombre,S,marron,8,short_hombre_marron_mini.jpg.webp,short_hombre_marron.webp,short_hombre_marron1.jpg.webp,short_hombre_marron2.jpg.webp
-Pantalón Lino Slim,Pantalón de lino corte recto,18000,Pantalones,mujer,S,crema,10,pantalon_mujer_crema_mini.webp,pantalon_mujer_crema_modelo.webp,pantalon_mujer_crema.webp,pantalon_mujer_grupal_noche.webp
+Blusa Manga Larga,Blusa de seda elegante y versátil,20000,Blusas,mujer,XS,Azul,5,blusa_azul_mini.webp,blusa_azul_frente.webp,blusa_azul_costado.webp,blusa_azul_detalle.webp
+Blusa Manga Larga,Blusa de seda elegante y versátil,20000,Blusas,mujer,S,Blanco,8,blusa_blanco_mini.webp,blusa_blanco_frente.webp,blusa_blanco_costado.webp,blusa_blanco_detalle.webp
+Blusa Manga Larga,Blusa de seda elegante y versátil,20000,Blusas,mujer,M,Azul,10,blusa_azul_mini.webp,blusa_azul_frente.webp,blusa_azul_costado.webp,blusa_azul_detalle.webp
+Blusa Manga Larga,Blusa de seda elegante y versátil,20000,Blusas,mujer,L,Rosa,6,blusa_rosa_mini.webp,blusa_rosa_frente.webp,blusa_rosa_costado.webp,blusa_rosa_detalle.webp
+Blusa Manga Larga,Blusa de seda elegante y versátil,20000,Blusas,mujer,XL,Negro,4,blusa_negro_mini.webp,blusa_negro_frente.webp,blusa_negro_costado.webp,blusa_negro_detalle.webp
+Pantalón Lino Regular,Pantalón de lino fresco y cómodo para el verano,25000,Pantalones,hombre,S,Azul,7,pantalon_azul_mini.webp,pantalon_azul_frente.webp,pantalon_azul_costado.webp,pantalon_azul_detalle.webp
+Pantalón Lino Regular,Pantalón de lino fresco y cómodo para el verano,25000,Pantalones,hombre,M,Azul,12,pantalon_azul_mini.webp,pantalon_azul_frente.webp,pantalon_azul_costado.webp,pantalon_azul_detalle.webp
+Pantalón Lino Regular,Pantalón de lino fresco y cómodo para el verano,25000,Pantalones,hombre,L,Azul,15,pantalon_azul_mini.webp,pantalon_azul_frente.webp,pantalon_azul_costado.webp,pantalon_azul_detalle.webp
+Pantalón Lino Regular,Pantalón de lino fresco y cómodo para el verano,25000,Pantalones,hombre,XL,Azul,8,pantalon_azul_mini.webp,pantalon_azul_frente.webp,pantalon_azul_costado.webp,pantalon_azul_detalle.webp
+Pantalón Lino Regular,Pantalón de lino fresco y cómodo para el verano,25000,Pantalones,hombre,M,Natural,10,pantalon_natural_mini.webp,pantalon_natural_frente.webp,pantalon_natural_costado.webp,pantalon_natural_detalle.webp
+Camisa Lino Casual,Camisa de lino ideal para el verano con mangas cortas,22000,Camisas,hombre,S,Natural,9,camisa_natural_mini.webp,camisa_natural_frente.webp,camisa_natural_costado.webp,camisa_natural_detalle.webp
+Camisa Lino Casual,Camisa de lino ideal para el verano con mangas cortas,22000,Camisas,hombre,M,Natural,12,camisa_natural_mini.webp,camisa_natural_frente.webp,camisa_natural_costado.webp,camisa_natural_detalle.webp
+Camisa Lino Casual,Camisa de lino ideal para el verano con mangas cortas,22000,Camisas,hombre,L,Natural,11,camisa_natural_mini.webp,camisa_natural_frente.webp,camisa_natural_costado.webp,camisa_natural_detalle.webp
+Camisa Lino Casual,Camisa de lino ideal para el verano con mangas cortas,22000,Camisas,hombre,M,Azul,8,camisa_azul_mini.webp,camisa_azul_frente.webp,camisa_azul_costado.webp,camisa_azul_detalle.webp
+Short Lino Bermuda,Short casual de lino cómodo perfectamente para el calor,16000,Shorts,hombre,S,Marrón,8,short_marron_mini.webp,short_marron_frente.webp,short_marron_costado.webp,short_marron_detalle.webp
+Short Lino Bermuda,Short casual de lino cómodo perfectamente para el calor,16000,Shorts,hombre,M,Marrón,10,short_marron_mini.webp,short_marron_frente.webp,short_marron_costado.webp,short_marron_detalle.webp
+Short Lino Bermuda,Short casual de lino cómodo perfectamente para el calor,16000,Shorts,hombre,L,Marrón,7,short_marron_mini.webp,short_marron_frente.webp,short_marron_costado.webp,short_marron_detalle.webp
+Short Lino Bermuda,Short casual de lino cómodo perfectamente para el calor,16000,Shorts,hombre,M,Negro,9,short_negro_mini.webp,short_negro_frente.webp,short_negro_costado.webp,short_negro_detalle.webp
+Pantalón Lino Slim,Pantalón de lino corte recto y ajustado para mujer,18000,Pantalones,mujer,XS,Crema,6,pantalon_crema_mini.webp,pantalon_crema_frente.webp,pantalon_crema_costado.webp,pantalon_crema_detalle.webp
+Pantalón Lino Slim,Pantalón de lino corte recto y ajustado para mujer,18000,Pantalones,mujer,S,Crema,10,pantalon_crema_mini.webp,pantalon_crema_frente.webp,pantalon_crema_costado.webp,pantalon_crema_detalle.webp
+Pantalón Lino Slim,Pantalón de lino corte recto y ajustado para mujer,18000,Pantalones,mujer,M,Crema,8,pantalon_crema_mini.webp,pantalon_crema_frente.webp,pantalon_crema_costado.webp,pantalon_crema_detalle.webp
+Pantalón Lino Slim,Pantalón de lino corte recto y ajustado para mujer,18000,Pantalones,mujer,S,Negro,5,pantalon_negro_mini.webp,pantalon_negro_frente.webp,pantalon_negro_costado.webp,pantalon_negro_detalle.webp

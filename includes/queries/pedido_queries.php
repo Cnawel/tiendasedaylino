@@ -584,9 +584,9 @@ function _actualizarEstadoPedidoBajoNivel($mysqli, $id_pedido, $nuevo_estado) {
     return $resultado;
 }
 
-function actualizarEstadoPedido($mysqli, $id_pedido, $nuevo_estado) {
+function actualizarEstadoPedido($mysqli, $id_pedido, $nuevo_estado, $id_usuario = null) {
     try {
-        return actualizarEstadoPedidoConValidaciones($mysqli, $id_pedido, $nuevo_estado);
+        return actualizarEstadoPedidoConValidaciones($mysqli, $id_pedido, $nuevo_estado, $id_usuario);
     } catch (Exception $e) {
         return false;
     }

@@ -141,8 +141,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['reactivar_cuenta']))
         $errores['password'] = 'La contraseña es obligatoria.';
     } elseif (strlen($password) < 6) {
         $errores['password'] = 'La contraseña debe tener al menos 6 caracteres.';
-    } elseif (strlen($password) > 32) {
-        $errores['password'] = 'La contraseña no puede exceder 32 caracteres.';
+    } elseif (strlen($password) > 20) {
+        $errores['password'] = 'La contraseña no puede exceder 20 caracteres.';
     }
     
     // Si no hay errores de validación HTML, verificar bloqueo y consultar DB
@@ -337,14 +337,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['reactivar_cuenta']))
                     <div class="password-input-wrapper">
                         <input type="password" 
                                class="form-control <?= isset($errores['password']) ? 'is-invalid' : '' ?>" 
-                               name="password" 
-                               id="password" 
-                               placeholder="Tu contraseña" 
-                               required 
+                               name="password"
+                               id="password"
+                               placeholder="Tu contraseña"
+                               required
                                minlength="6"
-                               maxlength="32"
+                               maxlength="20"
                                autocomplete="current-password"
-                               title="Mínimo 6 caracteres, máximo 32 caracteres">
+                               title="Mínimo 6 caracteres, máximo 20 caracteres">
                         <button type="button" class="btn-toggle-password" data-input-id="password" id="togglePassword" aria-label="Mostrar contraseña">
                             <i class="fas fa-eye"></i>
                         </button>

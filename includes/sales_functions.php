@@ -39,29 +39,40 @@ function _procesarErroresActualizacionPedidoPago($error_message, $pedido_id) {
     // Si procesarErrorStock retornó un mensaje genérico (no procesó el error específico),
     // intentar procesar como error de pago
     if (strpos($resultado_stock['mensaje'], 'Error al procesar la operación') !== false) {
-        // Procesar errores específicos de pago
-        if (strpos($error_message, 'No se puede cambiar el estado del pedido sin pago aprobado') !== false) {
+        // Procesar errores específicos de pago (insensible a mayúsculas y acentos cuando sea posible)
+        $error_lower = mb_strtolower($error_message);
+        
+        if (strpos($error_lower, 'sin pago aprobado') !== false) {
             return ['mensaje' => 'No se puede cambiar el estado del pedido sin pago aprobado. Primero aprueba el pago desde el panel de ventas.', 'mensaje_tipo' => 'danger'];
         }
-        elseif (strpos($error_message, 'No se puede aprobar el pago') !== false) {
+        elseif (strpos($error_lower, 'no se puede aprobar el pago') !== false) {
             return ['mensaje' => $error_message, 'mensaje_tipo' => 'warning'];
         }
-        elseif (strpos($error_message, 'No se puede rechazar') !== false || strpos($error_message, 'No se puede cancelar') !== false) {
+        elseif (strpos($error_lower, 'no se puede rechazar') !== false || strpos($error_lower, 'no se puede cancelar') !== false) {
             return ['mensaje' => 'No se puede cambiar el estado del pago en este momento. Verifica que cumpla con las reglas de negocio.', 'mensaje_tipo' => 'warning'];
         }
-        elseif (strpos($error_message, 'Transición de estado') !== false) {
+        elseif (strpos($error_lower, 'transición') !== false || strpos($error_lower, 'transicion') !== false) {
             return ['mensaje' => 'La transición de estado solicitada no está permitida según las reglas de negocio.', 'mensaje_tipo' => 'warning'];
         }
-        elseif (strpos($error_message, 'Error al actualizar estado del pago') !== false) {
+        elseif (strpos($error_lower, 'estado del pago') !== false) {
             return ['mensaje' => 'Error al actualizar el estado del pago. Inténtalo nuevamente.', 'mensaje_tipo' => 'danger'];
         }
-        elseif (strpos($error_message, 'Error al actualizar estado del pedido') !== false) {
+        elseif (strpos($error_lower, 'estado del pedido') !== false) {
             return ['mensaje' => 'Error al actualizar el estado del pedido. Inténtalo nuevamente.', 'mensaje_tipo' => 'danger'];
         }
-        // Si no se reconoce el error, mostrar mensaje genérico pero más corto
+        // Si no se reconoce el error, mostrar el mensaje de error original si es razonablemente corto y útil
         else {
             $id_contexto = $pedido_id ? "pedido #$pedido_id" : "";
-            return ['mensaje' => "Error al procesar la operación" . ($id_contexto ? " del {$id_contexto}" : "") . ". Contacta al administrador si el problema persiste.", 'mensaje_tipo' => 'danger'];
+            $mensaje_final = "Error al procesar la operación" . ($id_contexto ? " del {$id_contexto}" : "") . ". ";
+            
+            // Si el mensaje de error original no parece ser de sistema/base de datos, incluirlo
+            if (strpos($error_lower, 'sql') === false && strpos($error_lower, 'database') === false && strlen($error_message) < 150) {
+                $mensaje_final .= $error_message;
+            } else {
+                $mensaje_final .= "Contacta al administrador si el problema persiste.";
+            }
+            
+            return ['mensaje' => $mensaje_final, 'mensaje_tipo' => 'danger'];
         }
     }
 
@@ -350,8 +361,8 @@ function procesarActualizacionPedidoPago($mysqli, $post, $id_usuario) {
 
             
             // === NOTIFICACIONES POR EMAIL ===
-            // Obtener ID de usuario
-            $id_usuario_notif = $pago_actual['id_usuario'];
+            // Obtener ID de usuario (desde el pedido, ya que la tabla Pagos no tiene id_usuario)
+            $id_usuario_notif = $pedido_actual['id_usuario'];
             
             // 1. Notificar Pago Rechazado o Cancelado
             if (in_array($estado_pago_final, ['rechazado', 'cancelado'])) {
@@ -514,7 +525,7 @@ function procesarAprobacionPago($mysqli, $post, $id_usuario) {
             }
         } else {
             // Error que no es de stock - procesar con función centralizada
-            $resultado_error = _procesarErroresActualizacionPedidoPago($mensaje_error, 0);
+            $resultado_error = _procesarErroresActualizacionPedidoPago($mensaje_error, $pago_id);
             return $resultado_error;
         }
     }
@@ -562,14 +573,39 @@ function procesarRechazoPago($mysqli, $post, $id_usuario) {
     
     try {
         if (rechazarPago($mysqli, $pago_id, $id_usuario, $motivo_rechazo)) {
-            return ['mensaje' => 'Pago rechazado correctamente. Stock restaurado automáticamente si había sido descontado.', 'mensaje_tipo' => 'success'];
+            // Obtener información del pago para enviar notificación
+            $pago = obtenerPagoPorId($mysqli, $pago_id);
+            $mensaje_adicional = '';
+            $tipo_mensaje = 'success';
+
+            if ($pago) {
+                $id_pedido = intval($pago['id_pedido']);
+
+                // Enviar notificación al cliente usando función centralizada
+                require_once __DIR__ . '/email_gmail_functions.php';
+
+                // Obtener ID de usuario del pedido (necesario para la función de email)
+                require_once __DIR__ . '/queries/pedido_queries.php';
+                $pedido = obtenerPedidoPorId($mysqli, $id_pedido);
+                $id_usuario_pedido = $pedido ? $pedido['id_usuario'] : null;
+
+                if ($id_usuario_pedido) {
+                    $email_enviado = @enviar_email_pedido_cancelado_o_rechazado($id_pedido, $id_usuario_pedido, 'rechazado', $motivo_rechazo, $mysqli);
+                    if (!$email_enviado) {
+                        $mensaje_adicional = ' (Nota: No se pudo enviar la notificación por email)';
+                        $tipo_mensaje = 'warning';
+                    }
+                }
+            }
+
+            return ['mensaje' => 'Pago rechazado correctamente. Stock restaurado automáticamente si había sido descontado.' . $mensaje_adicional, 'mensaje_tipo' => $tipo_mensaje];
         } else {
             return ['mensaje' => 'Error al rechazar el pago', 'mensaje_tipo' => 'danger'];
         }
     } catch (Exception $e) {
         // Procesar error usando función centralizada
         $mensaje_error = _sanitizarMensajeError($e->getMessage());
-        $resultado_error = _procesarErroresActualizacionPedidoPago($mensaje_error, 0);
+        $resultado_error = _procesarErroresActualizacionPedidoPago($mensaje_error, $pago_id);
         return $resultado_error;
     }
 }
