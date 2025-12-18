@@ -259,7 +259,7 @@ function detectarInconsistenciasEstado($estado_pedido, $estado_pago, $estado_ped
  *   - 'mensaje_extra' => string Mensaje adicional personalizado
  * @return string Mensaje formateado
  */
-function formatearMensajeExito($estado_anterior, $estado_actual, $tipo = 'pedido', $info_adicional = []) {
+function formatearMensajeExito($estado_anterior, $estado_actual, $tipo = 'pedido', $info_adicional = [], $id_pedido = null) {
     // Normalizar estados para comparación
     $estado_anterior_norm = normalizarEstado($estado_anterior);
     $estado_actual_norm = normalizarEstado($estado_actual);
@@ -276,38 +276,44 @@ function formatearMensajeExito($estado_anterior, $estado_actual, $tipo = 'pedido
     // Construir mensaje base con transición (solo si hubo cambio)
     $hubo_cambio = $estado_anterior_norm !== $estado_actual_norm;
     if ($hubo_cambio) {
-        $mensaje = "Se ha realizado correctamente el cambio de estado: {$info_anterior['nombre']} → {$info_actual['nombre']}";
+        $tipo_capitalizado = ucfirst($tipo); // Pago o Pedido
+        $mensaje = "Cambio de estado correcto: {$info_anterior['nombre']} → {$info_actual['nombre']} ({$tipo_capitalizado})";
     } else {
         $mensaje = "Estado actual: {$info_actual['nombre']}";
     }
-    
-    // Agregar información adicional con contexto más claro
-    $partes_adicionales = [];
-    
-    if (!empty($info_adicional['stock_descontado']) && $info_adicional['stock_descontado']) {
-        $partes_adicionales[] = 'Stock descontado automáticamente del inventario';
+
+    // Construir mensaje final con ID del pedido al inicio si es pedido
+    $partes_mensaje = [];
+
+    // Agregar ID del pedido al inicio si es pedido
+    if ($tipo === 'pedido' && $id_pedido) {
+        $partes_mensaje[] = "Pedido #{$id_pedido}";
     }
-    
+
+    // Agregar información adicional
     if (!empty($info_adicional['stock_restaurado']) && $info_adicional['stock_restaurado']) {
-        $partes_adicionales[] = 'Stock restaurado automáticamente al inventario';
+        $partes_mensaje[] = 'Stock restaurado automáticamente al inventario';
     }
-    
+
     if (!empty($info_adicional['pago_aprobado']) && $info_adicional['pago_aprobado']) {
-        $partes_adicionales[] = 'Pago aprobado correctamente';
+        $partes_mensaje[] = 'Pago aprobado correctamente';
     }
-    
+
     if (!empty($info_adicional['pago_rechazado']) && $info_adicional['pago_rechazado']) {
-        $partes_adicionales[] = 'Pago rechazado';
+        $partes_mensaje[] = 'Pago rechazado';
     }
-    
+
     if (!empty($info_adicional['mensaje_extra'])) {
-        $partes_adicionales[] = $info_adicional['mensaje_extra'];
+        $partes_mensaje[] = $info_adicional['mensaje_extra'];
     }
-    
-    // Combinar mensaje base con información adicional de forma más clara
-    if (!empty($partes_adicionales)) {
-        $mensaje .= '. ' . implode(', ', $partes_adicionales) . '.';
+
+    // Agregar el mensaje de cambio de estado
+    if ($hubo_cambio) {
+        $partes_mensaje[] = $mensaje;
     }
+
+    // Combinar con " - " como separador
+    return implode(' - ', $partes_mensaje);
     
     return $mensaje;
 }

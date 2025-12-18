@@ -34,12 +34,12 @@ if (!function_exists('normalizarEstado')) {
 // ========================================================================
 
 /**
- * Obtiene las transiciones v?lidas para estados de pago
+ * Obtiene las transiciones válidas para estados de pago
  *
  * REGLAS DE NEGOCIO:
  * - pendiente: Puede ir a pendiente_aprobacion, aprobado, rechazado o cancelado
  * - pendiente_aprobacion: Solo puede ir a aprobado o rechazado (NO cancelado)
- * - aprobado: Solo puede ir a rechazado (en casos extremos)
+ * - aprobado: Estado terminal, no admite cambios
  * - rechazado: Estado terminal, no admite cambios
  * - cancelado: Estado terminal, no admite cambios
  *
@@ -56,11 +56,11 @@ function obtenerTransicionesPagoValidas() {
 }
 
 /**
- * Obtiene las transiciones v?lidas para estados de pedido
+ * Obtiene las transiciones válidas para estados de pedido
  *
  * REGLAS DE NEGOCIO:
  * - pendiente: Puede ir a preparacion o cancelado
- * - preparacion: Puede ir a en_viaje, completado o cancelado (solo si pago cancelado/rechazado)
+ * - preparacion: Puede ir a en_viaje o completado (cancelado solo si pago cancelado/rechazado - forzada)
  * - en_viaje: Solo puede ir a completado (NO puede cancelarse)
  * - completado: Estado terminal, no admite cambios
  * - cancelado: Estado terminal, no admite cambios
@@ -70,7 +70,7 @@ function obtenerTransicionesPagoValidas() {
 function obtenerTransicionesPedidoValidas() {
     return [
         'pendiente' => ['preparacion', 'cancelado'],
-        'preparacion' => ['en_viaje', 'completado', 'cancelado'], // Cancelado solo si pago cancelado/rechazado
+        'preparacion' => ['en_viaje', 'completado'], // Cancelado se maneja como forzada por pago
         'en_viaje' => ['completado'], // NO puede cancelarse
         'completado' => [], // Estado terminal
         'cancelado' => [] // Estado terminal
@@ -86,7 +86,7 @@ function obtenerTransicionesPedidoValidas() {
 function obtenerEstadosRecorridoActivo($tipo) {
     $estados = [
         'pago' => ['pendiente_aprobacion', 'aprobado'],
-        'pedido' => ['preparacion', 'en_viaje', 'completado']
+        'pedido' => ['preparacion', 'en_viaje'] // completado es terminal, no activo
     ];
 
     return $estados[$tipo] ?? [];
@@ -134,24 +134,19 @@ function obtenerEstadosTerminales($tipo) {
  * @return bool True si la transici?n es v?lida
  */
 function puedeTransicionarPago($estado_actual, $estado_nuevo) {
-    // Normalizar estados
     $actual = normalizarEstado($estado_actual, '');
     $nuevo = normalizarEstado($estado_nuevo, '');
 
-    // Si son iguales, permitir (no hacer nada)
     if ($actual === $nuevo) {
         return true;
     }
 
-    // Obtener transiciones permitidas
     $transiciones = obtenerTransicionesPagoValidas();
 
-    // Verificar si el estado actual existe
     if (!isset($transiciones[$actual])) {
         return false;
     }
 
-    // Verificar si el nuevo estado est? permitido
     return in_array($nuevo, $transiciones[$actual]);
 }
 
@@ -163,24 +158,19 @@ function puedeTransicionarPago($estado_actual, $estado_nuevo) {
  * @return bool True si la transici?n es v?lida
  */
 function puedeTransicionarPedido($estado_actual, $estado_nuevo) {
-    // Normalizar estados
     $actual = normalizarEstado($estado_actual, '');
     $nuevo = normalizarEstado($estado_nuevo, '');
 
-    // Si son iguales, permitir (no hacer nada)
     if ($actual === $nuevo) {
         return true;
     }
 
-    // Obtener transiciones permitidas
     $transiciones = obtenerTransicionesPedidoValidas();
 
-    // Verificar si el estado actual existe
     if (!isset($transiciones[$actual])) {
         return false;
     }
 
-    // Verificar si el nuevo estado est? permitido
     return in_array($nuevo, $transiciones[$actual]);
 }
 

@@ -961,7 +961,9 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                     
                                                     // Clase de color para cantidad
                                                     $clase_cantidad = '';
-                                                    if ($tipo_mov === 'venta') {
+                                                    if ($cantidad === 0) {
+                                                        $clase_cantidad = 'text-muted'; // Neutral para movimientos de cantidad 0
+                                                    } elseif ($tipo_mov === 'venta') {
                                                         $clase_cantidad = 'text-danger';
                                                     } elseif (in_array($tipo_mov, ['ingreso', 'devolucion']) || ($tipo_mov === 'ajuste' && $cantidad > 0)) {
                                                         $clase_cantidad = 'text-success';

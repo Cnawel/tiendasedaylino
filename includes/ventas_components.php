@@ -475,7 +475,7 @@ function renderFormularioEstadoPedido($estado_actual_modal, $estado_pago = null)
         </div>
         <?php endif; ?>
         
-        <select class="form-select" name="nuevo_estado" id="nuevo_estado_pedido_<?= $id_pedido ?>" <?= $select_pedido_disabled ? 'disabled' : 'required' ?>>
+        <select class="form-select" name="nuevo_estado" <?= $select_pedido_disabled ? 'disabled' : 'required' ?>>
             <?php
             $orden_estados = ['pendiente', 'preparacion', 'en_viaje', 'completado', 'cancelado'];
             $estados_ordenados = [];

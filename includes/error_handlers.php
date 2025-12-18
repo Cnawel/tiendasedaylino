@@ -124,19 +124,8 @@ function procesarErrorStock($error_message, $contexto = []) {
         $mensaje_usuario = "Un pedido completado no puede cambiar de estado porque es una venta cerrada. Los pedidos completados son estados finales y no admiten modificaciones. Sugerencia: Si necesitas hacer cambios en un pedido completado, contacta al administrador del sistema.";
         $tipo_mensaje = 'danger';
     }
-    // Error gen?rico - mostrar mensaje t?cnico pero m?s claro
-    else {
-        // Si el mensaje contiene informaci?n t?cnica ?til, mostrarlo
-        if (strpos($error_message, 'Error al descontar stock') !== false || strpos($error_message, 'Error al registrar movimiento') !== false) {
-            // El mensaje ya tiene contexto, agregar acci?n sugerida
-            $mensaje_usuario = $error_message . " Acci?n sugerida: Verifica el stock disponible y los movimientos de stock recientes. Si el problema persiste, contacta al administrador.";
-        } else {
-            $id_contexto = $id_pedido ? "pedido #{$id_pedido}" : ($id_pago ? "pago #{$id_pago}" : "");
-            $mensaje_usuario = "Error al procesar la operaci?n" . ($id_contexto ? " del {$id_contexto}" : "") . ". Acci?n sugerida: Verifica que todos los datos sean correctos e intenta nuevamente. Si el problema persiste, contacta al administrador.";
-        }
-        $tipo_mensaje = 'danger';
-    }
-
-    return ['mensaje' => $mensaje_usuario, 'mensaje_tipo' => $tipo_mensaje];
+    // Si no coincide con ningún patrón de error conocido, retornar false
+    // para que el llamador decida qué hacer
+    return false;
 }
 

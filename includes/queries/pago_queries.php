@@ -233,27 +233,52 @@ function actualizarEstadoPago($mysqli, $id_pago, $nuevo_estado, $motivo_rechazo 
  * @return bool True si se aprobó correctamente
  */
 function aprobarPago($mysqli, $id_pago, $id_usuario = null) {
-    // Obtener datos del pago
-    $pago = obtenerPagoPorId($mysqli, $id_pago);
+    error_log("=== INICIO aprobarPago() ===");
+    error_log("aprobarPago: Pago ID: {$id_pago}, Usuario ID: " . ($id_usuario ?? 'SYSTEM'));
 
-    if (!$pago) {
-        throw new Exception("No se encontró el pago con ID: $id_pago");
+    try {
+        // Obtener datos del pago
+        error_log("aprobarPago: Obteniendo datos del pago");
+        $pago = obtenerPagoPorId($mysqli, $id_pago);
+
+        if (!$pago) {
+            error_log("aprobarPago: ERROR - Pago no encontrado");
+            throw new Exception("No se encontró el pago con ID: $id_pago");
+        }
+
+        error_log("aprobarPago: Pago encontrado, estado actual: " . $pago['estado_pago']);
+
+        // Si el pago ya se encuentra en estado 'aprobado', no se realiza ninguna acción adicional.
+        if ($pago['estado_pago'] === 'aprobado') {
+            error_log("aprobarPago: Pago ya está aprobado, retornando TRUE (idempotente)");
+            return true;
+        }
+
+        // Se utiliza la función `actualizarEstadoPagoConPedido()` que es la RECOMENDADA
+        // para aprobar pagos, ya que gestiona toda la lógica de negocio de forma integral.
+        error_log("aprobarPago: Llamando actualizarEstadoPagoConPedido()");
+        error_log("aprobarPago: Llamada en línea " . __LINE__);
+
+        $resultado = actualizarEstadoPagoConPedido($mysqli, $id_pago, 'aprobado', null, $id_usuario);
+
+        error_log("aprobarPago: CONTROL RETORNADO DE actualizarEstadoPagoConPedido() - PUNTO CRÍTICO");
+        error_log("aprobarPago: actualizarEstadoPagoConPedido() retornó: " . var_export($resultado, true));
+
+        if (!$resultado) {
+            error_log("aprobarPago: ERROR - resultado evaluó a FALSE");
+            throw new Exception("No se pudo actualizar el estado del pago. Por favor, verifica los logs del sistema para más detalles.");
+        }
+
+        error_log("aprobarPago: Retornando TRUE");
+        return $resultado;
+
+    } catch (Exception $e) {
+        error_log("aprobarPago: EXCEPCIÓN CAPTURADA: " . $e->getMessage());
+        error_log("aprobarPago: Stack trace: " . $e->getTraceAsString());
+        throw $e;
+    } finally {
+        error_log("=== FIN aprobarPago() ===");
     }
-
-    // Si el pago ya se encuentra en estado 'aprobado', no se realiza ninguna acción adicional.
-    if ($pago['estado_pago'] === 'aprobado') {
-        return true;
-    }
-
-    // Se utiliza la función `actualizarEstadoPagoConPedido()` que es la RECOMENDADA
-    // para aprobar pagos, ya que gestiona toda la lógica de negocio de forma integral.
-    $resultado = actualizarEstadoPagoConPedido($mysqli, $id_pago, 'aprobado', null, $id_usuario);
-
-    if (!$resultado) {
-        throw new Exception("No se pudo actualizar el estado del pago. Por favor, verifica los logs del sistema para más detalles.");
-    }
-
-    return $resultado;
 }
 
 /**
@@ -922,37 +947,50 @@ function _validarRechazoCancelacionPagoAprobado($estado_pago_anterior, $estado_p
  * @throws Exception Si hay error en la aprobación o stock insuficiente
  */
 function _aprobarPagoConValidaciones($mysqli, $id_pago, $pago_bloqueado, $id_pedido, $estado_pedido_actual, $id_usuario_pedido) {
+    error_log("=== INICIO _aprobarPagoConValidaciones ===");
+    error_log("_aprobarPagoConValidaciones: Pago ID: {$id_pago}, Pedido ID: {$id_pedido}, Estado pedido: {$estado_pedido_actual}");
+
     // Cargar funciones de stock necesarias
     require_once __DIR__ . '/../queries_helper.php';
     cargarArchivoQueries('stock_queries', __DIR__);
-    
+
     // Validar que el pedido existe (integridad referencial)
+    error_log("_aprobarPagoConValidaciones: Verificando existencia del pedido");
     $sql_verificar_pedido = "SELECT id_pedido FROM Pedidos WHERE id_pedido = ?";
     $stmt_verificar_pedido = $mysqli->prepare($sql_verificar_pedido);
     if (!$stmt_verificar_pedido) {
+        error_log("_aprobarPagoConValidaciones: ERROR - Fallo al preparar verificación de pedido");
         throw new Exception('Error al preparar verificación de pedido: ' . $mysqli->error);
     }
     $stmt_verificar_pedido->bind_param('i', $id_pedido);
     if (!$stmt_verificar_pedido->execute()) {
         $error_msg = $stmt_verificar_pedido->error;
         $stmt_verificar_pedido->close();
+        error_log("_aprobarPagoConValidaciones: ERROR - Fallo al verificar pedido: " . $error_msg);
         throw new Exception('Error al verificar existencia del pedido: ' . $error_msg);
     }
     $result_verificar_pedido = $stmt_verificar_pedido->get_result();
     $pedido_existe = $result_verificar_pedido->fetch_assoc();
     $stmt_verificar_pedido->close();
-    
+
     if (!$pedido_existe) {
+        error_log("_aprobarPagoConValidaciones: ERROR - Pedido no existe");
         throw new Exception('El pedido asociado al pago no existe. ID pedido: ' . $id_pedido);
     }
-    
+
+    error_log("_aprobarPagoConValidaciones: Pedido verificado exitosamente");
+
     // Valida que el monto del pago sea mayor a 0.
     $monto = floatval($pago_bloqueado['monto']);
     if ($monto <= 0) {
+        error_log("_aprobarPagoConValidaciones: ERROR - Monto inválido: {$monto}");
         throw new Exception('No se puede aprobar un pago con monto menor o igual a cero');
     }
 
+    error_log("_aprobarPagoConValidaciones: Monto válido: {$monto}");
+
     $estado_pedido_normalizado = normalizarEstado($estado_pedido_actual);
+    error_log("_aprobarPagoConValidaciones: Estado pedido normalizado: {$estado_pedido_normalizado}");
 
     // CORRECCIÓN: Evita la aprobación de pagos si el pedido asociado se encuentra en un estado terminal.
     if (in_array($estado_pedido_normalizado, ['cancelado', 'completado'])) {
@@ -1107,36 +1145,45 @@ function _aprobarPagoConValidaciones($mysqli, $id_pago, $pago_bloqueado, $id_ped
     
     // Procede a descontar el stock de los productos del pedido.
     // Nota: descontarStockPedido con $en_transaccion=true lanza excepciones en lugar de retornar false
+    error_log("_aprobarPagoConValidaciones: Llamando descontarStockPedido() para pedido #{$id_pedido}");
     try {
         $resultado_descuento = descontarStockPedido($mysqli, $id_pedido, $id_usuario_pedido, true);
+        error_log("_aprobarPagoConValidaciones: descontarStockPedido() retornó: " . var_export($resultado_descuento, true));
         if (!$resultado_descuento) {
+            error_log("_aprobarPagoConValidaciones: ERROR - descontarStockPedido() retornó FALSE");
             throw new Exception('Error al descontar stock del pedido');
         }
+        error_log("_aprobarPagoConValidaciones: Stock descontado exitosamente");
     } catch (Exception $e) {
         // Re-lanzar la excepción para que sea capturada en el bloque catch superior
+        error_log("_aprobarPagoConValidaciones: EXCEPCIÓN en descontarStockPedido(): " . $e->getMessage());
         throw $e;
     }
-    
+
     // Actualiza el estado del pago a 'aprobado'.
+    error_log("_aprobarPagoConValidaciones: Actualizando pago #{$id_pago} a 'aprobado'");
     $fecha_aprobacion = date('Y-m-d H:i:s');
     $sql_actualizar_pago = "
-        UPDATE Pagos 
+        UPDATE Pagos
         SET estado_pago = 'aprobado',
             fecha_aprobacion = ?,
             fecha_actualizacion = NOW()
         WHERE id_pago = ?
     ";
-    
+
     $stmt_actualizar_pago = $mysqli->prepare($sql_actualizar_pago);
     if (!$stmt_actualizar_pago) {
+        error_log("_aprobarPagoConValidaciones: ERROR - Fallo al preparar actualización de pago");
         throw new Exception('Error al preparar actualización de pago: ' . $mysqli->error);
     }
     $stmt_actualizar_pago->bind_param('si', $fecha_aprobacion, $id_pago);
     if (!$stmt_actualizar_pago->execute()) {
         $error_msg = $stmt_actualizar_pago->error;
         $stmt_actualizar_pago->close();
+        error_log("_aprobarPagoConValidaciones: ERROR - Fallo al ejecutar actualización de pago: " . $error_msg);
         throw new Exception('Error al actualizar estado del pago: ' . $error_msg);
     }
+    error_log("_aprobarPagoConValidaciones: Pago actualizado a 'aprobado'");
     // Verificar que la actualización realmente ocurrió
     $rows_affected_pago = $stmt_actualizar_pago->affected_rows;
     $stmt_actualizar_pago->close();
@@ -1147,31 +1194,37 @@ function _aprobarPagoConValidaciones($mysqli, $id_pago, $pago_bloqueado, $id_ped
     }
     
     // Actualiza el estado del pedido a 'preparacion'.
+    error_log("_aprobarPagoConValidaciones: Actualizando pedido #{$id_pedido} a 'preparacion'");
     $sql_actualizar_pedido = "
-        UPDATE Pedidos 
+        UPDATE Pedidos
         SET estado_pedido = 'preparacion',
             fecha_actualizacion = NOW()
         WHERE id_pedido = ?
     ";
-    
+
     $stmt_actualizar_pedido = $mysqli->prepare($sql_actualizar_pedido);
     if (!$stmt_actualizar_pedido) {
+        error_log("_aprobarPagoConValidaciones: ERROR - Fallo al preparar actualización de pedido");
         throw new Exception('Error al preparar actualización de pedido: ' . $mysqli->error);
     }
     $stmt_actualizar_pedido->bind_param('i', $id_pedido);
     if (!$stmt_actualizar_pedido->execute()) {
         $error_msg = $stmt_actualizar_pedido->error;
         $stmt_actualizar_pedido->close();
+        error_log("_aprobarPagoConValidaciones: ERROR - Fallo al ejecutar actualización de pedido: " . $error_msg);
         throw new Exception('Error al actualizar estado del pedido: ' . $error_msg);
     }
+    error_log("_aprobarPagoConValidaciones: Pedido actualizado a 'preparacion'");
     // Verificar que la actualización ocurrió (o que ya estaba en ese estado)
     $rows_affected_pedido = $stmt_actualizar_pedido->affected_rows;
     $stmt_actualizar_pedido->close();
-    
+
     if ($rows_affected_pedido === 0) {
         error_log("_aprobarPagoConValidaciones: Pedido #{$id_pedido} ya estaba en estado preparacion o no hubo cambios.");
     }
 
+    error_log("_aprobarPagoConValidaciones: TODO COMPLETADO, retornando TRUE");
+    error_log("=== FIN _aprobarPagoConValidaciones ===");
     // Retornar true para indicar éxito
     return true;
 }
@@ -1361,30 +1414,42 @@ function _rechazarOCancelarPago($mysqli, $id_pago, $nuevo_estado_pago, $motivo_r
  * @throws Exception Si hay error en la actualización o stock insuficiente
  */
 function actualizarEstadoPagoConPedido($mysqli, $id_pago, $nuevo_estado_pago, $motivo_rechazo = null, $id_usuario = null) {
+    error_log("=== INICIO actualizarEstadoPagoConPedido ===");
+    error_log("actualizarEstadoPagoConPedido: Pago ID: {$id_pago}, Nuevo estado: {$nuevo_estado_pago}, Motivo rechazo: " . ($motivo_rechazo ?? 'NULL'));
+
     // Carga la función de normalización de estados para su uso.
     require_once __DIR__ . '/../estado_helpers.php';
 
     // Normaliza el estado del pago antes de realizar cualquier validación.
     $nuevo_estado_pago = normalizarEstado($nuevo_estado_pago);
+    error_log("actualizarEstadoPagoConPedido: Estado normalizado: {$nuevo_estado_pago}");
 
     // Valida que el nuevo estado del pago sea uno de los estados permitidos.
     $estados_validos = ['pendiente', 'pendiente_aprobacion', 'aprobado', 'rechazado', 'cancelado'];
     if (!in_array($nuevo_estado_pago, $estados_validos)) {
+        error_log("actualizarEstadoPagoConPedido: ERROR - Estado inválido");
         throw new Exception('Estado de pago inválido: ' . $nuevo_estado_pago);
     }
-    
+
     // Obtiene los datos actuales del pago desde la base de datos.
+    error_log("actualizarEstadoPagoConPedido: Obteniendo datos del pago");
     $pago_actual = obtenerPagoPorId($mysqli, $id_pago);
     if (!$pago_actual) {
+        error_log("actualizarEstadoPagoConPedido: ERROR - Pago no encontrado");
         throw new Exception('Pago no encontrado con ID: ' . $id_pago);
     }
-    
+
+    error_log("actualizarEstadoPagoConPedido: Pago encontrado, estado actual: " . $pago_actual['estado_pago']);
+
     // Normaliza el estado anterior del pago para comparaciones.
     $estado_pago_anterior = normalizarEstado($pago_actual['estado_pago']);
     $id_pedido = intval($pago_actual['id_pedido']);
-    
+
+    error_log("actualizarEstadoPagoConPedido: Estado anterior normalizado: {$estado_pago_anterior}, ID Pedido: {$id_pedido}");
+
     // Si el estado del pago no ha cambiado, no se realiza ninguna acción y se retorna éxito.
     if ($estado_pago_anterior === $nuevo_estado_pago) {
+        error_log("actualizarEstadoPagoConPedido: Estado no cambió, retornando TRUE (idempotente)");
         return true;
     }
     
@@ -1512,10 +1577,15 @@ function actualizarEstadoPagoConPedido($mysqli, $id_pago, $nuevo_estado_pago, $m
             $estado_pedido_actual = normalizarEstado($estado_pedido_actual);
         }
         $id_usuario_pedido = intval($pedido_bloqueado['id_usuario']);
-        
+
         // REGLA 1: Lógica a ejecutar cuando el PAGO es APROBADO.
         if ($nuevo_estado_pago === 'aprobado' && $estado_pago_anterior !== 'aprobado') {
-            _aprobarPagoConValidaciones($mysqli, $id_pago, $pago_bloqueado, $id_pedido, $estado_pedido_actual, $id_usuario_pedido);
+            error_log("actualizarEstadoPagoConPedido: Aprobando pago, llamando _aprobarPagoConValidaciones()");
+            $resultado_aprobacion = _aprobarPagoConValidaciones($mysqli, $id_pago, $pago_bloqueado, $id_pedido, $estado_pedido_actual, $id_usuario_pedido);
+            error_log("actualizarEstadoPagoConPedido: _aprobarPagoConValidaciones() retornó: " . var_export($resultado_aprobacion, true));
+            if (!$resultado_aprobacion) {
+                throw new Exception('Error en validaciones de aprobación de pago');
+            }
         }
         // REGLA 2: Lógica a ejecutar cuando el PAGO es RECHAZADO o CANCELADO.
         elseif (in_array($nuevo_estado_pago, ['rechazado', 'cancelado']) 
@@ -1559,16 +1629,24 @@ function actualizarEstadoPagoConPedido($mysqli, $id_pago, $nuevo_estado_pago, $m
             }
         }
 
+        error_log("actualizarEstadoPagoConPedido: Commiteando transacción");
         $mysqli->commit();
+        error_log("actualizarEstadoPagoConPedido: Transacción commiteada exitosamente");
         $exito = true;
+        error_log("actualizarEstadoPagoConPedido: Retornando TRUE - PUNTO CRÍTICO ANTES DEL RETURN");
+        error_log("actualizarEstadoPagoConPedido: Sobre el punto de retornar (línea " . __LINE__ . ")");
+        error_log("actualizarEstadoPagoConPedido: RETORNANDO AHORA...");
         return true;
+        error_log("actualizarEstadoPagoConPedido: ESTO NO DEBERÍA EJECUTARSE - DESPUÉS DEL RETURN");
         
         } catch (Exception $e) {
+            error_log("actualizarEstadoPagoConPedido: EXCEPCIÓN CAPTURADA: " . $e->getMessage());
+            error_log("actualizarEstadoPagoConPedido: Stack trace: " . $e->getTraceAsString());
             $mysqli->rollback();
-            
+
             // Detectar deadlock (código de error 1213 en MySQL)
             $es_deadlock = ($mysqli->errno === 1213 || strpos($e->getMessage(), 'Deadlock') !== false || strpos($e->getMessage(), 'Lock wait timeout') !== false);
-            
+
             if ($es_deadlock && $intento < $max_intentos) {
                 // Esperar un tiempo aleatorio antes de reintentar (backoff exponencial)
                 $espera = pow(2, $intento) * 100000; // microsegundos: 200ms, 400ms, 800ms
@@ -1576,18 +1654,21 @@ function actualizarEstadoPagoConPedido($mysqli, $id_pago, $nuevo_estado_pago, $m
                 error_log("Deadlock detectado en actualizarEstadoPagoConPedido, reintento {$intento}/{$max_intentos}");
                 continue; // Reintentar
             }
-            
+
             // Si no es deadlock o se agotaron los intentos, lanzar excepción
             error_log("Error en actualizarEstadoPagoConPedido: " . $e->getMessage());
             throw $e;
         }
     }
-    
+
     // Si llegamos aquí sin éxito, lanzar excepción
     if (!$exito) {
+        error_log("actualizarEstadoPagoConPedido: ERROR - Agotados {$max_intentos} intentos");
         throw new Exception('Error al actualizar estado de pago después de ' . $max_intentos . ' intentos. Puede haber un deadlock persistente.');
     }
 
+    error_log("actualizarEstadoPagoConPedido: Retornando TRUE");
+    error_log("=== FIN actualizarEstadoPagoConPedido ===");
     return true;
 }
 

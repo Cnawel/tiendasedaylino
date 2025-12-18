@@ -1486,6 +1486,12 @@ function descontarStockPedido($mysqli, $id_pedido, $id_usuario = null, $en_trans
                 $stmt_actualizar->close();
 
                 error_log("descontarStockPedido: Pedido #{$id_pedido} - Variante #{$id_variante} - Actualizadas {$rows_affected} reservas → ventas confirmadas");
+
+                // NUEVO: Generar un movimiento de stock con cantidad 0 para trazabilidad de la aprobación.
+                // Se registra un movimiento tipo 'venta' con cantidad 0 y una observación específica
+                // para indicar que la reserva fue liberada tras la aprobación del pago.
+                $observaciones_aprobacion = "Pago aprobado: libera reserva - Pedido #{$id_pedido}";
+                registrarMovimientoStock($mysqli, $id_variante, 'venta', 0, $id_usuario, $id_pedido, $observaciones_aprobacion, true);
             }
 
             error_log("descontarStockPedido: Pedido #{$id_pedido} - ✓ Conversión de reservas completada (sin descuento adicional)");
