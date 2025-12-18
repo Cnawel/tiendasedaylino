@@ -119,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar_producto_per
 }
 
 // ============================================================================
-// PROCESAR SUBIDA DE FOTOS TEMPORALES
+// PROCESAR SUBIDA DE FOTOS
 // ============================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['subir_foto_temporal'])) {
     $fotos_subidas = 0;
@@ -174,6 +174,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['subir_foto_temporal']
         $_SESSION['mensaje_tipo'] = 'warning';
     }
     
+    $redirect_url = construirRedirectUrl('marketing.php', ['tab' => 'fotos']);
+    header('Location: ' . $redirect_url);
+    exit;
+}
+
+// ============================================================================
+// PROCESAR ELIMINACIÓN DE TODAS LAS FOTOS
+// ============================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['eliminar_todas_fotos_temporales'])) {
+    $fotos_temporales = obtenerFotosTemporales();
+    $eliminadas = 0;
+    foreach ($fotos_temporales as $foto) {
+        if (eliminarFotoTemporal($foto)) {
+            $eliminadas++;
+        }
+    }
+    if ($eliminadas > 0) {
+        $_SESSION['mensaje'] = $eliminadas . ' foto(s) temporal(es) eliminada(s) correctamente.';
+        $_SESSION['mensaje_tipo'] = 'success';
+    } else {
+        $_SESSION['mensaje'] = 'No había fotos disponibles para eliminar.';
+        $_SESSION['mensaje_tipo'] = 'info';
+    }
     $redirect_url = construirRedirectUrl('marketing.php', ['tab' => 'fotos']);
     header('Location: ' . $redirect_url);
     exit;
@@ -531,7 +554,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                 </label>
                         </div>
                         <label class="mb-0"><small>Mostrar:</small></label>
-                        <select class="form-select form-select-sm" style="width: auto;" onchange="cambiarLimiteProductos(this.value)">
+                        <select class="form-select form-select-sm" class="w-auto" onchange="cambiarLimiteProductos(this.value)">
                             <option value="TODOS" <?= $limite_productos == 'TODOS' ? 'selected' : '' ?>>Todos</option>
                             <option value="50" <?= $limite_productos == '50' ? 'selected' : '' ?>>Últimos 50</option>
                             <option value="10" <?= $limite_productos == '10' ? 'selected' : '' ?>>Últimos 10</option>
@@ -550,7 +573,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                             <thead class="table-dark">
                                 <tr>
                                     <th class="sortable">ID</th>
-                                    <th class="sortable text-center" style="width: 60px;">A/I</th>
+                                    <th class="sortable text-center" style="width: 4.5rem;">A/I</th>
                                     <th class="sortable">Producto</th>
                                     <th class="sortable">Categoría</th>
                                     <th class="sortable">Género</th>
@@ -633,7 +656,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                             
                                             // Botón activar/desactivar
                                             if ($es_activo): ?>
-                                                <form method="POST" style="display: inline;" 
+                                                <form method="POST" class="d-inline" 
                                                       onsubmit="return confirm('¿Está seguro de desactivar este producto?');">
                                                     <input type="hidden" name="id_producto" value="<?= $producto['id_producto'] ?>">
                                                     <input type="hidden" name="desactivar_producto" value="1">
@@ -643,7 +666,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                     </button>
                                                 </form>
                                             <?php else: ?>
-                                                <form method="POST" style="display: inline;">
+                                                <form method="POST" class="d-inline">
                                                     <input type="hidden" name="id_producto" value="<?= $producto['id_producto'] ?>">
                                                     <input type="hidden" name="activar_producto" value="1">
                                                     <?= $input_mostrar_inactivos ?>
@@ -688,7 +711,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                                 </div>
                                                                 <div class="modal-footer">
                                                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                                    <form method="POST" style="display: inline;">
+                                                                    <form method="POST" class="d-inline">
                                                                         <input type="hidden" name="eliminar_producto_permanente" value="1">
                                                                         <input type="hidden" name="id_producto" value="<?= $producto['id_producto'] ?>">
                                                                         <?= $input_mostrar_inactivos ?>
@@ -1065,7 +1088,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                         </div>
                                                         <div class="modal-footer">
                                                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                            <form method="POST" style="display: inline;">
+                                                            <form method="POST" class="d-inline">
                                                                 <input type="hidden" name="eliminar_categoria" value="1">
                                                                 <input type="hidden" name="id_categoria" value="<?= $cat['id_categoria'] ?>">
                                                                 <button type="submit" class="btn btn-danger">
@@ -1116,7 +1139,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
             <div class="card">
                 <div class="card-header">
                     <h5 class="card-title mb-0">
-                        <i class="fas fa-images me-2"></i>Cargar Fotos Temporales para CSV
+                        <i class="fas fa-images me-2"></i>Cargar Fotos Disponibles para CSV
                     </h5>
                 </div>
                 <div class="card-body">
@@ -1137,20 +1160,20 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                         </div>
                     </form>
                     
-                    <!-- Lista de fotos temporales -->
+                    <!-- Lista de fotos disponibles -->
                     <?php 
                     $fotos_temporales = obtenerFotosTemporales();
                     ?>
                     <div class="mt-4">
                         <h6 class="mb-3">
-                            <i class="fas fa-list me-2"></i>Fotos Temporales Disponibles 
+                            <i class="fas fa-list me-2"></i>Fotos Disponibles 
                             <span class="badge bg-secondary"><?= count($fotos_temporales) ?></span>
                         </h6>
                         
                         <?php if (empty($fotos_temporales)): ?>
                         <div class="alert alert-warning">
                             <i class="fas fa-exclamation-triangle me-2"></i>
-                            No hay fotos temporales disponibles. Sube fotos para usarlas en tu CSV.
+                            No hay Fotos Disponibles. Sube fotos para usarlas en tu CSV.
                         </div>
                         <?php else: ?>
                         <div class="table-responsive">
@@ -1195,7 +1218,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                             <?= number_format($tamaño / 1024, 2) ?> KB
                                         </td>
                                         <td>
-                                            <form method="POST" style="display: inline;" 
+                                            <form method="POST" class="d-inline" 
                                                   onsubmit="return confirm('¿Está seguro de eliminar esta foto?');">
                                                 <input type="hidden" name="eliminar_foto_temporal" value="1">
                                                 <input type="hidden" name="nombre_archivo" value="<?= htmlspecialchars($foto) ?>">
@@ -1205,9 +1228,57 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                             </form>
                                         </td>
                                     </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                        
+                        <!-- Botón para eliminar todas las fotos -->
+                        <div class="mt-4 text-center p-3 border-top">
+                            <button type="button" class="btn btn-danger btn-lg px-4" data-bs-toggle="modal" data-bs-target="#eliminarTodasModal">
+                                <i class="fas fa-trash-alt me-2"></i>
+                                Eliminar TODAS las Fotos
+                                <span class="badge bg-light text-danger ms-2"><?= count($fotos_temporales) ?></span>
+                            </button>
+                        </div>
+
+                        <!-- Modal de confirmación para eliminar TODAS las fotos -->
+                        <div class="modal fade" id="eliminarTodasModal" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content">
+                                    <div class="modal-header bg-danger text-white">
+                                        <h5 class="modal-title">
+                                            <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Eliminación TOTAL
+                                        </h5>
+                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p class="lead mb-3">
+                                            ¿Está <strong>totalmente seguro</strong> de eliminar <strong>TODAS</strong> las <?= count($fotos_temporales) ?> fotos disponibles?
+                                        </p>
+                                        <div class="alert alert-warning shadow-sm">
+                                            <i class="fas fa-exclamation-triangle me-2 text-warning"></i>
+                                            <strong>⚠️ ADVERTENCIA:</strong> Esta acción es <strong>IRREVERSIBLE</strong>. Se borrarán permanentemente todas las imágenes subidas.
+                                        </div>
+                                        <div class="text-center mb-3 p-2 bg-light rounded">
+                                            <span class="badge bg-danger fs-5 px-3 py-2"><?= count($fotos_temporales) ?> fotos serán eliminadas</span>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                            <i class="fas fa-times me-1"></i>Cancelar
+                                        </button>
+                                        <form method="POST" class="d-inline">
+                                            <input type="hidden" name="eliminar_todas_fotos_temporales" value="1">
+                                            <button type="submit" class="btn btn-danger">
+                                                <i class="fas fa-trash-alt me-2"></i>
+                                                <strong>SÍ, Eliminar TODAS</strong>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         </div>
                         <?php endif; ?>
                     </div>

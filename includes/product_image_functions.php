@@ -234,7 +234,7 @@ function subirFotoTemporal($archivo) {
 }
 
 /**
- * Obtiene lista de fotos temporales disponibles
+ * Obtiene lista de Fotos Disponibles
  * Solo retorna archivos que realmente existen y tienen contenido válido
  * @return array Array con nombres de archivos temporales
  */

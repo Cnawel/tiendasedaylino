@@ -32,10 +32,7 @@ ini_set('log_errors', 1);
 
 session_start();
 
-// DEBUG MODE - Mostrar TODOS los errores
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+// DEBUG MODE REMOVED FOR PRODUCTION
 
 // Cargar funciones de contraseñas
 $password_functions_path = __DIR__ . '/includes/password_functions.php';
@@ -133,18 +130,6 @@ if (empty($preguntas_recupero) && isset($mysqli) && $mysqli instanceof mysqli) {
 // Procesar formulario de registro
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // DEBUG: Mostrar POST recibido
-    echo "<hr><pre style='background:#fffacd; padding:10px; border:2px solid #ff0000;'>";
-    echo "<strong>DEBUG: POST RECIBIDO</strong>\n";
-    echo "Total campos: " . count($_POST) . "\n";
-    echo "Contenido POST:\n";
-    foreach ($_POST as $key => $value) {
-        if ($key !== 'password' && $key !== 'password_confirm') {
-            echo "  $key = " . htmlspecialchars(substr($value, 0, 50)) . "\n";
-        } else {
-            echo "  $key = [ESCONDIDO POR SEGURIDAD]\n";
-        }
-    }
-    echo "</pre><hr>\n";
 
     // Iniciar output buffering para prevenir errores de headers ya enviados
     ob_start();
@@ -155,7 +140,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('Error de conexión a la base de datos. Por favor, intenta nuevamente.');
         }
 
-        echo "<pre style='background:#e8f4f8; padding:10px;'><strong>DEBUG: BD conectada correctamente</strong></pre>\n";
     
         // Inicializar variables para evitar errores de "undefined variable"
         $nombre = null;
@@ -359,18 +343,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // PROCESAR REGISTRO SI TODAS LAS VALIDACIONES PASAN
     // ========================================================================
 
-    // DEBUG: Estado de validaciones
-    echo "<pre style='background:#fff0f5; padding:10px;'><strong>DEBUG: VALIDACIONES COMPLETADAS</strong>\n";
-    echo "Total de errores: " . count($errores) . "\n";
-    if (!empty($errores)) {
-        echo "Errores encontrados:\n";
-        foreach ($errores as $campo => $error) {
-            echo "  $campo: $error\n";
-        }
-    } else {
-        echo "✓ SIN ERRORES - Procederá a crear usuario\n";
-    }
-    echo "</pre>\n";
 
     if (empty($errores)) {
         // ========================================================================
@@ -468,25 +440,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $errores['respuesta_recupero'] = 'Error al procesar la respuesta de recupero. Inténtalo de nuevo.';
                     } else {
                         // La fecha ya está validada y en formato YYYY-MM-DD
-                        // DEBUG: Antes de insertar
-                        echo "<pre style='background:#f0fff0; padding:10px;'><strong>DEBUG: ANTES DE INSERTAR EN BD</strong>\n";
-                        echo "Nombre: " . htmlspecialchars($nombre) . "\n";
-                        echo "Apellido: " . htmlspecialchars($apellido) . "\n";
-                        echo "Email: " . htmlspecialchars($email) . "\n";
-                        echo "Fecha nacimiento: $fecha_nacimiento\n";
-                        echo "Pregunta ID: $pregunta_id\n";
-                        echo "Hash password length: " . strlen($hash_password) . "\n";
-                        echo "Hash respuesta length: " . strlen($hash_respuesta_recupero) . "\n";
-                        echo "</pre>\n";
 
                         // Crear usuario cliente usando función centralizada con el ID ya validado
                         $id_usuario_nuevo = crearUsuarioCliente($mysqli, $nombre, $apellido, $email, $hash_password, $fecha_nacimiento, $pregunta_id, $hash_respuesta_recupero);
 
-                        // DEBUG: Después de insertar
-                        echo "<pre style='background:#fff8dc; padding:10px;'><strong>DEBUG: DESPUÉS DE INSERTAR EN BD</strong>\n";
-                        echo "ID usuario nuevo: " . var_export($id_usuario_nuevo, true) . "\n";
-                        echo "Inserción exitosa: " . ($id_usuario_nuevo > 0 ? '✓ SÍ' : '✗ NO') . "\n";
-                        echo "</pre>\n";
 
                         if ($id_usuario_nuevo > 0) {
                             // Verificar que el hash se guardó correctamente

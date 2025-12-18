@@ -77,8 +77,8 @@ foreach ($pedido['productos'] as $producto) {
             <small style='color: #6B5D47;'>Talla: $talle | Color: $color</small>
         </td>
         <td style='padding: 15px; border-bottom: 1px solid #E8DDD0; text-align: center; color: #6B5D47;'>$cantidad</td>
-        <td style='padding: 15px; border-bottom: 1px solid #E8DDD0; text-align: right; color: #6B5D47;'>\$precio_unitario</td>
-        <td style='padding: 15px; border-bottom: 1px solid #E8DDD0; text-align: right;'><strong style='color: #8B7355;'>\$subtotal</strong></td>
+        <td style='padding: 15px; border-bottom: 1px solid #E8DDD0; text-align: right; color: #6B5D47;'>$precio_unitario</td>
+        <td style='padding: 15px; border-bottom: 1px solid #E8DDD0; text-align: right;'><strong style='color: #8B7355;'>$subtotal</strong></td>
     </tr>";
 }
 

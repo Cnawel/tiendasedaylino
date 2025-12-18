@@ -878,7 +878,7 @@ $talles_disponibles = obtenerTallesEstandar();
 // Obtener nombres únicos de productos para el SELECT
 $nombres_productos = obtenerNombresProductosUnicos($mysqli);
 
-// Obtener fotos temporales disponibles
+// Obtener Fotos Disponibles
 $fotos_temporales = obtenerFotosTemporales();
 ?>
 

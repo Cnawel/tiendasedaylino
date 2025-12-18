@@ -555,7 +555,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                                     $activo_usuario = intval($user['activo'] ?? 1);
                                                     if ($activo_usuario === 1 && $user['id_usuario'] != $id_usuario):
                                                     ?>
-                                                    <form method="POST" action="" style="display: inline;">
+                                                    <form method="POST" action="" class="d-inline">
                                                         <input type="hidden" name="del_user_id" value="<?= $user['id_usuario'] ?>">
                                                         <button type="submit" name="desactivar_usuario" class="btn btn-warning">
                                                             <i class="fas fa-user-slash me-1"></i>Desactivar Cuenta
@@ -565,7 +565,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                                     // Mostrar botón Reactivar si el usuario está inactivo
                                                     elseif ($activo_usuario === 0):
                                                     ?>
-                                                    <form method="POST" action="" style="display: inline;">
+                                                    <form method="POST" action="" class="d-inline">
                                                         <input type="hidden" name="del_user_id" value="<?= $user['id_usuario'] ?>">
                                                         <button type="submit" name="reactivar_usuario" class="btn btn-success">
                                                             <i class="fas fa-user-check me-1"></i>Reactivar Cuenta
@@ -686,7 +686,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                         <form method="POST" class="row g-3">
                             <input type="hidden" name="crear_usuario_staff" value="1">
                             <div class="col-md-3">
-                                <label class="form-label">Nombre</label>
+                                <label class="form-label">Nombre <span class="text-danger">*</span></label>
                                 <input type="text" 
                                        class="form-control" 
                                        name="nombre_staff" 
@@ -699,7 +699,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                 <div class="valid-feedback">¡Nombre válido!</div>
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label">Apellido</label>
+                                <label class="form-label">Apellido <span class="text-danger">*</span></label>
                                 <input type="text" 
                                        class="form-control" 
                                        name="apellido_staff" 
@@ -712,18 +712,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                 <div class="valid-feedback">¡Apellido válido!</div>
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label">Email</label>
-                                <input type="email" 
-                                       class="form-control" 
-                                       name="email_staff" 
-                                       id="email_staff"
-                                       required
-                                       maxlength="150">
-                                <div class="invalid-feedback">Ingresa un email válido.</div>
-                                <div class="valid-feedback">¡Email válido!</div>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Rol</label>
+                                <label class="form-label">Rol <span class="text-danger">*</span></label>
                                 <select class="form-select" name="rol_staff" required>
                                     <option value="cliente">Cliente</option>
                                     <option value="ventas">Ventas</option>

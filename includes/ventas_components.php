@@ -744,7 +744,7 @@ function renderFormularioMontoPago($pago_modal) {
             <span class="input-group-text">$</span>
             <input type="text" class="form-control" 
                    value="<?= number_format($pago_modal['monto'] ?? 0, 2, ',', '.') ?>" 
-                   readonly style="background-color: #e9ecef;">
+                   readonly class="bg-light">
         </div>
         <small class="text-muted">Monto ingresado por el cliente.</small>
     </div>
@@ -770,7 +770,7 @@ function renderFormularioCodigoPago($id_pedido, $pago_modal) {
         <label class="form-label"><strong>Código de Pago:</strong></label>
         <input type="text" class="form-control" 
                value="<?= htmlspecialchars($pago_modal['numero_transaccion'] ?? '') ?>" 
-               readonly style="background-color: #e9ecef;">
+               readonly class="bg-light">
         <small class="text-muted">Código ingresado por el cliente.</small>
     </div>
     <?php

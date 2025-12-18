@@ -370,18 +370,23 @@ if (isset($_SESSION['recuperar_contrasena_id'])) {
                             <label for="respuesta_recupero" class="form-label">
                                 <i class="fas fa-key me-1"></i>Respuesta de Recupero <span class="text-danger">*</span>
                             </label>
-                            <input type="text"
-                                   class="form-control"
-                                   name="respuesta_recupero"
-                                   id="respuesta_recupero"
-                                   placeholder="Tu respuesta (mínimo 4 caracteres)"
-                                   required
-                                   minlength="4"
-                                   maxlength="255"
-                                   pattern="[a-zA-Z0-9 ]+"
-                                   title="Letras, números y espacios, mínimo 4 caracteres, máximo 255 caracteres"
-                                   value="<?= isset($_POST['respuesta_recupero']) ? htmlspecialchars($_POST['respuesta_recupero']) : '' ?>">
-                            <div class="invalid-feedback">La respuesta debe contener letras, números y espacios, mínimo 4 caracteres, máximo 255 caracteres.</div>
+                            <div class="password-input-wrapper">
+                                <input type="password"
+                                       class="form-control"
+                                       name="respuesta_recupero"
+                                       id="respuesta_recupero"
+                                       placeholder="Tu respuesta (mínimo 4 caracteres)"
+                                       required
+                                       minlength="4"
+                                       maxlength="255"
+                                       pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9 ]+"
+                                       title="Letras (incluyendo acentos), números y espacios, mínimo 4 caracteres, máximo 255 caracteres"
+                                       value="<?= isset($_POST['respuesta_recupero']) ? htmlspecialchars($_POST['respuesta_recupero']) : '' ?>">
+                                <button type="button" class="btn-toggle-password" data-input-id="respuesta_recupero" aria-label="Mostrar respuesta">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <div class="invalid-feedback">La respuesta debe contener letras (incluyendo acentos), números y espacios, mínimo 4 caracteres, máximo 255 caracteres.</div>
                             <small class="form-text text-muted">
                                 <i class="fas fa-info-circle me-1"></i>Ingresa la respuesta que registraste cuando creaste tu cuenta
                             </small>

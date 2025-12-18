@@ -374,7 +374,6 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                                         echo '';
                                                     }
                                                 ?>">
-                                        <small class="text-muted"><i class="fas fa-info-circle me-1"></i>Opcional: Útil para personalizar tu experiencia</small>
                                         <div id="fecha-nacimiento-feedback" class="invalid-feedback"></div>
                                     </div>
                                     
@@ -850,12 +849,12 @@ $pedidos_usuario = obtenerPedidosUsuario($mysqli, $id_usuario);
                                                        ?>"
                                                        minlength="4"
                                                        maxlength="20"
-                                                       pattern="[a-zA-Z0-9 ]+"
-                                                       title="Letras, números y espacios, mínimo 4 caracteres, máximo 20 caracteres"
-                                                       autocomplete="off">
-                                                <button type="button" class="btn-toggle-password" data-input-id="respuesta_recupero" aria-label="Mostrar respuesta">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
+                               pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9 ]+"
+                                       title="Letras (incluyendo acentos), números y espacios, mínimo 4 caracteres, máximo 20 caracteres"
+                                       autocomplete="off">
+                                <button type="button" class="btn-toggle-password" data-input-id="respuesta_recupero" aria-label="Mostrar respuesta">
+                                    <i class="fas fa-eye"></i>
+                                </button>
                                             </div>
                                             <small class="text-muted"><i class="fas fa-info-circle me-1"></i>Letras, números y espacios, entre 4 y 20 caracteres</small>
                                         </div>

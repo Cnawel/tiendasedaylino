@@ -349,7 +349,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                 </label>
                             </div>
                             <label class="mb-0"><small>Mostrar:</small></label>
-                            <select class="form-select form-select-sm" style="width: auto;" id="selectLimitePedidos">
+                            <select class="form-select form-select-sm" class="w-auto" id="selectLimitePedidos">
                                 <option value="10" <?= $limite_pedidos == '10' ? 'selected' : '' ?>>Últimos 10</option>
                                 <option value="50" <?= $limite_pedidos == '50' ? 'selected' : '' ?>>Últimos 50</option>
                                 <option value="TODOS" <?= $limite_pedidos == 'TODOS' ? 'selected' : '' ?>>Todos</option>
@@ -375,7 +375,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                         <th class="sortable">ID Pedido</th>
                                         <th class="sortable">Cliente</th>
                                         <th class="sortable">Email</th>
-                                        <th class="sortable text-center" style="width: 60px;">A/I</th>
+                                        <th class="sortable text-center" style="width: 4.5rem;">A/I</th>
                                         <th class="sortable">Fecha</th>
                                         <th class="sortable">Total</th>
                                         <th class="sortable">Estado Pedido</th>
@@ -680,7 +680,7 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                     <?php endif; ?>
                                                 </td>
                                                 <td>
-                                                    <form method="POST" action="" style="display: inline;" onsubmit="return confirm('¿Estás seguro de <?= $es_activo ? 'desactivar' : 'activar' ?> este método de pago?');">
+                                                    <form method="POST" action="" class="d-inline" onsubmit="return confirm('¿Estás seguro de <?= $es_activo ? 'desactivar' : 'activar' ?> este método de pago?');">
                                                         <input type="hidden" name="id_forma_pago" value="<?= $metodo['id_forma_pago'] ?>">
                                                         <button type="submit" 
                                                                 name="toggle_activo_metodo_pago"
@@ -956,6 +956,9 @@ $movimientos_stock = obtenerMovimientosStockRecientes($mysqli, 50);
                                                         $signo = '';
                                                     } elseif ($tipo_mov === 'ajuste' && $cantidad > 0) {
                                                         $signo = '+';
+                                                    } elseif ($cantidad == 0) {
+                                                        // Cero: sin signo (neutro)
+                                                        $signo = '';
                                                     }
                                                     $cantidad_formato = $signo . number_format(abs($cantidad), 0, ',', '.');
                                                     

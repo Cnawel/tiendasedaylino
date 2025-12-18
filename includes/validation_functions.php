@@ -623,8 +623,8 @@ function validarRespuestaRecupero($respuesta_recupero) {
 
     // VALIDACIÓN 4: Formato válido (solo letras, números y espacios)
     // REGLA DE NEGOCIO: Según diccionario, solo [A-Z, a-z, 0-9, espacios]
-    if (!preg_match('/^[a-zA-Z0-9 ]+$/', $respuesta)) {
-        return ['valido' => false, 'valor' => '', 'error' => 'La respuesta de recupero solo puede contener letras, números y espacios.'];
+    if (!preg_match('/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9 ]+$/', $respuesta)) {
+        return ['valido' => false, 'valor' => '', 'error' => 'La respuesta de recupero solo puede contener letras (incluyendo acentos), números y espacios.'];
     }
 
     // NOTA: NO sanitizar aquí con htmlspecialchars() - los datos deben guardarse en BD sin sanitizar
