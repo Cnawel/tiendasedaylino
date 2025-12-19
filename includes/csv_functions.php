@@ -4,23 +4,48 @@
  * FUNCIONES DE PROCESAMIENTO CSV - Tienda Seda y Lino
  * ========================================================================
  * Funciones para procesar y validar archivos CSV de productos
- * 
+ *
  * FUNCIONES:
+ * - claveProductoUnica(): Genera clave lógica única (nombre + género)
+ *   [ÚNICA FUENTE DE VERDAD para identidad de producto]
  * - procesarCSV(): Procesa archivo CSV, valida datos y retorna array de productos
  *   * Valida headers requeridos (case insensitive)
  *   * Valida cada línea (nombre, precio, género, categoría, talle, color, stock)
  *   * Normaliza datos y guarda errores en sesión
  *   * Valida que las categorías existan en la base de datos
- * 
+ * - agruparProductosCSV(): Agrupa productos por (nombre + género)
+ *
  * @package TiendaSedaYLino
  * @version 1.0
  * ========================================================================
  */
 
 /**
+ * ÚNICA FUENTE DE VERDAD: Genera clave lógica única de un producto
+ *
+ * Según el modelo relacional, un producto se identifica por:
+ * (nombre_producto, género)
+ *
+ * Esta función centraliza esa lógica para garantizar coherencia en toda la aplicación.
+ *
+ * @param string $nombre Nombre del producto (se normaliza)
+ * @param string $genero Género del producto (se normaliza)
+ * @return string Clave única: "nombre||género" (ambos lowercase y trimmed)
+ *
+ * @example
+ * claveProductoUnica("Blusa Mujer", "MUJER") → "blusa mujer||mujer"
+ * claveProductoUnica("Blusa Mujer", "HOMBRE") → "blusa mujer||hombre"
+ */
+function claveProductoUnica($nombre, $genero) {
+    $nombre_norm = strtolower(trim($nombre));
+    $genero_norm = strtolower(trim($genero));
+    return $nombre_norm . '||' . $genero_norm;
+}
+
+/**
  * Elimina el BOM (Byte Order Mark) UTF-8 de una cadena
  * El BOM puede aparecer al inicio de archivos CSV generados por Excel
- * 
+ *
  * @param string $texto Texto que puede contener BOM
  * @return string Texto sin BOM
  */
@@ -524,42 +549,55 @@ function procesarCSV($archivo_temporal, $mysqli) {
 }
 
 /**
- * Agrupa productos CSV por nombre, consolidando variantes
- * @param array $productos_csv Array de productos del CSV
- * @return array Array agrupado por nombre de producto con sus variantes
+ * Agrupa productos CSV por (nombre + género), consolidando variantes
+ *
+ * ALINEACIÓN CON MODELO RELACIONAL:
+ * Según la BD, un producto se identifica por (nombre_producto, género).
+ * Esta función agrupa correctamente respetando esa identidad lógica.
+ *
+ * Resultado esperado:
+ * - "Blusa"+"mujer" → Productos ID 1 (variantes: S/Azul, M/Azul, etc.)
+ * - "Blusa"+"hombre" → Productos ID 2 (variantes: S/Rojo, M/Rojo, etc.) [PRODUCTO DISTINTO]
+ *
+ * @param array $productos_csv Array de productos del CSV (ya validados)
+ * @return array Array agrupado con clave = claveProductoUnica(nombre, género)
  */
 function agruparProductosCSV($productos_csv) {
     $productos_agrupados = [];
-    
+
     foreach ($productos_csv as $fila) {
-        $nombre_producto = $fila['nombre_producto'];
-        
-        // Si el producto ya existe, buscar si la variante ya existe
-        if (isset($productos_agrupados[$nombre_producto])) {
+        // PASO 1: Usar claveProductoUnica() como ÚNICA fuente de verdad
+        $clave = claveProductoUnica(
+            $fila['nombre_producto'],
+            $fila['genero']
+        );
+
+        // PASO 2: Si el producto (por clave única) ya existe en el agrupamiento
+        if (isset($productos_agrupados[$clave])) {
+            // Buscar si la variante (talle + color) ya existe
             $variante_existente_index = -1;
             $talle_fila = strtolower(trim($fila['talle']));
             $color_fila = strtolower(trim($fila['color']));
-            
-            // Buscar variante existente por talle y color
-            foreach ($productos_agrupados[$nombre_producto]['variantes'] as $index => $variante) {
-                if (strtolower(trim($variante['talle'])) === $talle_fila && 
+
+            foreach ($productos_agrupados[$clave]['variantes'] as $index => $variante) {
+                if (strtolower(trim($variante['talle'])) === $talle_fila &&
                     strtolower(trim($variante['color'])) === $color_fila) {
                     $variante_existente_index = $index;
                     break;
                 }
             }
-            
+
             if ($variante_existente_index >= 0) {
-                // Variante ya existe: fusionar datos (sumar stock)
-                $stock_actual = $productos_agrupados[$nombre_producto]['variantes'][$variante_existente_index]['stock'];
-                $productos_agrupados[$nombre_producto]['variantes'][$variante_existente_index]['stock'] = $stock_actual + $fila['stock'];
-                
+                // Variante ya existe: sumar stock
+                $stock_actual = $productos_agrupados[$clave]['variantes'][$variante_existente_index]['stock'];
+                $productos_agrupados[$clave]['variantes'][$variante_existente_index]['stock'] = $stock_actual + $fila['stock'];
+
                 // Completar fotos de variante si faltan
-                if (empty($productos_agrupados[$nombre_producto]['variantes'][$variante_existente_index]['foto1_prod']) && !empty($fila['foto1_prod'])) {
-                    $productos_agrupados[$nombre_producto]['variantes'][$variante_existente_index]['foto1_prod'] = $fila['foto1_prod'];
+                if (empty($productos_agrupados[$clave]['variantes'][$variante_existente_index]['foto1_prod']) && !empty($fila['foto1_prod'])) {
+                    $productos_agrupados[$clave]['variantes'][$variante_existente_index]['foto1_prod'] = $fila['foto1_prod'];
                 }
-                if (empty($productos_agrupados[$nombre_producto]['variantes'][$variante_existente_index]['foto2_prod']) && !empty($fila['foto2_prod'])) {
-                    $productos_agrupados[$nombre_producto]['variantes'][$variante_existente_index]['foto2_prod'] = $fila['foto2_prod'];
+                if (empty($productos_agrupados[$clave]['variantes'][$variante_existente_index]['foto2_prod']) && !empty($fila['foto2_prod'])) {
+                    $productos_agrupados[$clave]['variantes'][$variante_existente_index]['foto2_prod'] = $fila['foto2_prod'];
                 }
             } else {
                 // Variante no existe, agregar nueva
@@ -570,19 +608,19 @@ function agruparProductosCSV($productos_csv) {
                     'foto1_prod' => !empty($fila['foto1_prod']) ? $fila['foto1_prod'] : '',
                     'foto2_prod' => !empty($fila['foto2_prod']) ? $fila['foto2_prod'] : ''
                 ];
-                $productos_agrupados[$nombre_producto]['variantes'][] = $variante;
+                $productos_agrupados[$clave]['variantes'][] = $variante;
             }
-            
-            // Actualizar fotos base (foto_min y foto3) solo si no existen y esta fila las tiene
-            if (empty($productos_agrupados[$nombre_producto]['foto_prod_miniatura']) && !empty($fila['foto_prod_miniatura'])) {
-                $productos_agrupados[$nombre_producto]['foto_prod_miniatura'] = $fila['foto_prod_miniatura'];
+
+            // Actualizar fotos base (foto_min y foto3) si faltan
+            if (empty($productos_agrupados[$clave]['foto_prod_miniatura']) && !empty($fila['foto_prod_miniatura'])) {
+                $productos_agrupados[$clave]['foto_prod_miniatura'] = $fila['foto_prod_miniatura'];
             }
-            if (empty($productos_agrupados[$nombre_producto]['foto3_prod']) && !empty($fila['foto3_prod'])) {
-                $productos_agrupados[$nombre_producto]['foto3_prod'] = $fila['foto3_prod'];
+            if (empty($productos_agrupados[$clave]['foto3_prod']) && !empty($fila['foto3_prod'])) {
+                $productos_agrupados[$clave]['foto3_prod'] = $fila['foto3_prod'];
             }
         } else {
-            // Crear nuevo producto con fotos base
-            $productos_agrupados[$nombre_producto] = [
+            // PASO 3: Crear nuevo producto (primera vez que se ve esta clave)
+            $productos_agrupados[$clave] = [
                 'nombre_producto' => $fila['nombre_producto'],
                 'descripcion_producto' => $fila['descripcion_producto'],
                 'precio_actual' => $fila['precio_actual'],
@@ -602,7 +640,7 @@ function agruparProductosCSV($productos_csv) {
             ];
         }
     }
-    
+
     return $productos_agrupados;
 }
 
@@ -617,7 +655,7 @@ function agruparProductosCSV($productos_csv) {
  * @param array $nombres_productos Array de nombres de productos a buscar
  * @return array Array de productos existentes con estructura completa
  */
-function obtenerProductosExistentesCompletos($mysqli, $nombres_productos) {
+function obtenerProductosExistentesCompletos($mysqli, $pares_productos_csv) {
     $producto_queries_path = __DIR__ . '/queries/producto_queries.php';
     if (!file_exists($producto_queries_path)) {
         error_log("ERROR: No se pudo encontrar producto_queries.php en " . $producto_queries_path);
@@ -627,9 +665,12 @@ function obtenerProductosExistentesCompletos($mysqli, $nombres_productos) {
     
     $productos_existentes = [];
     
-    foreach ($nombres_productos as $nombre_producto) {
-        // Obtener ID del producto por nombre
-        $id_producto = obtenerProductoIdPorNombre($mysqli, $nombre_producto);
+    foreach ($pares_productos_csv as $clave_par => $par) {
+        $nombre_producto = $par['nombre_producto'];
+        $genero = $par['genero'];
+        
+        // Obtener ID del producto por nombre + género (función recomendada)
+        $id_producto = obtenerProductoIdPorNombreYGenero($mysqli, $nombre_producto, $genero);
         
         if ($id_producto) {
             // Obtener datos completos del producto
@@ -642,8 +683,8 @@ function obtenerProductosExistentesCompletos($mysqli, $nombres_productos) {
                 // Indexar variantes por "talle-color" para fácil búsqueda
                 $variantes_indexadas = [];
                 foreach ($variantes as $variante) {
-                    $clave = strtolower(trim($variante['talle'])) . '-' . strtolower(trim($variante['color']));
-                    $variantes_indexadas[$clave] = [
+                    $clave_var = strtolower(trim($variante['talle'])) . '-' . strtolower(trim($variante['color']));
+                    $variantes_indexadas[$clave_var] = [
                         'id_variante' => $variante['id_variante'],
                         'talle' => $variante['talle'],
                         'color' => $variante['color'],
@@ -651,9 +692,8 @@ function obtenerProductosExistentesCompletos($mysqli, $nombres_productos) {
                     ];
                 }
                 
-                // Usar nombre normalizado como clave (case-insensitive)
-                $nombre_normalizado = strtolower(trim($nombre_producto));
-                $productos_existentes[$nombre_normalizado] = [
+                // Usar clave lógica como índice (nombre||género lower)
+                $productos_existentes[$clave_par] = [
                     'id_producto' => $id_producto,
                     'nombre_producto' => $producto['nombre_producto'],
                     'precio_actual' => floatval($producto['precio_actual']),

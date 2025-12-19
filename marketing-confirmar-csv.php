@@ -233,48 +233,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirmar_carga'])) {
     
     // Validación final de todos los datos antes de procesar
     $errores_validacion = [];
-    foreach ($productos_agrupados as $nombre_producto => $producto) {
+    foreach ($productos_agrupados as $clave_unica => $producto) {
+        // La clave ahora es nombre||genero, extraer datos reales del array
+        $nombre_producto = $producto['nombre_producto'];
+        $genero_producto = $producto['genero'];
+        $label_producto = "$nombre_producto ($genero_producto)";
+
         // Validar nombre de producto
         $validacion_nombre = validarNombreProducto($nombre_producto);
         if (!$validacion_nombre['valido']) {
-            $errores_validacion[] = "Producto '$nombre_producto': " . $validacion_nombre['error'];
+            $errores_validacion[] = "Producto '$label_producto': " . $validacion_nombre['error'];
             continue;
         }
-        
+
         // Validar descripción
         $validacion_descripcion = validarDescripcionProducto($producto['descripcion_producto'] ?? '');
         if (!$validacion_descripcion['valido']) {
-            $errores_validacion[] = "Producto '$nombre_producto': " . $validacion_descripcion['error'];
+            $errores_validacion[] = "Producto '$label_producto': " . $validacion_descripcion['error'];
             continue;
         }
-        
+
         // Validar precio
         $validacion_precio = validarPrecio((string)$producto['precio_actual']);
         if (!$validacion_precio['valido']) {
-            $errores_validacion[] = "Producto '$nombre_producto': " . $validacion_precio['error'];
+            $errores_validacion[] = "Producto '$label_producto': " . $validacion_precio['error'];
             continue;
         }
-        
+
         // Validar variantes
         foreach ($producto['variantes'] as $variante) {
             // Validar talle
             $validacion_talle = validarTalle($variante['talle'] ?? '');
             if (!$validacion_talle['valido']) {
-                $errores_validacion[] = "Producto '$nombre_producto' (variante): " . $validacion_talle['error'];
+                $errores_validacion[] = "Producto '$label_producto' - Talle '{$variante['talle']}': " . $validacion_talle['error'];
                 continue;
             }
-            
+
             // Validar color
             $validacion_color = validarColor($variante['color'] ?? '');
             if (!$validacion_color['valido']) {
-                $errores_validacion[] = "Producto '$nombre_producto' (variante): " . $validacion_color['error'];
+                $errores_validacion[] = "Producto '$label_producto' - Color '{$variante['color']}': " . $validacion_color['error'];
                 continue;
             }
-            
+
             // Validar stock
             $validacion_stock = validarStock((string)($variante['stock'] ?? '0'));
             if (!$validacion_stock['valido']) {
-                $errores_validacion[] = "Producto '$nombre_producto' (variante): " . $validacion_stock['error'];
+                $errores_validacion[] = "Producto '$label_producto' - Talle '{$variante['talle']}' Color '{$variante['color']}': " . $validacion_stock['error'];
                 continue;
             }
         }
@@ -302,15 +307,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirmar_carga'])) {
         $advertencias_fotos = [];
         
         try {
-            foreach ($productos_agrupados as $nombre_producto => $producto) {
-                $nombre_normalizado = strtolower(trim($nombre_producto));
-                
-                // Verificar si el producto existe
-                $id_producto_existente = obtenerProductoIdPorNombre($mysqli, $nombre_producto);
+            foreach ($productos_agrupados as $clave_unica => $producto) {
+                // Extraer datos reales del producto (la clave es nombre||genero)
+                $nombre_producto = $producto['nombre_producto'];
+                $genero_producto = $producto['genero'];
+
+                // Generar clave POST usando claveProductoUnica() para consistencia
+                $clave_post = claveProductoUnica($nombre_producto, $genero_producto);
+                $producto_key = base64_encode($clave_post);
+
+                // Verificar si el producto existe (por nombre + género)
+                $id_producto_existente = obtenerProductoIdPorNombreYGenero($mysqli, $nombre_producto, $genero_producto);
                 
                 if ($id_producto_existente) {
                     // Producto existe - verificar si está marcado para actualizar
-                    $producto_key = base64_encode($nombre_producto);
+                    // $producto_key ya fue generado arriba con claveProductoUnica()
                     $actualizar_producto = isset($_POST['actualizar_producto'][$producto_key]) && $_POST['actualizar_producto'][$producto_key] === '1';
                     
                     if (!$actualizar_producto) {
@@ -632,21 +643,32 @@ foreach ($categorias_array as $cat) {
 }
 
 // Obtener productos existentes completos con sus datos y variantes
-$nombres_productos_csv = array_keys($productos_agrupados);
-$productos_existentes_completos = obtenerProductosExistentesCompletos($mysqli, $nombres_productos_csv);
-
-// Crear array simple para compatibilidad con código existente
-$productos_existentes = [];
-foreach ($productos_existentes_completos as $nombre => $datos) {
-    $productos_existentes[$nombre] = true;
+// Ahora necesitamos extraer SOLO los nombres (sin género) de las claves agrupadas
+$pares_productos_csv = [];
+foreach ($productos_agrupados as $producto) {
+    $clave_par = claveProductoUnica($producto['nombre_producto'], $producto['genero']);
+    $pares_productos_csv[$clave_par] = [
+        'nombre_producto' => $producto['nombre_producto'],
+        'genero' => $producto['genero']
+    ];
 }
 
-// Contar productos nuevos vs existentes
+$productos_existentes_completos = obtenerProductosExistentesCompletos($mysqli, $pares_productos_csv);
+
+// Crear array indexado por clave lógica (nombre||genero) para detección correcta de duplicados
+$productos_existentes = [];
+foreach ($productos_existentes_completos as $nombre => $datos) {
+    // Para cada producto existente, agregar su clave lógica (nombre||genero)
+    $clave_logica = claveProductoUnica($nombre, $datos['genero']);
+    $productos_existentes[$clave_logica] = true;
+}
+
+// Contar productos nuevos vs existentes usando claveProductoUnica
 $productos_nuevos = 0;
 $productos_duplicados = 0;
-foreach ($productos_agrupados as $nombre => $producto) {
-    $nombre_lower = strtolower(trim($nombre));
-    if (isset($productos_existentes[$nombre_lower])) {
+foreach ($productos_agrupados as $clave_unica => $producto) {
+    // $clave_unica ya es "nombre||genero" (generado por agruparProductosCSV)
+    if (isset($productos_existentes[$clave_unica])) {
         $productos_duplicados++;
     } else {
         $productos_nuevos++;
@@ -819,18 +841,23 @@ foreach ($productos_agrupados as $nombre => $producto) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach ($productos_agrupados as $nombre => $producto): 
-                                        $nombre_lower = strtolower(trim($nombre));
-                                        $es_nuevo = !isset($productos_existentes[$nombre_lower]);
+                                    <?php foreach ($productos_agrupados as $clave_unica => $producto):
+                                        // $clave_unica es "nombre||genero" (generado por agruparProductosCSV)
+                                        $es_nuevo = !isset($productos_existentes[$clave_unica]);
                                         $stock_total = array_sum(array_column($producto['variantes'], 'stock'));
-                                        $producto_key = base64_encode($nombre);
-                                        
+                                        // Usar clave_unica para el POST (no solo nombre)
+                                        $producto_key = base64_encode($clave_unica);
+
                                         // Si es existente, obtener datos completos
                                         $producto_existente_data = null;
                                         $comparacion_variantes = null;
-                                        if (!$es_nuevo && isset($productos_existentes_completos[$nombre_lower])) {
-                                            $producto_existente_data = $productos_existentes_completos[$nombre_lower];
+                                        if (!$es_nuevo) {
+                                            // Para buscar en $productos_existentes_completos, usar SOLO el nombre
+                                        $clave_para_lookup = claveProductoUnica($producto['nombre_producto'], $producto['genero']);
+                                        if (isset($productos_existentes_completos[$clave_para_lookup])) {
+                                            $producto_existente_data = $productos_existentes_completos[$clave_para_lookup];
                                             $comparacion_variantes = compararVariantesCSV($producto['variantes'], $producto_existente_data['variantes']);
+                                        }
                                         }
                                     ?>
                                     <?php 

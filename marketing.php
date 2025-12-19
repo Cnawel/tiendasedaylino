@@ -139,11 +139,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['subir_foto_temporal']
                     'size' => $_FILES['foto_temporal']['size'][$i]
                 ];
                 try {
-                    subirFotoTemporal($archivo);
-                    $fotos_subidas++;
+                    $resultado = subirFotoTemporal($archivo);
+
+                    if ($resultado['estado'] === 'ok') {
+                        $fotos_subidas++;
+                    } elseif ($resultado['estado'] === 'duplicado') {
+                        // Duplicado no es un error fatal, solo una advertencia
+                        $errores_subida[] = $_FILES['foto_temporal']['name'][$i] . ': Ya existe en el sistema';
+                    }
                 } catch (Exception $e) {
-                    // SEGURIDAD: Registrar excepción pero no exponerla al usuario
+                    // Registrar excepción completa en logs (errores fatales)
                     error_log("[IMAGE UPLOAD ERROR] " . $e->getMessage());
+                    // Mostrar mensaje específico al usuario para errores reales
                     $errores_subida[] = $_FILES['foto_temporal']['name'][$i] . ': Error al procesar la imagen.';
                 }
             }
@@ -151,25 +158,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['subir_foto_temporal']
     } elseif (isset($_FILES['foto_temporal']) && $_FILES['foto_temporal']['error'] === UPLOAD_ERR_OK) {
         // Un solo archivo
         try {
-            subirFotoTemporal($_FILES['foto_temporal']);
-            $fotos_subidas++;
+            $resultado = subirFotoTemporal($_FILES['foto_temporal']);
+
+            if ($resultado['estado'] === 'ok') {
+                $fotos_subidas++;
+            } elseif ($resultado['estado'] === 'duplicado') {
+                // Duplicado no es un error fatal, solo una advertencia
+                $errores_subida[] = $_FILES['foto_temporal']['name'] . ': Ya existe en el sistema';
+            }
         } catch (Exception $e) {
-            // SEGURIDAD: Registrar excepción pero no exponerla al usuario
+            // Registrar excepción completa en logs (errores fatales)
             error_log("[IMAGE UPLOAD ERROR] " . $e->getMessage());
+            // Mostrar mensaje específico al usuario para errores reales
             $errores_subida[] = $_FILES['foto_temporal']['name'] . ': Error al procesar la imagen.';
         }
     }
     
     // Preparar mensaje
-    if ($fotos_subidas > 0) {
+    if ($fotos_subidas > 0 && empty($errores_subida)) {
+        // Caso ideal: todas las fotos se subieron correctamente
         $_SESSION['mensaje'] = $fotos_subidas . ' foto(s) subida(s) correctamente.';
         $_SESSION['mensaje_tipo'] = 'success';
-    }
-    if (!empty($errores_subida)) {
-        $_SESSION['mensaje'] = ($_SESSION['mensaje'] ?? '') . ' Errores: ' . implode('; ', $errores_subida);
-        $_SESSION['mensaje_tipo'] = 'warning';
-    }
-    if ($fotos_subidas === 0 && empty($errores_subida)) {
+    } elseif ($fotos_subidas > 0 && !empty($errores_subida)) {
+        // Caso mixto: algunas subieron, otras tuvieron errores
+        $_SESSION['mensaje'] = $fotos_subidas . ' foto(s) subida(s) correctamente. Errores: ' . implode('; ', $errores_subida);
+        $_SESSION['mensaje_tipo'] = 'success'; // Mantener success porque hubo uploads exitosos
+    } elseif ($fotos_subidas === 0 && !empty($errores_subida)) {
+        // Caso de error: ninguna foto se subió, solo errores
+        $_SESSION['mensaje'] = 'Errores al cargar fotos: ' . implode('; ', $errores_subida);
+        $_SESSION['mensaje_tipo'] = 'danger';
+    } else {
+        // Caso: no se seleccionaron archivos
         $_SESSION['mensaje'] = 'No se seleccionaron archivos para subir.';
         $_SESSION['mensaje_tipo'] = 'warning';
     }

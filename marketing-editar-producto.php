@@ -552,6 +552,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['actualizar_variantes'
         $observaciones_ajuste = null;
     }
     
+    require_once __DIR__ . '/includes/validation_functions.php'; // Para validarObservaciones en ajustes de stock
+    
     $mysqli->begin_transaction();
     
     try {

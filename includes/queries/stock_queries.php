@@ -1964,7 +1964,14 @@ function verificarVarianteExistente($mysqli, $nombre_producto, $id_categoria, $g
         return false;
     }
     
-    $stmt->bind_param('sissii', $nombre_producto, $id_categoria, $genero, $talle, $color, $excluir_id_variante);
+    // Bind condicional según si se excluye ID de variante (5 o 6 parámetros)
+    // Types: nombre_producto(s), id_categoria(i), genero(s), talle(s), color(s) [, excluir_id_variante(i)]
+    if ($excluir_id_variante !== null) {
+        $stmt->bind_param('sisssi', $nombre_producto, $id_categoria, $genero, $talle, $color, $excluir_id_variante);
+    } else {
+        $stmt->bind_param('sissi', $nombre_producto, $id_categoria, $genero, $talle, $color);
+    }
+    
     if (!$stmt->execute()) {
         error_log("ERROR verificarVarianteExistente - execute falló: " . $stmt->error);
         $stmt->close();

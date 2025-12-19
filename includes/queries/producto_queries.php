@@ -3378,6 +3378,74 @@ function obtenerProductoIdPorNombre($mysqli, $nombre_producto, $id_producto_excl
 }
 
 /**
+ * Obtiene el ID de un producto por NOMBRE Y GÉNERO
+ *
+ * ALINEACIÓN CON MODELO RELACIONAL:
+ * Un producto se identifica lógicamente por (nombre_producto, género).
+ * Esta función garantiza unicidad en esa combinación.
+ *
+ * @param mysqli $mysqli Conexión a la base de datos
+ * @param string $nombre_producto Nombre del producto
+ * @param string $genero Género del producto ('hombre', 'mujer', 'unisex')
+ * @param int|null $id_producto_excluir (opcional) ID a excluir en búsqueda (para evitar auto-coincidencia)
+ * @return int|null ID del producto si existe, null si no
+ */
+function obtenerProductoIdPorNombreYGenero($mysqli, $nombre_producto, $genero, $id_producto_excluir = null) {
+    // Normalizar entrada
+    $nombre_producto = trim($nombre_producto);
+    $genero = strtolower(trim($genero));
+
+    // Validar género
+    $generos_validos = ['hombre', 'mujer', 'unisex'];
+    if (!in_array($genero, $generos_validos)) {
+        return null;
+    }
+
+    if ($id_producto_excluir !== null) {
+        $sql = "SELECT id_producto FROM Productos
+                WHERE LOWER(TRIM(nombre_producto)) = LOWER(TRIM(?))
+                  AND LOWER(TRIM(genero)) = LOWER(TRIM(?))
+                  AND activo = 1
+                  AND id_producto != ?
+                LIMIT 1";
+        $stmt = $mysqli->prepare($sql);
+        if (!$stmt) {
+            error_log("ERROR obtenerProductoIdPorNombreYGenero - prepare falló: " . $mysqli->error);
+            return null;
+        }
+        $stmt->bind_param('ssi', $nombre_producto, $genero, $id_producto_excluir);
+    } else {
+        $sql = "SELECT id_producto FROM Productos
+                WHERE LOWER(TRIM(nombre_producto)) = LOWER(TRIM(?))
+                  AND LOWER(TRIM(genero)) = LOWER(TRIM(?))
+                  AND activo = 1
+                LIMIT 1";
+        $stmt = $mysqli->prepare($sql);
+        if (!$stmt) {
+            error_log("ERROR obtenerProductoIdPorNombreYGenero - prepare falló: " . $mysqli->error);
+            return null;
+        }
+        $stmt->bind_param('ss', $nombre_producto, $genero);
+    }
+
+    if (!$stmt->execute()) {
+        error_log("ERROR obtenerProductoIdPorNombreYGenero - execute falló: " . $stmt->error);
+        $stmt->close();
+        return null;
+    }
+
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $stmt->close();
+
+    if ($row) {
+        return (int)$row['id_producto'];
+    } else {
+        return null;
+    }
+}
+
+/**
  * Obtiene TODAS las variantes de productos con el mismo nombre_producto, categoría y género
  * Esto permite mostrar todos los talles y colores disponibles del grupo de productos
  * Solo incluye talles estándar (S, M, L, XL) para mantener consistencia con el catálogo

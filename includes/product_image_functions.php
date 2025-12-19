@@ -189,25 +189,25 @@ function subirImagenGenerica($id_producto, $archivo, $tipo) {
 function subirFotoTemporal($archivo) {
     // Directorio temporal global
     $directorio_temporal = 'imagenes/';
-    
+
     // Crear directorio si no existe
     if (!file_exists($directorio_temporal)) {
         mkdir($directorio_temporal, 0755, true);
     }
-    
+
     $archivo_temporal = $archivo['tmp_name'];
     $nombre_original = $archivo['name'];
     $extension = strtolower(pathinfo($nombre_original, PATHINFO_EXTENSION));
-    
-    // Validar tipo de archivo
+
+    // Validar tipo de archivo (excepción - error fatal)
     $extensiones_permitidas = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
     if (!in_array($extension, $extensiones_permitidas)) {
         throw new Exception('Formato de archivo no válido: ' . $extension);
     }
-    
-    // Validar tamaño y dimensiones de la imagen
+
+    // Validar tamaño y dimensiones de la imagen (excepción - error fatal)
     validarImagen($archivo);
-    
+
     // Mantener nombre original del archivo (sanitizado para seguridad)
     // Solo reemplazar caracteres problemáticos, mantener el resto del nombre
     $nombre_base = pathinfo($nombre_original, PATHINFO_FILENAME);
@@ -215,19 +215,24 @@ function subirFotoTemporal($archivo) {
     $nombre_sanitizado = preg_replace('/[<>:"|?*\x00-\x1F]/', '_', $nombre_base);
     $nombre_sanitizado = preg_replace('/\s+/', '_', $nombre_sanitizado); // Reemplazar espacios con guión bajo
     $nombre_archivo = $nombre_sanitizado . '.' . $extension;
-    
-    // Si el archivo ya existe, agregar sufijo numérico
+
+    // Verificar si el archivo ya existe
+    // NOTA: Esto NO es un error fatal, solo un estado controlado
+    // Devolvemos 'duplicado' para que el llamador lo maneje apropiadamente
     $ruta_completa = $directorio_temporal . $nombre_archivo;
-    $contador = 1;
-    while (file_exists($ruta_completa)) {
-        $nombre_archivo = $nombre_sanitizado . '_' . $contador . '.' . $extension;
-        $ruta_completa = $directorio_temporal . $nombre_archivo;
-        $contador++;
+    if (file_exists($ruta_completa)) {
+        return [
+            'estado' => 'duplicado',
+            'nombre' => $nombre_archivo
+        ];
     }
-    
-    // Subir archivo
+
+    // Subir archivo (excepción - error fatal si falla)
     if (move_uploaded_file($archivo_temporal, $ruta_completa)) {
-        return $nombre_archivo;
+        return [
+            'estado' => 'ok',
+            'nombre' => $nombre_archivo
+        ];
     } else {
         throw new Exception('Error al subir la imagen: ' . $nombre_original);
     }

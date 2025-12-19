@@ -2,11 +2,11 @@ SET NAMES utf8mb4;
 SET CHARACTER SET utf8mb4;
 SET character_set_connection = utf8mb4;
 
-CREATE DATABASE IF NOT EXISTS tiendasedaylino_db 
+CREATE DATABASE IF NOT EXISTS if0_40082852_tiendasedaylino
 CHARACTER SET utf8mb4 
 COLLATE utf8mb4_unicode_ci;
 
-USE tiendasedaylino_db;
+USE if0_40082852_tiendasedaylino;
 
 CREATE TABLE IF NOT EXISTS Preguntas_Recupero (
     id_pregunta INT AUTO_INCREMENT PRIMARY KEY,

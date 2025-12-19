@@ -700,9 +700,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Apellido <span class="text-danger">*</span></label>
-                                <input type="text" 
-                                       class="form-control" 
-                                       name="apellido_staff" 
+                                <input type="text"
+                                       class="form-control"
+                                       name="apellido_staff"
                                        id="apellido_staff"
                                        required
                                        minlength="2"
@@ -710,6 +710,18 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                        pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'´]+">
                                 <div class="invalid-feedback">El apellido debe tener al menos 2 caracteres. Solo se permiten letras, espacios, apóstrofe (') y acento agudo (´).</div>
                                 <div class="valid-feedback">¡Apellido válido!</div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Email <span class="text-danger">*</span></label>
+                                <input type="email"
+                                       class="form-control"
+                                       name="email_staff"
+                                       id="email_staff"
+                                       required
+                                       maxlength="150"
+                                       placeholder="ejemplo@correo.com">
+                                <div class="invalid-feedback">Ingresa un email válido.</div>
+                                <div class="valid-feedback">¡Email válido!</div>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Rol <span class="text-danger">*</span></label>
@@ -770,7 +782,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                                 <button type="submit" class="btn btn-success" data-auto-lock="true" data-lock-time="2000" data-lock-text="Creando usuario...">
                                     <i class="fas fa-save me-2"></i>Crear usuario
                                 </button>
-                                <small class="text-secondary ms-2">La contraseña temporal se mostrará una vez creado el usuario.</small>
                             </div>
                         </form>
                         </div>
